@@ -1,0 +1,34 @@
+on: [push, pull_request]
+
+name: Code coverage with grcov
+
+jobs:
+  grcov:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          profile: minimal
+      - name: Execute tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features --no-fast-fail
+        env:
+          CARGO_INCREMENTAL: 0
+          RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+          RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+      # Note that `actions-rs/grcov` Action can install `grcov` too,
+      # but can't use faster installation methods yet.
+      # As a temporary experiment `actions-rs/install` Action plugged in here.
+      # Consider **NOT** to copy that into your workflow,
+      # but use `actions-rs/grcov` only
+      
+      - name: Gather coverage data
+        id: coverage
+        uses: actions-rs/grcov@v0.1
