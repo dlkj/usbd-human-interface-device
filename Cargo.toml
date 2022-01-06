@@ -1,0 +1,18 @@
+[package]
+name = "usbd-hid-toolkit-example-pico"
+version = "0.1.0"
+edition = "2021"
+authors = ["DLKJ"]
+repository = "https://github.com/dlkj/usbd-hid-toolkit-example-pico"
+description = "Example using the rust usbd-hid-toolkit library on the Raspberry Pi Pico/RP2040"
+license = "MIT"
+
+[dependencies]
+cortex-m = "0.7"
+rp2040-boot2 = "0.2" 
+cortex-m-rt = "0.7"
+rp-pico = "0.2"
+embedded-hal = "0.2"
+embedded-time = "0.12"
+nb = "1.0"
+panic-halt = "0.2"
