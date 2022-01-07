@@ -17,6 +17,19 @@ use rp_pico::hal::pac;
 fn main() -> ! {
     let mut pac = pac::Peripherals::take().unwrap();
 
+    let mut watchdog = hal::Watchdog::new(pac.WATCHDOG);
+    let _clocks = hal::clocks::init_clocks_and_plls(
+        rp_pico::XOSC_CRYSTAL_FREQ,
+        pac.XOSC,
+        pac.CLOCKS,
+        pac.PLL_SYS,
+        pac.PLL_USB,
+        &mut pac.RESETS,
+        &mut watchdog,
+    )
+    .ok()
+    .unwrap();
+
     let sio = hal::Sio::new(pac.SIO);
     let pins = rp_pico::Pins::new(
         pac.IO_BANK0,
@@ -26,7 +39,7 @@ fn main() -> ! {
     );
 
     let timer = Timer::new(pac.TIMER, &mut pac.RESETS);
-    let mut led_pin = pins.led.into_push_pull_output();
+    let mut led_pin = pins.gpio13.into_push_pull_output();
 
     let mut count_down = timer.count_down();
     count_down.start(500.milliseconds());
