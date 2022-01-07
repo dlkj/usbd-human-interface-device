@@ -2,7 +2,7 @@
 
 on: [push, pull_request]
 
-name: Quickstart
+name: Check, format, lint
 
 jobs:
   check:
