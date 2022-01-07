@@ -19,7 +19,12 @@ jobs:
           toolchain: stable
           target: thumbv6m-none-eabi
           override: true
-          components: rustfmt, clippy, flip-link
+          components: rustfmt, clippy
+      - name: Install flip-link linker
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: flip-link
       - name: Run cargo check
         uses: actions-rs/cargo@v1
         with:
