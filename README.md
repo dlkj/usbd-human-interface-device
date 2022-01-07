@@ -1,2 +1,2 @@
-# usbd-hid-toolkit-example-pico
-Example using the rust usbd-hid-toolkit library on the Raspberry Pi Pico/RP2040
+# usbd-hid-devices-example-rp2040
+Example using the rust [usbd-hid-devices](https://github.com/dlkj/usbd-hid-devices) library on the Raspberry Pi RP2040/Pico
