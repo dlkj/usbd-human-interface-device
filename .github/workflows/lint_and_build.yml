@@ -19,7 +19,7 @@ jobs:
           toolchain: stable
           target: thumbv6m-none-eabi
           override: true
-          components: rustfmt, clippy
+          components: rustfmt, clippy, flip-link
       - name: Run cargo check
         uses: actions-rs/cargo@v1
         with:
