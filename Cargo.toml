@@ -11,3 +11,4 @@ repository = "https://github.com/dlkj/usbd-hid-toolkit"
 
 [dependencies]
 usb-device = "0.2"
+embedded-time = "0.12"

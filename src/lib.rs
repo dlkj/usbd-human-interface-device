@@ -1,5 +1,7 @@
-//! Utilities and examples for building USB HID devices
+//! USB HID devices
 #![no_std]
+
+pub mod keyboard;
 
 #[cfg(test)]
 mod tests {
