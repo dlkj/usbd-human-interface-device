@@ -9,20 +9,20 @@ description = "Example using the rust usbd-hid-devices library on the Raspberry 
 license = "MIT"
 
 [dependencies]
-cortex-m = "0.7"
-rp2040-boot2 = "0.2" 
-cortex-m-rt = "0.7"
-#rp2040-hal = "0.3"
+cortex-m = "0.7.4"
+cortex-m-rt = "0.7.0"
+usb-device= "0.2.8"
+sh1106 = "0.4.0"
+embedded-hal = { version = "0.2.5", features=["unproven"] }
 adafruit-macropad = { version = "0.1.0" }
-embedded-hal = "0.2"
-embedded-time = "0.12"
+rp2040-boot2 = { version = "0.2.0" }
+embedded-time = "0.12.0"
+embedded-graphics = "0.7.1"
+embedded-text = {version = "0.5.0", default-features = false }
+arrayvec = { version = "0.7.2", default-features = false }
+log = "0.4.14"
 nb = "1.0"
-panic-halt = "0.2"
-# usb-device = "0.2"
-# usbd-hid-devices = { path = "../usbd-hid-devices"}
-embedded-graphics = "0.7"
-embedded-text = {version = "0.5", default-features = false }
-sh1106 = "0.4"
+usbd-hid-devices = { path = "../usbd-hid-devices"}
 
 # cargo build/run
 [profile.dev]

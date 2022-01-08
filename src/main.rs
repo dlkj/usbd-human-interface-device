@@ -5,6 +5,9 @@
 
 use adafruit_macropad::hal;
 use core::cell::RefCell;
+use core::fmt::Write;
+use core::panic::PanicInfo;
+use core::sync::atomic::{self, Ordering};
 use cortex_m::interrupt::Mutex;
 use cortex_m_rt::entry;
 use embedded_graphics::mono_font::ascii::FONT_4X6;
@@ -29,12 +32,12 @@ use hal::pac;
 use hal::Clock;
 use hal::Spi;
 use hal::Timer;
-use nb::block;
-use panic_halt as _;
+use log::*;
+
 use sh1106::prelude::*;
-// use usb_device::class_prelude::*;
-// use usb_device::prelude::*;
-// use usbd_hid_devices::keyboard::HIDKeyboard;
+use usb_device::class_prelude::*;
+use usb_device::prelude::*;
+use usbd_hid_devices::keyboard::HIDKeyboard;
 
 #[link_section = ".boot2"]
 #[used]
@@ -47,6 +50,8 @@ static OLED_DISPLAY: Mutex<
         Option<GraphicsMode<SpiInterface<Spi<hal::spi::Enabled, pac::SPI1, 8_u8>, DynPin, DynPin>>>,
     >,
 > = Mutex::new(RefCell::new(None));
+
+static LOGGER: MacropadLogger = MacropadLogger;
 
 #[entry]
 fn main() -> ! {
@@ -108,26 +113,32 @@ fn main() -> ! {
         let mut display_ref = OLED_DISPLAY.borrow(cs).borrow_mut();
         let display = display_ref.as_mut().unwrap();
         draw_text_screen(display, "Starting up...").ok();
+
+        unsafe {
+            log::set_logger_racy(&LOGGER)
+                .map(|()| log::set_max_level(LevelFilter::Info))
+                .unwrap();
+        }
     });
 
-    // //USB
-    // let usb_bus = UsbBusAllocator::new(hal::usb::UsbBus::new(
-    //     pac.USBCTRL_REGS,
-    //     pac.USBCTRL_DPRAM,
-    //     clocks.usb_clock,
-    //     true,
-    //     &mut pac.RESETS,
-    // ));
+    //USB
+    let usb_bus = UsbBusAllocator::new(hal::usb::UsbBus::new(
+        pac.USBCTRL_REGS,
+        pac.USBCTRL_DPRAM,
+        clocks.usb_clock,
+        true,
+        &mut pac.RESETS,
+    ));
 
-    // let mut keyboard =
-    //     usbd_hid_devices::keyboard::HIDBootKeyboard::new(&usb_bus, 10.milliseconds());
+    let mut keyboard =
+        usbd_hid_devices::keyboard::HIDBootKeyboard::new(&usb_bus, 10.milliseconds());
 
-    // let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x16c0, 0x27ee))
-    //     .manufacturer("DLKJ")
-    //     .product("Keyboard")
-    //     .serial_number("TEST")
-    //     .device_class(3) // HID - from: https://www.usb.org/defined-class-codes
-    //     .build();
+    let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x16c0, 0x27ee))
+        .manufacturer("DLKJ")
+        .product("Keyboard")
+        .serial_number("TEST")
+        .device_class(3) // HID - from: https://www.usb.org/defined-class-codes
+        .build();
 
     //GPIO pins
     let mut led_pin = pins.gpio13.into_push_pull_output();
@@ -150,39 +161,44 @@ fn main() -> ! {
     count_down.start(500.milliseconds());
 
     for _ in [0..10] {
-        led_pin.toggle().ok();
-        block!(count_down.wait()).ok();
+        led_pin.toggle().unwrap();
+        while let Err(_) = count_down.wait() {
+            cortex_m::asm::nop();
+        }
+        count_down.start(500.milliseconds())
     }
 
+    led_pin.set_low().ok();
+
     loop {
-        // if usb_dev.poll(&mut [&mut keyboard]) {
-        //     match keyboard.read_leds() {
-        //         Err(_) => {
-        //             //do nothing
-        //         }
-        //         Ok(leds) => {
-        //             //send scroll lock to the led
-        //             led_pin.set_state(PinState::from((leds & 0x1) != 0)).ok();
-        //         }
-        //     }
+        if usb_dev.poll(&mut [&mut keyboard]) {
+            match keyboard.read_leds() {
+                Err(_) => {
+                    //do nothing
+                }
+                Ok(leds) => {
+                    //send scroll lock to the led
+                    led_pin.set_state(PinState::from((leds & 0x1) != 0)).ok();
+                }
+            }
 
-        //     let keys = [
-        //         if in0.is_low().unwrap() { 0x53 } else { 0x00 }, //Numlock
-        //         if in1.is_low().unwrap() { 0x52 } else { 0x00 }, //Up
-        //         if in2.is_low().unwrap() { 0x45 } else { 0x00 }, //F12
-        //         if in3.is_low().unwrap() { 0x50 } else { 0x00 }, //Left
-        //         if in4.is_low().unwrap() { 0x51 } else { 0x00 }, //Down
-        //         if in5.is_low().unwrap() { 0x4F } else { 0x00 }, //Right
-        //         if in6.is_low().unwrap() { 0x04 } else { 0x00 }, //A
-        //         if in7.is_low().unwrap() { 0x05 } else { 0x00 }, //B
-        //         if in8.is_low().unwrap() { 0x06 } else { 0x00 }, //C
-        //         if in9.is_low().unwrap() { 0xE0 } else { 0x00 }, //LCtrl
-        //         if in10.is_low().unwrap() { 0xE1 } else { 0x00 }, //LShift
-        //         if in11.is_low().unwrap() { 0xE2 } else { 0x00 }, //LAlt
-        //     ];
+            let keys = [
+                if in0.is_low().unwrap() { 0x53 } else { 0x00 }, //Numlock
+                if in1.is_low().unwrap() { 0x52 } else { 0x00 }, //Up
+                if in2.is_low().unwrap() { 0x45 } else { 0x00 }, //F12
+                if in3.is_low().unwrap() { 0x50 } else { 0x00 }, //Left
+                if in4.is_low().unwrap() { 0x51 } else { 0x00 }, //Down
+                if in5.is_low().unwrap() { 0x4F } else { 0x00 }, //Right
+                if in6.is_low().unwrap() { 0x04 } else { 0x00 }, //A
+                if in7.is_low().unwrap() { 0x05 } else { 0x00 }, //B
+                if in8.is_low().unwrap() { 0x06 } else { 0x00 }, //C
+                if in9.is_low().unwrap() { 0xE0 } else { 0x00 }, //LCtrl
+                if in10.is_low().unwrap() { 0xE1 } else { 0x00 }, //LShift
+                if in11.is_low().unwrap() { 0xE2 } else { 0x00 }, //LAlt
+            ];
 
-        //     keyboard.write_keycodes(keys).ok();
-        // }
+            keyboard.write_keycodes(keys).ok();
+        }
     }
 }
 
@@ -203,4 +219,52 @@ where
     display.flush()?;
 
     Ok(())
+}
+
+pub struct MacropadLogger;
+
+impl log::Log for MacropadLogger {
+    fn enabled(&self, _metadata: &Metadata) -> bool {
+        true
+        //metadata.level() <= Level::Info
+    }
+
+    fn log(&self, record: &Record) {
+        let mut output = arrayvec::ArrayString::<1024>::new();
+        write!(
+            &mut output,
+            "{} {} {}\r\n",
+            record.level(),
+            record.target(),
+            record.args()
+        )
+        .ok();
+
+        cortex_m::interrupt::free(|cs| {
+            let mut display_ref = OLED_DISPLAY.borrow(cs).borrow_mut();
+            if let Some(display) = display_ref.as_mut() {
+                draw_text_screen(display, output.as_str()).ok();
+            }
+        });
+    }
+
+    fn flush(&self) {}
+}
+
+#[inline(never)]
+#[panic_handler]
+fn panic(info: &PanicInfo) -> ! {
+    let mut output = arrayvec::ArrayString::<1024>::new();
+    if write!(&mut output, "{}", info).ok().is_some() {
+        cortex_m::interrupt::free(|cs| {
+            let mut display_ref = OLED_DISPLAY.borrow(cs).borrow_mut();
+            if let Some(display) = display_ref.as_mut() {
+                draw_text_screen(display, output.as_str()).ok();
+            }
+        });
+    }
+
+    loop {
+        atomic::compiler_fence(Ordering::SeqCst);
+    }
 }
