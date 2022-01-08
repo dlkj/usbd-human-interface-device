@@ -1,4 +1,4 @@
-//! # HID USB Example for usbd-hid-toolkit
+//! # HID USB Example for usbd-hid-devices
 
 #![no_std]
 #![no_main]
