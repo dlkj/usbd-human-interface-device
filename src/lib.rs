@@ -1,7 +1,9 @@
 //! USB HID devices
 #![no_std]
 
+pub mod hid;
 pub mod keyboard;
+pub mod mouse;
 
 #[cfg(test)]
 mod tests {
