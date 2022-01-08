@@ -39,8 +39,6 @@ pub enum HIDSubclass {
 
 /// HIDKeyboard provides an interface to send keycodes to the host device and
 /// receive LED status information
-///
-/// This should work like the usb serial trait
 pub trait HIDKeyboard {
     /// Writes an input report given representing keycodes to the host system
     fn write_keycodes<K>(&self, keycodes: K) -> Result<()>
