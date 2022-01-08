@@ -1,5 +1,5 @@
 //!Implements HID keyboard devices
-mod descriptors;
+pub mod descriptors;
 
 use embedded_time::duration::*;
 use log::{debug, error, info, trace, warn};
