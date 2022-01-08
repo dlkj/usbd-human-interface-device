@@ -2,7 +2,7 @@
 mod descriptors;
 
 use embedded_time::duration::*;
-use log::{debug, error, info, trace};
+use log::{debug, error, info, trace, warn};
 use usb_device::class_prelude::*;
 use usb_device::Result;
 
@@ -43,12 +43,12 @@ pub enum HIDSubclass {
 /// This should work like the usb serial trait
 pub trait HIDKeyboard {
     /// Writes an input report given representing keycodes to the host system
-    fn write_keycodes<K>(keycodes: K) -> Result<()>
+    fn write_keycodes<K>(&self, keycodes: K) -> Result<()>
     where
         K: IntoIterator<Item = u8>;
 
     /// Read LED status from the host system
-    fn read_leds() -> Result<u8>;
+    fn read_leds(&self) -> Result<u8>;
 }
 
 /// Implements a HID Keyboard that conforms to the Boot specification. This aims
@@ -59,7 +59,7 @@ pub trait HIDKeyboard {
 /// https://www.usb.org/sites/default/files/hid1_11.pdf
 pub struct HIDBootKeyboard<'a, B: UsbBus> {
     interface_number: InterfaceNumber,
-    out_endpoint: EndpointOut<'a, B>, //todo why two endpoints?
+    out_endpoint: EndpointOut<'a, B>,
     in_endpoint: EndpointIn<'a, B>,
     report_descriptor: &'static [u8],
     string_index: StringIndex,
@@ -87,28 +87,90 @@ impl<B: UsbBus> HIDBootKeyboard<'_, B> {
         }
     }
 
-    fn hid_descriptor(&self) -> [u8; 7] {
-        [
-            HID_CLASS_SPEC_1_11[0], //HID Class spec version 1.10 (BCD)
-            HID_CLASS_SPEC_1_11[1],
-            HID_COUNTRY_CODE_NOT_SUPPORTED, //Country code 0 - not supported
-            1,                              //Num descriptors - 1
-            HIDDescriptorType::Report as u8, //Class descriptor type is report
-            (self.report_descriptor.len() & 0xFF) as u8, //Descriptor length
-            (self.report_descriptor.len() >> 8 & 0xFF) as u8,
-        ]
+    fn hid_descriptor(&self) -> Result<[u8; 7]> {
+        if self.report_descriptor.len() > u16::max_value() as usize {
+            error!(
+                "Report descriptor for interface {:X}, length {} too long to fit in u16",
+                u8::from(self.interface_number),
+                self.report_descriptor.len()
+            );
+            Err(UsbError::InvalidState)
+        } else {
+            Ok([
+                HID_CLASS_SPEC_1_11[0], //HID Class spec version 1.10 (BCD)
+                HID_CLASS_SPEC_1_11[1],
+                HID_COUNTRY_CODE_NOT_SUPPORTED, //Country code 0 - not supported
+                1,                              //Num descriptors - 1
+                HIDDescriptorType::Report as u8, //Class descriptor type is report
+                (self.report_descriptor.len() & 0xFF) as u8, //Descriptor length
+                (self.report_descriptor.len() >> 8 & 0xFF) as u8,
+            ])
+        }
     }
 }
 
 impl<B: UsbBus> HIDKeyboard for HIDBootKeyboard<'_, B> {
-    fn write_keycodes<K>(_: K) -> core::result::Result<(), usb_device::UsbError>
+    fn write_keycodes<K>(&self, keycodes: K) -> core::result::Result<(), usb_device::UsbError>
     where
         K: IntoIterator<Item = u8>,
     {
-        todo!()
+        let mut data = [0; 8];
+
+        let mut reporting_error = false;
+        let mut key_report_idx = 2;
+
+        for k in keycodes {
+            if k == 0x00 {
+                //ignore none keycode
+            } else if (0xE0..=0xE7).contains(&k) {
+                //modifiers
+                data[0] |= 1 << (k - 0xE0);
+            } else if !reporting_error {
+                //only do other keycodes if we aren't already sending an error
+                if k < 0x04 {
+                    //Fill report if any keycode is an error
+                    (&mut data[2..]).fill(k);
+                    reporting_error = true;
+                } else if key_report_idx < data.len() {
+                    //Report a standard keycode
+                    data[key_report_idx] = k;
+                    key_report_idx += 1;
+                } else {
+                    //Rollover if full
+                    (&mut data[2..]).fill(0x1);
+                    reporting_error = true;
+                }
+            }
+        }
+
+        match self.in_endpoint.write(&data) {
+            Ok(8) => Ok(()),
+            Ok(n) => {
+                warn!(
+                    "interface {:X} sent {:X} bytes, expected 8 byte",
+                    n,
+                    u8::from(self.interface_number),
+                );
+                Ok(())
+            }
+            Err(e) => Err(e),
+        }
     }
-    fn read_leds() -> core::result::Result<u8, usb_device::UsbError> {
-        todo!()
+
+    fn read_leds(&self) -> core::result::Result<u8, usb_device::UsbError> {
+        let mut data = [0; 8];
+        match self.out_endpoint.read(&mut data) {
+            Ok(0) => {
+                error!(
+                    "interface {:X} received zero length report, expected 1 byte",
+                    u8::from(self.interface_number),
+                );
+                Err(UsbError::ParseError)
+            }
+            Ok(_) => Ok(data[0]),
+            Err(e) => Err(e),
+        }
+        //todo convert to bitflags
     }
 }
 
@@ -118,6 +180,7 @@ impl<B: UsbBus> UsbClass<B> for HIDBootKeyboard<'_, B> {
             "Getting config descriptor for interface {:X}",
             u8::from(self.interface_number)
         );
+
         writer.interface_alt(
             self.interface_number,
             usb_device::device::DEFAULT_ALTERNATE_SETTING,
@@ -127,17 +190,10 @@ impl<B: UsbBus> UsbClass<B> for HIDBootKeyboard<'_, B> {
             Some(self.string_index),
         )?;
 
-        if self.report_descriptor.len() > u16::max_value() as usize {
-            error!(
-                "Report descriptor for interface {:X}, length {} too long to fit in u16",
-                u8::from(self.interface_number),
-                self.report_descriptor.len()
-            );
-            return Err(UsbError::InvalidState);
-        }
+        //HID descriptor
+        writer.write(HIDDescriptorType::Hid as u8, &self.hid_descriptor()?)?;
 
-        writer.write(HIDDescriptorType::Hid as u8, &self.hid_descriptor())?;
-
+        //Endpoint descriptors
         writer.endpoint(&self.out_endpoint)?;
         writer.endpoint(&self.in_endpoint)?;
 
@@ -183,20 +239,29 @@ impl<B: UsbBus> UsbClass<B> for HIDBootKeyboard<'_, B> {
                             )
                         });
                 } else if request_value == HIDDescriptorType::Hid as u8 {
-                    let hid_descriptor = self.hid_descriptor();
-
-                    let mut buffer = [0; 9];
-                    buffer[0] = buffer.len() as u8;
-                    buffer[1] = HIDDescriptorType::Hid as u8;
-                    (&mut buffer[2..]).copy_from_slice(&hid_descriptor);
-
-                    transfer.accept_with(&buffer).unwrap_or_else(|e| {
-                        error!(
-                            "interface {:X} - Failed to send HID descriptor - {:?}",
-                            u8::from(self.interface_number),
-                            e
-                        )
-                    });
+                    match self.hid_descriptor() {
+                        Err(e) => {
+                            error!(
+                                "interface {:X} - Failed to generate HID descriptor - {:?}",
+                                u8::from(self.interface_number),
+                                e
+                            );
+                            transfer.reject().ok();
+                        }
+                        Ok(hid_descriptor) => {
+                            let mut buffer = [0; 9];
+                            buffer[0] = buffer.len() as u8;
+                            buffer[1] = HIDDescriptorType::Hid as u8;
+                            (&mut buffer[2..]).copy_from_slice(&hid_descriptor);
+                            transfer.accept_with(&buffer).unwrap_or_else(|e| {
+                                error!(
+                                    "interface {:X} - Failed to send HID descriptor - {:?}",
+                                    u8::from(self.interface_number),
+                                    e
+                                );
+                            });
+                        }
+                    }
                 } else {
                     debug!(
                         "interface {:X} - unsupported - request type: {:?}, request: {:X}, value: {:X}",
