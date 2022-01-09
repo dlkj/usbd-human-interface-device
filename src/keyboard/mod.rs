@@ -286,7 +286,6 @@ impl<B: UsbBus> UsbClass<B> for HIDBootKeyboard<'_, B> {
             (control::RequestType::Standard, _) => {
                 // We shouldn't handle any other standard requests, leave for
                 // [`UsbDevice`](crate::device::UsbDevice) to handle
-                return;
             }
             (control::RequestType::Class, HID_REQ_GET_REPORT) => {
                 trace!(
