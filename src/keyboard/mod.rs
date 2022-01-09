@@ -212,7 +212,9 @@ impl<B: UsbBus> UsbClass<B> for HIDBootKeyboard<'_, B> {
         let request: &control::Request = transfer.request();
 
         //only respond to requests for this interface
-        if request.index != u8::from(self.interface_number) as u16 {
+        if !(request.recipient == control::Recipient::Interface
+            && request.index == u8::from(self.interface_number) as u16)
+        {
             return;
         }
 
@@ -281,6 +283,11 @@ impl<B: UsbBus> UsbClass<B> for HIDBootKeyboard<'_, B> {
                     );
                 }
             }
+            (control::RequestType::Standard, _) => {
+                // We shouldn't handle any other standard requests, leave for
+                // [`UsbDevice`](crate::device::UsbDevice) to handle
+                return;
+            }
             (control::RequestType::Class, HID_REQ_GET_REPORT) => {
                 trace!(
                     "interface {:X} - unsupported - request type: {:?}, request: {:X}, value: {:X}",
@@ -311,7 +318,7 @@ impl<B: UsbBus> UsbClass<B> for HIDBootKeyboard<'_, B> {
                     request.request,
                     request.value
                 );
-                //transfer.reject().ok(); // Not supported
+                transfer.reject().ok(); // Not supported
             }
         }
     }
@@ -319,14 +326,14 @@ impl<B: UsbBus> UsbClass<B> for HIDBootKeyboard<'_, B> {
     fn control_out(&mut self, transfer: ControlOut<B>) {
         let request: &control::Request = transfer.request();
 
-        //only respond to requests for this interface
-        if request.recipient != control::Recipient::Interface {
+        //only respond to Class requests for this interface
+        if !(request.request_type == control::RequestType::Class
+            && request.recipient == control::Recipient::Interface
+            && request.index == u8::from(self.interface_number) as u16)
+        {
             return;
         }
 
-        if request.index != u8::from(self.interface_number) as u16 {
-            return;
-        }
         trace!(
             "ctrl_out: interface {:X} - request type: {:?}, request: {:X}, value: {:X}",
             u8::from(self.interface_number),
@@ -335,8 +342,8 @@ impl<B: UsbBus> UsbClass<B> for HIDBootKeyboard<'_, B> {
             request.value
         );
 
-        match (request.request_type, request.request) {
-            (control::RequestType::Class, HID_REQ_SET_IDLE) => {
+        match request.request {
+            HID_REQ_SET_IDLE => {
                 trace!(
                     "interface {:X} - unsupported - request type: {:?}, request: {:X}, value: {:X}",
                     u8::from(self.interface_number),
@@ -346,7 +353,7 @@ impl<B: UsbBus> UsbClass<B> for HIDBootKeyboard<'_, B> {
                 );
                 transfer.accept().ok(); //Not supported
             }
-            (control::RequestType::Class, HID_REQ_SET_REPORT) => {
+            HID_REQ_SET_REPORT => {
                 trace!(
                     "interface {:X} - unsupported - request type: {:?}, request: {:X}, value: {:X}",
                     u8::from(self.interface_number),
