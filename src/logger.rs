@@ -1,5 +1,4 @@
-use crate::hal;
-use crate::hal::pac;
+use adafruit_macropad::hal;
 use core::cell::RefCell;
 use core::fmt::Write;
 use cortex_m::interrupt::Mutex;
@@ -14,6 +13,7 @@ use embedded_text::{
     TextBox,
 };
 use hal::gpio::DynPin;
+use hal::pac;
 use hal::Spi;
 use log::*;
 use sh1106::prelude::*;

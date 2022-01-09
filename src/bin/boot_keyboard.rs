@@ -1,10 +1,5 @@
-//! # HID USB Example for usbd-hid-devices
-
 #![no_std]
 #![no_main]
-
-mod logger;
-mod panic;
 
 use adafruit_macropad::hal;
 use cortex_m_rt::entry;
@@ -20,12 +15,13 @@ use sh1106::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_hid_devices::keyboard::HIDKeyboard;
+use usbd_hid_devices_example_rp2040::logger::MacropadLogger;
 
 #[link_section = ".boot2"]
 #[used]
 pub static BOOT2: [u8; 256] = rp2040_boot2::BOOT_LOADER_GD25Q64CS;
 
-static LOGGER: logger::MacropadLogger = logger::MacropadLogger;
+static LOGGER: MacropadLogger = MacropadLogger;
 
 const XTAL_FREQ_HZ: u32 = 12_000_000u32;
 
@@ -84,7 +80,9 @@ fn main() -> ! {
     display.flush().unwrap();
 
     cortex_m::interrupt::free(|cs| {
-        logger::OLED_DISPLAY.borrow(cs).replace(Some(display));
+        usbd_hid_devices_example_rp2040::logger::OLED_DISPLAY
+            .borrow(cs)
+            .replace(Some(display));
         unsafe {
             log::set_logger_racy(&LOGGER)
                 .map(|()| log::set_max_level(LevelFilter::Info))
@@ -172,7 +170,7 @@ fn main() -> ! {
                 if in8.is_low().unwrap() { 0x06 } else { 0x00 }, //C
                 if in9.is_low().unwrap() { 0xE0 } else { 0x00 }, //LCtrl
                 if in10.is_low().unwrap() { 0xE1 } else { 0x00 }, //LShift
-                if in11.is_low().unwrap() { 0xE2 } else { 0x00 }, //LAlt
+                if in11.is_low().unwrap() { 0x28 } else { 0x00 }, //Enter
             ];
 
             keyboard.write_keycodes(keys).ok();
