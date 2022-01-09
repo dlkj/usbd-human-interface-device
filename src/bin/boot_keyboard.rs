@@ -1,57 +1,29 @@
-//! # HID USB Example for usbd-hid-devices
-
 #![no_std]
 #![no_main]
 
 use adafruit_macropad::hal;
-use core::cell::RefCell;
-use core::fmt::Write;
-use core::panic::PanicInfo;
-use core::sync::atomic::{self, Ordering};
-use cortex_m::interrupt::Mutex;
 use cortex_m_rt::entry;
-use embedded_graphics::mono_font::ascii::FONT_4X6;
-use embedded_graphics::mono_font::MonoTextStyle;
-use embedded_graphics::pixelcolor::BinaryColor;
-use embedded_graphics::prelude::*;
-use embedded_graphics::primitives::Rectangle;
-use embedded_hal::digital::v2::InputPin;
-use embedded_hal::digital::v2::OutputPin;
-use embedded_hal::digital::v2::PinState;
-use embedded_hal::digital::v2::ToggleableOutputPin;
+use embedded_hal::digital::v2::*;
 use embedded_hal::prelude::*;
-use embedded_text::{
-    alignment::HorizontalAlignment,
-    style::{HeightMode, TextBoxStyleBuilder},
-    TextBox,
-};
 use embedded_time::duration::*;
 use embedded_time::rate::Hertz;
-use hal::gpio::DynPin;
 use hal::pac;
 use hal::Clock;
-use hal::Spi;
 use hal::Timer;
 use log::*;
-
 use sh1106::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_hid_devices::keyboard::HIDKeyboard;
+use usbd_hid_devices_example_rp2040::logger::MacropadLogger;
 
 #[link_section = ".boot2"]
 #[used]
 pub static BOOT2: [u8; 256] = rp2040_boot2::BOOT_LOADER_GD25Q64CS;
 
-const XTAL_FREQ_HZ: u32 = 12_000_000u32;
-
-static OLED_DISPLAY: Mutex<
-    RefCell<
-        Option<GraphicsMode<SpiInterface<Spi<hal::spi::Enabled, pac::SPI1, 8_u8>, DynPin, DynPin>>>,
-    >,
-> = Mutex::new(RefCell::new(None));
-
 static LOGGER: MacropadLogger = MacropadLogger;
+
+const XTAL_FREQ_HZ: u32 = 12_000_000u32;
 
 #[entry]
 fn main() -> ! {
@@ -108,18 +80,17 @@ fn main() -> ! {
     display.flush().unwrap();
 
     cortex_m::interrupt::free(|cs| {
-        OLED_DISPLAY.borrow(cs).replace(Some(display));
-
-        let mut display_ref = OLED_DISPLAY.borrow(cs).borrow_mut();
-        let display = display_ref.as_mut().unwrap();
-        draw_text_screen(display, "Starting up...").ok();
-
+        usbd_hid_devices_example_rp2040::logger::OLED_DISPLAY
+            .borrow(cs)
+            .replace(Some(display));
         unsafe {
             log::set_logger_racy(&LOGGER)
                 .map(|()| log::set_max_level(LevelFilter::Info))
                 .unwrap();
         }
     });
+
+    info!("Starting up...");
 
     //USB
     let usb_bus = UsbBusAllocator::new(hal::usb::UsbBus::new(
@@ -130,14 +101,19 @@ fn main() -> ! {
         &mut pac.RESETS,
     ));
 
-    let mut keyboard =
-        usbd_hid_devices::keyboard::HIDBootKeyboard::new(&usb_bus, 10.milliseconds());
+    let mut keyboard = usbd_hid_devices::hid::HID::new(
+        &usb_bus,
+        usbd_hid_devices::keyboard::HIDBootKeyboard::default(),
+    );
 
-    let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x16c0, 0x27ee))
+    //https://pid.codes
+    let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))
         .manufacturer("DLKJ")
         .product("Keyboard")
         .serial_number("TEST")
         .device_class(3) // HID - from: https://www.usb.org/defined-class-codes
+        .composite_with_iads()
+        .supports_remote_wakeup(true)
         .build();
 
     //GPIO pins
@@ -162,7 +138,7 @@ fn main() -> ! {
 
     for _ in [0..10] {
         led_pin.toggle().unwrap();
-        while let Err(_) = count_down.wait() {
+        while count_down.wait().is_err() {
             cortex_m::asm::nop();
         }
         count_down.start(500.milliseconds())
@@ -194,77 +170,10 @@ fn main() -> ! {
                 if in8.is_low().unwrap() { 0x06 } else { 0x00 }, //C
                 if in9.is_low().unwrap() { 0xE0 } else { 0x00 }, //LCtrl
                 if in10.is_low().unwrap() { 0xE1 } else { 0x00 }, //LShift
-                if in11.is_low().unwrap() { 0xE2 } else { 0x00 }, //LAlt
+                if in11.is_low().unwrap() { 0x28 } else { 0x00 }, //Enter
             ];
 
             keyboard.write_keycodes(keys).ok();
         }
-    }
-}
-
-pub fn draw_text_screen<DI, E>(display: &mut GraphicsMode<DI>, text: &str) -> Result<(), E>
-where
-    DI: sh1106::interface::DisplayInterface<Error = E>,
-{
-    display.clear();
-    let character_style = MonoTextStyle::new(&FONT_4X6, BinaryColor::On);
-    let textbox_style = TextBoxStyleBuilder::new()
-        .height_mode(HeightMode::FitToText)
-        .alignment(HorizontalAlignment::Left)
-        .build();
-    let bounds = Rectangle::new(Point::zero(), Size::new(128, 0));
-    let text_box = TextBox::with_textbox_style(text, bounds, character_style, textbox_style);
-
-    text_box.draw(display).unwrap();
-    display.flush()?;
-
-    Ok(())
-}
-
-pub struct MacropadLogger;
-
-impl log::Log for MacropadLogger {
-    fn enabled(&self, _metadata: &Metadata) -> bool {
-        true
-        //metadata.level() <= Level::Info
-    }
-
-    fn log(&self, record: &Record) {
-        let mut output = arrayvec::ArrayString::<1024>::new();
-        write!(
-            &mut output,
-            "{} {} {}\r\n",
-            record.level(),
-            record.target(),
-            record.args()
-        )
-        .ok();
-
-        cortex_m::interrupt::free(|cs| {
-            let mut display_ref = OLED_DISPLAY.borrow(cs).borrow_mut();
-            if let Some(display) = display_ref.as_mut() {
-                draw_text_screen(display, output.as_str()).ok();
-            }
-        });
-    }
-
-    fn flush(&self) {}
-}
-
-#[inline(never)]
-#[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-    let mut output = arrayvec::ArrayString::<1024>::new();
-    if write!(&mut output, "{}", info).ok().is_some() {
-        cortex_m::interrupt::free(|cs| {
-            let mut display_ref = OLED_DISPLAY.borrow(cs).borrow_mut();
-            if let Some(display) = display_ref.as_mut() {
-                draw_text_screen(display, output.as_str()).ok();
-            }
-        });
-    }
-
-    loop {
-        atomic::compiler_fence(Ordering::SeqCst);
     }
 }
