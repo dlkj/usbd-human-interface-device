@@ -1,4 +1,4 @@
-//https://www.usb.org/sites/default/files/hid1_11.pdf - Appendix B.1
+//https://www.usb.org/sites/default/files/hid1_11.pdf - Appendix B.1, E.6
 #[rustfmt::skip] 
 pub const HID_BOOT_KEYBOARD_REPORT_DESCRIPTOR: [u8; 65] = [
     0x05, 0x01,         // Usage Page (Generic Desktop),
@@ -33,4 +33,4 @@ pub const HID_BOOT_KEYBOARD_REPORT_DESCRIPTOR: [u8; 65] = [
     0x2A, 0xFF, 0x00,   //     Usage Maximum (255),
     0x81, 0x00,         //     Input (Data, Array),
     0xC0,               // End Collection
-    ];
+];
