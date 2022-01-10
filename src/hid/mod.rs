@@ -307,3 +307,75 @@ impl<B: UsbBus, C: HIDClass> UsbClass<B> for HID<'_, B, C> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::hid::HIDClass;
+    use embedded_time::duration::Milliseconds;
+    use usb_device::bus::*;
+    use usb_device::class_prelude::*;
+    use usb_device::prelude::*;
+    use usb_device::*;
+
+    use mockall::predicate::*;
+    use mockall::*;
+
+    mock! {
+        MyUsbBus {}
+        impl UsbBus for MyUsbBus{
+            fn alloc_ep(
+                &mut self,
+                ep_dir: UsbDirection,
+                ep_addr: Option<EndpointAddress>,
+                ep_type: EndpointType,
+                max_packet_size: u16,
+                interval: u8) -> Result<EndpointAddress>;
+
+            fn enable(&mut self);
+            fn reset(&self);
+            fn set_device_address(&self, addr: u8);
+            fn write(&self, ep_addr: EndpointAddress, buf: &[u8]) -> Result<usize>;
+            fn read(&self, ep_addr: EndpointAddress, buf: &mut [u8]) -> Result<usize>;
+            fn set_stalled(&self, ep_addr: EndpointAddress, stalled: bool);
+            fn is_stalled(&self, ep_addr: EndpointAddress) -> bool;
+            fn suspend(&self);
+            fn resume(&self);
+            fn poll(&self) -> PollResult;
+            fn force_reset(&self) -> Result<()> {
+                Err(UsbError::Unsupported)
+            }
+            const QUIRK_SET_ADDRESS_BEFORE_STATUS: bool = false;
+        }
+    }
+
+    #[test]
+    fn descriptor_ordering_satisfies_boot_spec() {
+        #[derive(Default)]
+        struct TestHidClass {}
+
+        impl HIDClass for TestHidClass {
+            fn packet_size(&self) -> u8 {
+                8
+            }
+            fn poll_interval(&self) -> embedded_time::duration::Milliseconds {
+                Milliseconds(10)
+            }
+            fn report_descriptor(&self) -> &'static [u8] {
+                &[]
+            }
+        }
+
+        let usb_bus = MockMyUsbBus::new();
+        let usb_alloc = UsbBusAllocator::new(usb_bus);
+        let usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
+            .manufacturer("DLKJ")
+            .product("Test Hid Device")
+            .serial_number("TEST")
+            .device_class(3) // HID - from: https://www.usb.org/defined-class-codes
+            .composite_with_iads()
+            .supports_remote_wakeup(true)
+            .build();
+
+        let hid = super::HID::new(&usb_alloc, TestHidClass::default());
+    }
+}

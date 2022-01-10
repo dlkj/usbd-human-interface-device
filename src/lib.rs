@@ -1,15 +1,11 @@
 //! USB HID devices
 #![no_std]
 
+//Allow the use of std in tests
+#[cfg(test)]
+#[macro_use]
+extern crate std;
+
 pub mod hid;
 pub mod keyboard;
 pub mod mouse;
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        let result = 2 + 2;
-        assert_eq!(result, 4);
-    }
-}

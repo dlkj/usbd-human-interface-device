@@ -14,3 +14,6 @@ homepage = "https://github.com/dlkj/usbd-hid-devices"
 usb-device = "0.2"
 embedded-time = "0.12"
 log = "0.4.14"
+
+[dev-dependencies]
+mockall = { version = "0.11", default-features = false } 
