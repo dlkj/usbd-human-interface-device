@@ -11,6 +11,7 @@ use log::*;
 use sh1106::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
+use usbd_hid_devices::keyboard::HIDKeyboard;
 use usbd_hid_devices::mouse::HIDMouse;
 use usbd_hid_devices_example_rp2040::logger::MacropadLogger;
 
@@ -98,13 +99,18 @@ fn main() -> ! {
         &mut pac.RESETS,
     ));
 
+    let mut keyboard = usbd_hid_devices::hid::HID::new(
+        &usb_bus,
+        usbd_hid_devices::keyboard::HIDBootKeyboard::default(),
+    );
+
     let mut mouse =
         usbd_hid_devices::hid::HID::new(&usb_bus, usbd_hid_devices::mouse::HIDBootMouse::default());
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))
         .manufacturer("DLKJ")
-        .product("Mouse")
+        .product("Keyboard & Mouse")
         .serial_number("TEST")
         .device_class(3) // HID - from: https://www.usb.org/defined-class-codes
         .composite_with_iads()
@@ -130,7 +136,7 @@ fn main() -> ! {
     led_pin.set_low().ok();
 
     loop {
-        if usb_dev.poll(&mut [&mut mouse]) {
+        if usb_dev.poll(&mut [&mut keyboard, &mut mouse]) {
             let mut buttons = 0;
             let mut x = 0;
             let mut y = 0;
@@ -163,6 +169,24 @@ fn main() -> ! {
             if in11.is_low().unwrap() {}
 
             mouse.write_mouse(buttons, x, y).ok();
+
+            let keys = [
+                if in9.is_low().unwrap() { 0x04 } else { 0x00 },  //A
+                if in10.is_low().unwrap() { 0x05 } else { 0x00 }, //B
+                if in11.is_low().unwrap() { 0x06 } else { 0x00 }, //C
+            ];
+
+            match keyboard.read_leds() {
+                Err(_) => {
+                    //do nothing
+                }
+                Ok(leds) => {
+                    //send scroll lock to the led
+                    led_pin.set_state(PinState::from((leds & 0x1) != 0)).ok();
+                }
+            }
+
+            keyboard.write_keycodes(keys).ok();
         }
     }
 }
