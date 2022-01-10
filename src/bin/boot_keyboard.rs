@@ -4,12 +4,9 @@
 use adafruit_macropad::hal;
 use cortex_m_rt::entry;
 use embedded_hal::digital::v2::*;
-use embedded_hal::prelude::*;
-use embedded_time::duration::*;
 use embedded_time::rate::Hertz;
 use hal::pac;
 use hal::Clock;
-use hal::Timer;
 use log::*;
 use sh1106::prelude::*;
 use usb_device::class_prelude::*;
@@ -131,18 +128,6 @@ fn main() -> ! {
     let in9 = pins.gpio10.into_pull_up_input();
     let in10 = pins.gpio11.into_pull_up_input();
     let in11 = pins.gpio12.into_pull_up_input();
-
-    let timer = Timer::new(pac.TIMER, &mut pac.RESETS);
-    let mut count_down = timer.count_down();
-    count_down.start(500.milliseconds());
-
-    for _ in [0..10] {
-        led_pin.toggle().unwrap();
-        while count_down.wait().is_err() {
-            cortex_m::asm::nop();
-        }
-        count_down.start(500.milliseconds())
-    }
 
     led_pin.set_low().ok();
 
