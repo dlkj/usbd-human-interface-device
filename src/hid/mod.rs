@@ -312,39 +312,110 @@ impl<B: UsbBus, C: HIDClass> UsbClass<B> for HID<'_, B, C> {
 mod tests {
     use crate::hid::HIDClass;
     use embedded_time::duration::Milliseconds;
+    use std::cell::RefCell;
+    use std::sync::Mutex;
+    use std::vec::Vec;
     use usb_device::bus::*;
     use usb_device::class_prelude::*;
     use usb_device::prelude::*;
     use usb_device::*;
 
-    use mockall::predicate::*;
-    use mockall::*;
+    struct TestUsbBus<F> {
+        next_ep_index: usize,
+        write_data: Mutex<RefCell<Vec<u8>>>,
+        write_val: F,
+    }
 
-    mock! {
-        MyUsbBus {}
-        impl UsbBus for MyUsbBus{
-            fn alloc_ep(
-                &mut self,
-                ep_dir: UsbDirection,
-                ep_addr: Option<EndpointAddress>,
-                ep_type: EndpointType,
-                max_packet_size: u16,
-                interval: u8) -> Result<EndpointAddress>;
-
-            fn enable(&mut self);
-            fn reset(&self);
-            fn set_device_address(&self, addr: u8);
-            fn write(&self, ep_addr: EndpointAddress, buf: &[u8]) -> Result<usize>;
-            fn read(&self, ep_addr: EndpointAddress, buf: &mut [u8]) -> Result<usize>;
-            fn set_stalled(&self, ep_addr: EndpointAddress, stalled: bool);
-            fn is_stalled(&self, ep_addr: EndpointAddress) -> bool;
-            fn suspend(&self);
-            fn resume(&self);
-            fn poll(&self) -> PollResult;
-            fn force_reset(&self) -> Result<()> {
-                Err(UsbError::Unsupported)
+    impl<F> TestUsbBus<F> {
+        fn new(write_val: F) -> Self {
+            TestUsbBus {
+                next_ep_index: 0,
+                write_data: Mutex::new(RefCell::new(Vec::new())),
+                write_val: write_val,
             }
-            const QUIRK_SET_ADDRESS_BEFORE_STATUS: bool = false;
+        }
+    }
+
+    impl<F> UsbBus for TestUsbBus<F>
+    where
+        F: core::marker::Sync + Fn(&Vec<u8>) -> (),
+    {
+        fn alloc_ep(
+            &mut self,
+            ep_dir: UsbDirection,
+            _ep_addr: Option<EndpointAddress>,
+            _ep_type: EndpointType,
+            _max_packet_size: u16,
+            _interval: u8,
+        ) -> Result<EndpointAddress> {
+            let ep = EndpointAddress::from_parts(self.next_ep_index, ep_dir);
+            self.next_ep_index += 1;
+            Ok(ep)
+        }
+
+        fn enable(&mut self) {}
+        fn reset(&self) {
+            todo!();
+        }
+        fn set_device_address(&self, _addr: u8) {
+            todo!();
+        }
+        fn write(&self, _ep_addr: EndpointAddress, buf: &[u8]) -> Result<usize> {
+            self.write_data
+                .lock()
+                .unwrap()
+                .borrow_mut()
+                .extend_from_slice(buf);
+
+            if buf.len() < 8 {
+                //if we get less than a full buffer, the write is complete, validate the buffer
+                (self.write_val)(&self.write_data.lock().unwrap().borrow());
+            }
+
+            Ok(buf.len())
+        }
+        fn read(&self, _ep_addr: EndpointAddress, buf: &mut [u8]) -> Result<usize> {
+            //todo change to "packed_struct"
+
+            //read a config request for the device config descriptor
+            //direction | request type| recipient
+            buf[0] = UsbDirection::In as u8
+                | (control::RequestType::Standard as u8) << 5
+                | control::Recipient::Device as u8;
+            buf[1] = control::Request::GET_DESCRIPTOR; //request
+            buf[2] = 0; //value[0]
+            buf[3] = descriptor::descriptor_type::CONFIGURATION as u8; //value[1]
+            buf[4] = 0; //index[0]
+            buf[5] = 0x00; //index[1]
+            buf[6] = 0xFF; //length[0]
+            buf[7] = 0xFF; //length[1]
+
+            Ok(8)
+        }
+        fn set_stalled(&self, _ep_addr: EndpointAddress, _stalled: bool) {}
+        fn is_stalled(&self, _ep_addr: EndpointAddress) -> bool {
+            todo!();
+        }
+        fn suspend(&self) {
+            todo!();
+        }
+        fn resume(&self) {
+            todo!();
+        }
+        fn poll(&self) -> PollResult {
+            if self.write_data.lock().unwrap().borrow().is_empty() {
+                PollResult::Data {
+                    ep_out: 0x0,
+                    ep_in_complete: 0x0,
+                    ep_setup: 0x1, //setup packet received for ep 0
+                }
+            } else {
+                PollResult::Data {
+                    ep_out: 0x0,
+                    ep_in_complete: 0x1, //request the next packet
+                    ep_setup: 0x0,
+                }
+            }
         }
     }
 
@@ -365,17 +436,68 @@ mod tests {
             }
         }
 
-        let usb_bus = MockMyUsbBus::new();
+        let validate_write_data = |v: &Vec<u8>| {
+            /*
+              Expected descriptor order (https://www.usb.org/sites/default/files/hid1_11.pdf Appendix F.3):
+              Configuration descriptor (other Interface, Endpoint, and Vendor Specific descriptors if required)
+                Interface descriptor (with Subclass and Protocol specifying Boot Keyboard)
+                    HID descriptor (associated with this Interface)
+                    Endpoint descriptor (HID Interrupt In Endpoint)
+                        (other Interface, Endpoint, and Vendor Specific descriptors if required)
+            */
+
+            let mut it = v.iter();
+
+            let len = it.next().unwrap();
+            assert_eq!(
+                *(it.next().unwrap()),
+                0x02,
+                "Expected Configuration descriptor"
+            );
+            for _ in 0..(len - 2) {
+                it.next().unwrap();
+            }
+
+            let len = it.next().unwrap();
+            assert_eq!(*it.next().unwrap(), 0x04, "Expected Interface descriptor");
+            //todo new test Subclass and Protocol specifying Boot Keyboard
+            for _ in 0..(len - 2) {
+                it.next().unwrap();
+            }
+
+            let len = it.next().unwrap();
+            assert_eq!(*(it.next().unwrap()), 0x21, "Expected HID descriptor");
+            for _ in 0..(len - 2) {
+                it.next().unwrap();
+            }
+
+            while let Some(&len) = it.next() {
+                assert_eq!(*(it.next().unwrap()), 0x05, "Expected Endpoint descriptor");
+
+                for _ in 0..(len - 2) {
+                    it.next().unwrap();
+                }
+            }
+        };
+
+        let usb_bus = TestUsbBus::new(validate_write_data);
+
         let usb_alloc = UsbBusAllocator::new(usb_bus);
-        let usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
+
+        let mut hid = super::HID::new(&usb_alloc, TestHidClass::default());
+
+        let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
             .manufacturer("DLKJ")
             .product("Test Hid Device")
             .serial_number("TEST")
             .device_class(3) // HID - from: https://www.usb.org/defined-class-codes
             .composite_with_iads()
-            .supports_remote_wakeup(true)
+            .max_packet_size_0(8)
             .build();
 
-        let hid = super::HID::new(&usb_alloc, TestHidClass::default());
+        //poll the usb bus
+        for _ in 0..10 {
+            assert!(usb_dev.poll(&mut [&mut hid]));
+        }
     }
 }
