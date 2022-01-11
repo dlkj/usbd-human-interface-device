@@ -1,6 +1,8 @@
 //!Implements HID mouse devices
 pub mod descriptors;
 
+use crate::hid::InterfaceProtocol;
+use crate::hid::InterfaceSubClass;
 use log::warn;
 use usb_device::class_prelude::*;
 use usb_device::Result;
@@ -32,10 +34,16 @@ impl super::hid::HIDClass for HIDBootMouse {
     fn report_descriptor(&self) -> &'static [u8] {
         &descriptors::HID_BOOT_MOUSE_REPORT_DESCRIPTOR
     }
-    fn interface_protocol(&self) -> u8 {
-        super::hid::InterfaceProtocol::Mouse as u8
+    fn interface_sub_class(&self) -> InterfaceSubClass {
+        InterfaceSubClass::Boot
+    }
+    fn interface_protocol(&self) -> InterfaceProtocol {
+        InterfaceProtocol::Mouse
     }
     fn reset(&mut self) {}
+    fn interface_name(&self) -> &str {
+        "Mouse"
+    }
 }
 
 impl<B: UsbBus> HIDMouse for super::hid::HID<'_, B, HIDBootMouse> {
@@ -50,11 +58,7 @@ impl<B: UsbBus> HIDMouse for super::hid::HID<'_, B, HIDBootMouse> {
         match self.write_report(&data) {
             Ok(3) => Ok(()),
             Ok(n) => {
-                warn!(
-                    "interface {:X} sent {:X} bytes, expected 3 byte",
-                    n,
-                    u8::from(self.interface_number()),
-                );
+                warn!("Sent {:X} bytes, expected 3 byte", n,);
                 Ok(())
             }
             Err(e) => Err(e),

@@ -1,6 +1,8 @@
 //!Implements HID keyboard devices
 pub mod descriptors;
 
+use crate::hid::InterfaceProtocol;
+use crate::hid::InterfaceSubClass;
 use log::{error, warn};
 use usb_device::class_prelude::*;
 use usb_device::Result;
@@ -36,18 +38,15 @@ impl super::hid::HIDClass for HIDBootKeyboard {
     fn report_descriptor(&self) -> &'static [u8] {
         &descriptors::HID_BOOT_KEYBOARD_REPORT_DESCRIPTOR
     }
-    fn interface_protocol(&self) -> u8 {
-        super::hid::InterfaceProtocol::Keyboard as u8
+    fn interface_protocol(&self) -> InterfaceProtocol {
+        InterfaceProtocol::Keyboard
+    }
+    fn interface_sub_class(&self) -> InterfaceSubClass {
+        InterfaceSubClass::Boot
     }
     fn reset(&mut self) {}
-}
-
-impl super::hid::HIDProtocolSupport for HIDBootKeyboard {
-    fn set_protocol(&mut self, _: u8) {
-        todo!()
-    }
-    fn get_protocol(&self) -> u8 {
-        todo!()
+    fn interface_name(&self) -> &str {
+        "Keyboard"
     }
 }
 
@@ -88,11 +87,7 @@ impl<B: UsbBus> HIDKeyboard for super::hid::HID<'_, B, HIDBootKeyboard> {
         match self.write_report(&data) {
             Ok(8) => Ok(()),
             Ok(n) => {
-                warn!(
-                    "interface {:X} sent {:X} bytes, expected 8 byte",
-                    n,
-                    u8::from(self.interface_number()),
-                );
+                warn!("sent {:X} bytes, expected 8 byte", n,);
                 Ok(())
             }
             Err(e) => Err(e),
@@ -103,10 +98,7 @@ impl<B: UsbBus> HIDKeyboard for super::hid::HID<'_, B, HIDBootKeyboard> {
         let mut data = [0; 8];
         match self.read_report(&mut data) {
             Ok(0) => {
-                error!(
-                    "interface {:X} received zero length report, expected 1 byte",
-                    u8::from(self.interface_number()),
-                );
+                error!("received zero length report, expected 1 byte",);
                 Err(UsbError::ParseError)
             }
             Ok(_) => Ok(data[0]),
