@@ -337,20 +337,25 @@ mod tests {
 
     struct TestUsbBus<F> {
         next_ep_index: usize,
-        read_data: &'static [u8],
-        write_data: Mutex<RefCell<Vec<u8>>>,
+        read_data: &'static [&'static [u8]],
         write_val: F,
-        processed_read_data: Mutex<RefCell<bool>>,
+        inner: Mutex<RefCell<TestUsbBusInner>>,
+    }
+    struct TestUsbBusInner {
+        next_read_data: usize,
+        write_data: Vec<u8>,
     }
 
     impl<F> TestUsbBus<F> {
-        fn new(read_data: &'static [u8], write_val: F) -> Self {
+        fn new(read_data: &'static [&'static [u8]], write_val: F) -> Self {
             TestUsbBus {
                 next_ep_index: 0,
                 read_data,
-                write_data: Mutex::new(RefCell::new(Vec::new())),
                 write_val,
-                processed_read_data: Mutex::new(RefCell::new(false)),
+                inner: Mutex::new(RefCell::new(TestUsbBusInner {
+                    write_data: Vec::new(),
+                    next_read_data: 0,
+                })),
             }
         }
     }
@@ -380,27 +385,29 @@ mod tests {
             todo!();
         }
         fn write(&self, _ep_addr: EndpointAddress, buf: &[u8]) -> Result<usize> {
-            self.write_data
-                .lock()
-                .unwrap()
-                .borrow_mut()
-                .extend_from_slice(buf);
+            let inner_ref = self.inner.lock().unwrap();
+            let mut inner = inner_ref.borrow_mut();
 
-            if buf.len() < 8 {
+            inner.write_data.extend_from_slice(buf);
+
+            if buf.len() < 8 && !inner.write_data.is_empty() {
                 //if we get less than a full buffer, the write is complete, validate the buffer
-                (self.write_val)(&self.write_data.lock().unwrap().borrow());
+                (self.write_val)(&inner.write_data)
             }
 
             Ok(buf.len())
         }
         fn read(&self, _ep_addr: EndpointAddress, buf: &mut [u8]) -> Result<usize> {
+            let inner_ref = self.inner.lock().unwrap();
+            let mut inner = inner_ref.borrow_mut();
+            let read_data = self.read_data[inner.next_read_data];
             assert!(
-                self.read_data.len() <= 8,
+                read_data.len() <= 8,
                 "test harness doesn't support multi packet reads"
             );
-            buf[..self.read_data.len()].copy_from_slice(self.read_data);
-            *self.processed_read_data.lock().unwrap().borrow_mut() = true;
-            Ok(self.read_data.len())
+            buf[..read_data.len()].copy_from_slice(read_data);
+            inner.next_read_data += 1;
+            Ok(read_data.len())
         }
         fn set_stalled(&self, _ep_addr: EndpointAddress, _stalled: bool) {}
         fn is_stalled(&self, _ep_addr: EndpointAddress) -> bool {
@@ -413,9 +420,11 @@ mod tests {
             todo!();
         }
         fn poll(&self) -> PollResult {
-            if self.write_data.lock().unwrap().borrow().is_empty() {
+            let inner_ref = self.inner.lock().unwrap();
+            let inner = inner_ref.borrow_mut();
+            if inner.write_data.is_empty() {
                 assert!(
-                    !*self.processed_read_data.lock().unwrap().borrow_mut(),
+                    inner.next_read_data < self.read_data.len(),
                     "No data written but all data has been read"
                 );
 
@@ -494,7 +503,7 @@ mod tests {
 
         //todo change to "packed_struct"
         //read a config request for the device config descriptor
-        let read_data = &[
+        let read_data: &[&[u8]] = &[&[
             //direction | request type| recipient
             UsbDirection::In as u8
                 | (control::RequestType::Standard as u8) << 5
@@ -506,7 +515,7 @@ mod tests {
             0x00,                             //index[1]
             0xFF,                             //length[0]
             0xFF,                             //length[1]
-        ];
+        ]];
 
         let usb_bus = TestUsbBus::new(read_data, validate_write_data);
 
@@ -550,8 +559,8 @@ mod tests {
         }
 
         //todo change to "packed_struct"
-        //read a config request for the device config descriptor
-        let read_data = &[
+        //Get protocol
+        let read_data: &[&[u8]] = &[&[
             //direction | request type| recipient
             UsbDirection::In as u8
                 | (control::RequestType::Class as u8) << 5
@@ -563,7 +572,7 @@ mod tests {
             0x00,                          //index[1]
             0x01,                          //length[0]
             0x00,                          //length[1]
-        ];
+        ]];
 
         let validate_write_data = |v: &Vec<u8>| {
             assert_eq!(
@@ -589,6 +598,173 @@ mod tests {
             .build();
 
         //poll the usb bus
+        for _ in 0..10 {
+            assert!(usb_dev.poll(&mut [&mut hid]));
+        }
+    }
+
+    #[test]
+    fn set_protocol() {
+        #[derive(Default)]
+        struct TestHidClass {}
+
+        impl HIDClass for TestHidClass {
+            fn report_descriptor(&self) -> &'static [u8] {
+                &[]
+            }
+            fn interface_name(&self) -> &str {
+                "Test device"
+            }
+            fn interface_protocol(&self) -> InterfaceProtocol {
+                InterfaceProtocol::Keyboard
+            }
+            fn interface_sub_class(&self) -> InterfaceSubClass {
+                InterfaceSubClass::Boot
+            }
+        }
+
+        //todo change to "packed_struct"
+        let read_data: &[&[u8]] = &[
+            //Set protocol to boot
+            &[
+                //direction | request type| recipient
+                UsbDirection::Out as u8
+                    | (control::RequestType::Class as u8) << 5
+                    | control::Recipient::Interface as u8,
+                HIDRequest::SetProtocol as u8, //request
+                0x00,                          //value[0]
+                0x00,                          //value[1]
+                0x00,                          //index[0]
+                0x00,                          //index[1]
+                0x00,                          //length[0]
+                0x00,                          //length[1]
+            ],
+            //Get protocol
+            &[
+                //direction | request type| recipient
+                UsbDirection::In as u8
+                    | (control::RequestType::Class as u8) << 5
+                    | control::Recipient::Interface as u8,
+                HIDRequest::GetProtocol as u8, //request
+                0x00,                          //value[0]
+                0x00,                          //value[1]
+                0x00,                          //index[0]
+                0x00,                          //index[1]
+                0x01,                          //length[0]
+                0x00,                          //length[1]
+            ],
+        ];
+
+        let validate_write_data = |v: &Vec<u8>| {
+            assert_eq!(
+                v[0],
+                HIDProtocol::Boot as u8,
+                "Expected protocol to be Boot"
+            );
+        };
+
+        let usb_bus = TestUsbBus::new(read_data, validate_write_data);
+
+        let usb_alloc = UsbBusAllocator::new(usb_bus);
+
+        let mut hid = HID::new(&usb_alloc, TestHidClass::default());
+
+        let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
+            .manufacturer("DLKJ")
+            .product("Test Hid Device")
+            .serial_number("TEST")
+            .device_class(USB_CLASS_HID)
+            .composite_with_iads()
+            .max_packet_size_0(8)
+            .build();
+
+        //poll the usb bus
+        for _ in 0..10 {
+            assert!(usb_dev.poll(&mut [&mut hid]));
+        }
+    }
+
+    #[test]
+    fn get_protocol_default_post_reset() {
+        #[derive(Default)]
+        struct TestHidClass {}
+
+        impl HIDClass for TestHidClass {
+            fn report_descriptor(&self) -> &'static [u8] {
+                &[]
+            }
+            fn interface_name(&self) -> &str {
+                "Test device"
+            }
+            fn interface_protocol(&self) -> InterfaceProtocol {
+                InterfaceProtocol::Keyboard
+            }
+            fn interface_sub_class(&self) -> InterfaceSubClass {
+                InterfaceSubClass::Boot
+            }
+        }
+
+        //todo change to "packed_struct"
+        let read_data: &[&[u8]] = &[
+            //Set protocol to boot
+            &[
+                //direction | request type| recipient
+                UsbDirection::Out as u8
+                    | (control::RequestType::Class as u8) << 5
+                    | control::Recipient::Interface as u8,
+                HIDRequest::SetProtocol as u8, //request
+                0x00,                          //value[0]
+                0x00,                          //value[1]
+                0x00,                          //index[0]
+                0x00,                          //index[1]
+                0x00,                          //length[0]
+                0x00,                          //length[1]
+            ],
+            //Get protocol
+            &[
+                //direction | request type| recipient
+                UsbDirection::In as u8
+                    | (control::RequestType::Class as u8) << 5
+                    | control::Recipient::Interface as u8,
+                HIDRequest::GetProtocol as u8, //request
+                0x00,                          //value[0]
+                0x00,                          //value[1]
+                0x00,                          //index[0]
+                0x00,                          //index[1]
+                0x01,                          //length[0]
+                0x00,                          //length[1]
+            ],
+        ];
+
+        let validate_write_data = |v: &Vec<u8>| {
+            assert_eq!(
+                v[0],
+                HIDProtocol::Report as u8,
+                "Expected protocol to be Report post reset"
+            );
+        };
+
+        let usb_bus = TestUsbBus::new(read_data, validate_write_data);
+
+        let usb_alloc = UsbBusAllocator::new(usb_bus);
+
+        let mut hid = HID::new(&usb_alloc, TestHidClass::default());
+
+        let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
+            .manufacturer("DLKJ")
+            .product("Test Hid Device")
+            .serial_number("TEST")
+            .device_class(USB_CLASS_HID)
+            .composite_with_iads()
+            .max_packet_size_0(8)
+            .build();
+
+        //poll the usb bus
+        assert!(usb_dev.poll(&mut [&mut hid]));
+
+        //simulate a bus reset after setting protocol to boot
+        hid.reset();
+
         for _ in 0..10 {
             assert!(usb_dev.poll(&mut [&mut hid]));
         }
