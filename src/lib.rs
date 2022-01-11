@@ -1,4 +1,4 @@
-//! USB HID devices
+//! USB Hid devices
 #![no_std]
 extern crate num;
 #[macro_use]

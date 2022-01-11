@@ -1,15 +1,16 @@
-//!Implements HID keyboard devices
+//!Implements Hid keyboard devices
 pub mod descriptors;
 
 use crate::hid::InterfaceProtocol;
 use crate::hid::InterfaceSubClass;
+use crate::hid::UsbHid;
 use log::{error, warn};
 use usb_device::class_prelude::*;
 use usb_device::Result;
 
-/// HIDKeyboard provides an interface to send keycodes to the host device and
+/// HidKeyboard provides an interface to send keycodes to the host device and
 /// receive LED status information
-pub trait HIDKeyboard {
+pub trait HidKeyboard {
     /// Writes an input report given representing keycodes to the host system
     fn write_keycodes<K>(&self, keycodes: K) -> Result<()>
     where
@@ -19,16 +20,16 @@ pub trait HIDKeyboard {
     fn read_leds(&self) -> Result<u8>;
 }
 
-/// Implements a HID Keyboard that conforms to the Boot specification. This aims
+/// Implements a Hid Keyboard that conforms to the Boot specification. This aims
 /// to be compatible with BIOS and other reduced functionality USB hosts
 ///
 /// This is defined in Appendix B.1 of Device Class Definition for Human
-/// Interface Devices (HID) Version 1.11 -
+/// Interface Devices (Hid) Version 1.11 -
 /// https://www.usb.org/sites/default/files/hid1_11.pdf
 #[derive(Default)]
-pub struct HIDBootKeyboard {}
+pub struct HidBootKeyboard {}
 
-impl super::hid::HIDClass for HIDBootKeyboard {
+impl super::hid::HidClass for HidBootKeyboard {
     fn packet_size(&self) -> u8 {
         8
     }
@@ -50,7 +51,7 @@ impl super::hid::HIDClass for HIDBootKeyboard {
     }
 }
 
-impl<B: UsbBus> HIDKeyboard for super::hid::HID<'_, B, HIDBootKeyboard> {
+impl<B: UsbBus> HidKeyboard for UsbHid<'_, B, HidBootKeyboard> {
     fn write_keycodes<K>(&self, keycodes: K) -> core::result::Result<(), usb_device::UsbError>
     where
         K: IntoIterator<Item = u8>,

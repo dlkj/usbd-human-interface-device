@@ -1,30 +1,31 @@
-//!Implements HID mouse devices
+//!Implements Hid mouse devices
 pub mod descriptors;
 
 use crate::hid::InterfaceProtocol;
 use crate::hid::InterfaceSubClass;
+use crate::hid::UsbHid;
 use log::warn;
 use usb_device::class_prelude::*;
 use usb_device::Result;
 
-/// HIDMouse provides an interface to send mouse movement and button presses to
+/// HidMouse provides an interface to send mouse movement and button presses to
 /// the host device
-pub trait HIDMouse {
+pub trait HidMouse {
     /// Writes an input report given representing the update to the mouse state
     /// to the host system
     fn write_mouse(&self, buttons: u8, x: i8, y: i8) -> Result<()>;
 }
 
-/// Implements a HID Mouse that conforms to the Boot specification. This aims
+/// Implements a Hid Mouse that conforms to the Boot specification. This aims
 /// to be compatible with BIOS and other reduced functionality USB hosts
 ///
 /// This is defined in Appendix B.1 of Device Class Definition for Human
-/// Interface Devices (HID) Version 1.11 -
+/// Interface Devices (Hid) Version 1.11 -
 /// https://www.usb.org/sites/default/files/hid1_11.pdf
 #[derive(Default)]
-pub struct HIDBootMouse {}
+pub struct HidBootMouse {}
 
-impl super::hid::HIDClass for HIDBootMouse {
+impl super::hid::HidClass for HidBootMouse {
     fn packet_size(&self) -> u8 {
         8
     }
@@ -46,7 +47,7 @@ impl super::hid::HIDClass for HIDBootMouse {
     }
 }
 
-impl<B: UsbBus> HIDMouse for super::hid::HID<'_, B, HIDBootMouse> {
+impl<B: UsbBus> HidMouse for UsbHid<'_, B, HidBootMouse> {
     fn write_mouse(
         &self,
         buttons: u8,

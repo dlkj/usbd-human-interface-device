@@ -1,4 +1,4 @@
-//!Implements generic HID type
+//!Implements generic UsbHid type representing a USB Human Interface Device
 
 use embedded_time::duration::*;
 use log::{error, info, trace};
@@ -6,12 +6,12 @@ use usb_device::class_prelude::*;
 use usb_device::Result;
 
 const USB_CLASS_HID: u8 = 0x03;
-const HID_CLASS_SPEC_1_11: [u8; 2] = [0x11, 0x01]; //1.11 in BCD
-const HID_COUNTRY_CODE_NOT_SUPPORTED: u8 = 0x0;
+const SPEC_VERSION_1_11: [u8; 2] = [0x11, 0x01]; //1.11 in BCD
+const COUNTRY_CODE_NOT_SUPPORTED: u8 = 0x0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, FromPrimitive)]
 #[repr(u8)]
-pub enum HIDRequest {
+pub enum Request {
     GetReport = 0x01,
     GetIdle = 0x02,
     GetProtocol = 0x03,
@@ -30,7 +30,7 @@ pub enum InterfaceProtocol {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, FromPrimitive)]
 #[repr(u8)]
-pub enum HIDDescriptorType {
+pub enum DescriptorType {
     Hid = 0x21,
     Report = 0x22,
 }
@@ -44,12 +44,12 @@ pub enum InterfaceSubClass {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, FromPrimitive)]
 #[repr(u8)]
-pub enum HIDProtocol {
+pub enum HidProtocol {
     Boot = 0x00,
     Report = 0x01,
 }
 
-pub trait HIDClass {
+pub trait HidClass {
     fn packet_size(&self) -> u8 {
         8
     }
@@ -66,30 +66,30 @@ pub trait HIDClass {
         InterfaceSubClass::None
     }
     fn interface_name(&self) -> &str;
-    fn set_protocol(&mut self, protocol: HIDProtocol) {
+    fn set_protocol(&mut self, protocol: HidProtocol) {
         let _ = protocol;
     }
     fn reset(&mut self) {}
 }
 
-/// Implements the generic HID Device
-pub struct HID<'a, B: UsbBus, C: HIDClass> {
+/// Implements the generic Hid Device
+pub struct UsbHid<'a, B: UsbBus, C: HidClass> {
     hid_class: C,
     interface_number: InterfaceNumber,
     out_endpoint: EndpointOut<'a, B>,
     in_endpoint: EndpointIn<'a, B>,
     string_index: StringIndex,
-    protocol: HIDProtocol,
+    protocol: HidProtocol,
 }
 
-impl<B: UsbBus, C: HIDClass> HID<'_, B, C> {
-    pub fn new(usb_alloc: &'_ UsbBusAllocator<B>, hid_class: C) -> HID<'_, B, C> {
+impl<B: UsbBus, C: HidClass> UsbHid<'_, B, C> {
+    pub fn new(usb_alloc: &'_ UsbBusAllocator<B>, hid_class: C) -> UsbHid<'_, B, C> {
         let interval_ms = hid_class.poll_interval().integer() as u8;
         let interface_number = usb_alloc.interface();
 
         info!("Assigned interface {:X}", u8::from(interface_number));
 
-        HID {
+        UsbHid {
             hid_class,
             interface_number,
             //todo make packet size configurable
@@ -98,7 +98,7 @@ impl<B: UsbBus, C: HIDClass> HID<'_, B, C> {
             out_endpoint: usb_alloc.interrupt(8, interval_ms),
             in_endpoint: usb_alloc.interrupt(8, interval_ms),
             string_index: usb_alloc.string(),
-            protocol: HIDProtocol::Report, //When initialized, all devices default to report protocol - HID spec 7.2.6 Set_Protocol Request
+            protocol: HidProtocol::Report, //When initialized, all devices default to report protocol - Hid spec 7.2.6 Set_Protocol Request
         }
     }
 
@@ -114,22 +114,22 @@ impl<B: UsbBus, C: HIDClass> HID<'_, B, C> {
             Err(UsbError::InvalidState)
         } else {
             Ok([
-                HID_CLASS_SPEC_1_11[0], //HID Class spec version 1.10 (BCD)
-                HID_CLASS_SPEC_1_11[1],
-                HID_COUNTRY_CODE_NOT_SUPPORTED, //Country code 0 - not supported
-                1,                              //Num descriptors
-                HIDDescriptorType::Report as u8, //Class descriptor type is report
-                (descriptor_len & 0xFF) as u8,  //Descriptor length
+                SPEC_VERSION_1_11[0], //Hid Class spec version 1.10 (BCD)
+                SPEC_VERSION_1_11[1],
+                COUNTRY_CODE_NOT_SUPPORTED, //Country code 0 - not supported
+                1,                          //Num descriptors
+                DescriptorType::Report as u8, //Class descriptor type is report
+                (descriptor_len & 0xFF) as u8, //Descriptor length
                 (descriptor_len >> 8 & 0xFF) as u8,
             ])
         }
     }
 
-    pub fn protocol(&self) -> HIDProtocol {
+    pub fn protocol(&self) -> HidProtocol {
         self.protocol
     }
 
-    fn set_protocol(&mut self, protocol: HIDProtocol) {
+    fn set_protocol(&mut self, protocol: HidProtocol) {
         self.protocol = protocol;
         self.hid_class.set_protocol(protocol);
     }
@@ -145,7 +145,7 @@ impl<B: UsbBus, C: HIDClass> HID<'_, B, C> {
     fn control_in_get_descriptors(&mut self, transfer: ControlIn<B>) {
         let request: &control::Request = transfer.request();
         match num::FromPrimitive::from_u16(request.value >> 8) {
-            Some(HIDDescriptorType::Report) => {
+            Some(DescriptorType::Report) => {
                 transfer
                     .accept_with_static(self.hid_class.report_descriptor())
                     .unwrap_or_else(|e| {
@@ -156,10 +156,10 @@ impl<B: UsbBus, C: HIDClass> HID<'_, B, C> {
                         )
                     });
             }
-            Some(HIDDescriptorType::Hid) => match self.hid_descriptor() {
+            Some(DescriptorType::Hid) => match self.hid_descriptor() {
                 Err(e) => {
                     error!(
-                        "interface {:X} - Failed to generate HID descriptor - {:?}",
+                        "interface {:X} - Failed to generate Hid descriptor - {:?}",
                         u8::from(self.interface_number),
                         e
                     );
@@ -168,11 +168,11 @@ impl<B: UsbBus, C: HIDClass> HID<'_, B, C> {
                 Ok(hid_descriptor) => {
                     let mut buffer = [0; 9];
                     buffer[0] = buffer.len() as u8;
-                    buffer[1] = HIDDescriptorType::Hid as u8;
+                    buffer[1] = DescriptorType::Hid as u8;
                     (&mut buffer[2..]).copy_from_slice(&hid_descriptor);
                     transfer.accept_with(&buffer).unwrap_or_else(|e| {
                         error!(
-                            "interface {:X} - Failed to send HID descriptor - {:?}",
+                            "interface {:X} - Failed to send Hid descriptor - {:?}",
                             u8::from(self.interface_number),
                             e
                         );
@@ -192,7 +192,7 @@ impl<B: UsbBus, C: HIDClass> HID<'_, B, C> {
     }
 }
 
-impl<B: UsbBus, C: HIDClass> UsbClass<B> for HID<'_, B, C> {
+impl<B: UsbBus, C: HidClass> UsbClass<B> for UsbHid<'_, B, C> {
     fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
         writer.interface_alt(
             self.interface_number,
@@ -203,8 +203,8 @@ impl<B: UsbBus, C: HIDClass> UsbClass<B> for HID<'_, B, C> {
             Some(self.string_index),
         )?;
 
-        //HID descriptor
-        writer.write(HIDDescriptorType::Hid as u8, &self.hid_descriptor()?)?;
+        //Hid descriptor
+        writer.write(DescriptorType::Hid as u8, &self.hid_descriptor()?)?;
 
         //Endpoint descriptors
         writer.endpoint(&self.out_endpoint)?;
@@ -245,14 +245,14 @@ impl<B: UsbBus, C: HIDClass> UsbClass<B> for HID<'_, B, C> {
 
             control::RequestType::Class => {
                 match num::FromPrimitive::from_u8(request.request) {
-                    Some(HIDRequest::GetReport) => {
+                    Some(Request::GetReport) => {
                         // Not supported - data reports handled via interrupt endpoints
                         transfer.reject().ok(); // Not supported
                     }
-                    Some(HIDRequest::GetIdle) => {
+                    Some(Request::GetIdle) => {
                         transfer.reject().ok(); // Not supported
                     }
-                    Some(HIDRequest::GetProtocol) => {
+                    Some(Request::GetProtocol) => {
                         let data = [self.protocol as u8];
                         transfer
                             .accept_with(&data)
@@ -290,14 +290,14 @@ impl<B: UsbBus, C: HIDClass> UsbClass<B> for HID<'_, B, C> {
         );
 
         match num::FromPrimitive::from_u8(request.request) {
-            Some(HIDRequest::SetIdle) => {
+            Some(Request::SetIdle) => {
                 transfer.accept().ok(); //Not supported
             }
-            Some(HIDRequest::SetReport) => {
+            Some(Request::SetReport) => {
                 // Not supported - data reports handled via interrupt endpoints
                 transfer.reject().ok();
             }
-            Some(HIDRequest::SetProtocol) => {
+            Some(Request::SetProtocol) => {
                 if let Some(protocol) = num::FromPrimitive::from_u16(request.value) {
                     self.set_protocol(protocol);
                     transfer.accept().ok();
@@ -320,14 +320,14 @@ impl<B: UsbBus, C: HIDClass> UsbClass<B> for HID<'_, B, C> {
     }
 
     fn reset(&mut self) {
-        self.set_protocol(HIDProtocol::Report);
+        self.set_protocol(HidProtocol::Report);
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::hid::HIDClass;
+    use crate::hid::HidClass;
     use std::cell::RefCell;
     use std::sync::Mutex;
     use std::vec::Vec;
@@ -448,7 +448,7 @@ mod tests {
         #[derive(Default)]
         struct TestHidClass {}
 
-        impl HIDClass for TestHidClass {
+        impl HidClass for TestHidClass {
             fn report_descriptor(&self) -> &'static [u8] {
                 &[]
             }
@@ -462,8 +462,8 @@ mod tests {
               Expected descriptor order (https://www.usb.org/sites/default/files/hid1_11.pdf Appendix F.3):
               Configuration descriptor (other Interface, Endpoint, and Vendor Specific descriptors if required)
                 Interface descriptor (with Subclass and Protocol specifying Boot Keyboard)
-                    HID descriptor (associated with this Interface)
-                    Endpoint descriptor (HID Interrupt In Endpoint)
+                    Hid descriptor (associated with this Interface)
+                    Endpoint descriptor (Hid Interrupt In Endpoint)
                         (other Interface, Endpoint, and Vendor Specific descriptors if required)
             */
 
@@ -487,7 +487,7 @@ mod tests {
             }
 
             let len = it.next().unwrap();
-            assert_eq!(*(it.next().unwrap()), 0x21, "Expected HID descriptor");
+            assert_eq!(*(it.next().unwrap()), 0x21, "Expected Hid descriptor");
             for _ in 0..(len - 2) {
                 it.next().unwrap();
             }
@@ -521,7 +521,7 @@ mod tests {
 
         let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-        let mut hid = HID::new(&usb_alloc, TestHidClass::default());
+        let mut hid = UsbHid::new(&usb_alloc, TestHidClass::default());
 
         let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
             .manufacturer("DLKJ")
@@ -543,7 +543,7 @@ mod tests {
         #[derive(Default)]
         struct TestHidClass {}
 
-        impl HIDClass for TestHidClass {
+        impl HidClass for TestHidClass {
             fn report_descriptor(&self) -> &'static [u8] {
                 &[]
             }
@@ -565,19 +565,19 @@ mod tests {
             UsbDirection::In as u8
                 | (control::RequestType::Class as u8) << 5
                 | control::Recipient::Interface as u8,
-            HIDRequest::GetProtocol as u8, //request
-            0x00,                          //value[0]
-            0x00,                          //value[1]
-            0x00,                          //index[0]
-            0x00,                          //index[1]
-            0x01,                          //length[0]
-            0x00,                          //length[1]
+            Request::GetProtocol as u8, //request
+            0x00,                       //value[0]
+            0x00,                       //value[1]
+            0x00,                       //index[0]
+            0x00,                       //index[1]
+            0x01,                       //length[0]
+            0x00,                       //length[1]
         ]];
 
         let validate_write_data = |v: &Vec<u8>| {
             assert_eq!(
                 v[0],
-                HIDProtocol::Report as u8,
+                HidProtocol::Report as u8,
                 "Expected protocol to be Report by default"
             );
         };
@@ -586,7 +586,7 @@ mod tests {
 
         let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-        let mut hid = HID::new(&usb_alloc, TestHidClass::default());
+        let mut hid = UsbHid::new(&usb_alloc, TestHidClass::default());
 
         let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
             .manufacturer("DLKJ")
@@ -608,7 +608,7 @@ mod tests {
         #[derive(Default)]
         struct TestHidClass {}
 
-        impl HIDClass for TestHidClass {
+        impl HidClass for TestHidClass {
             fn report_descriptor(&self) -> &'static [u8] {
                 &[]
             }
@@ -631,13 +631,13 @@ mod tests {
                 UsbDirection::Out as u8
                     | (control::RequestType::Class as u8) << 5
                     | control::Recipient::Interface as u8,
-                HIDRequest::SetProtocol as u8, //request
-                0x00,                          //value[0]
-                0x00,                          //value[1]
-                0x00,                          //index[0]
-                0x00,                          //index[1]
-                0x00,                          //length[0]
-                0x00,                          //length[1]
+                Request::SetProtocol as u8, //request
+                0x00,                       //value[0]
+                0x00,                       //value[1]
+                0x00,                       //index[0]
+                0x00,                       //index[1]
+                0x00,                       //length[0]
+                0x00,                       //length[1]
             ],
             //Get protocol
             &[
@@ -645,20 +645,20 @@ mod tests {
                 UsbDirection::In as u8
                     | (control::RequestType::Class as u8) << 5
                     | control::Recipient::Interface as u8,
-                HIDRequest::GetProtocol as u8, //request
-                0x00,                          //value[0]
-                0x00,                          //value[1]
-                0x00,                          //index[0]
-                0x00,                          //index[1]
-                0x01,                          //length[0]
-                0x00,                          //length[1]
+                Request::GetProtocol as u8, //request
+                0x00,                       //value[0]
+                0x00,                       //value[1]
+                0x00,                       //index[0]
+                0x00,                       //index[1]
+                0x01,                       //length[0]
+                0x00,                       //length[1]
             ],
         ];
 
         let validate_write_data = |v: &Vec<u8>| {
             assert_eq!(
                 v[0],
-                HIDProtocol::Boot as u8,
+                HidProtocol::Boot as u8,
                 "Expected protocol to be Boot"
             );
         };
@@ -667,7 +667,7 @@ mod tests {
 
         let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-        let mut hid = HID::new(&usb_alloc, TestHidClass::default());
+        let mut hid = UsbHid::new(&usb_alloc, TestHidClass::default());
 
         let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
             .manufacturer("DLKJ")
@@ -689,7 +689,7 @@ mod tests {
         #[derive(Default)]
         struct TestHidClass {}
 
-        impl HIDClass for TestHidClass {
+        impl HidClass for TestHidClass {
             fn report_descriptor(&self) -> &'static [u8] {
                 &[]
             }
@@ -712,13 +712,13 @@ mod tests {
                 UsbDirection::Out as u8
                     | (control::RequestType::Class as u8) << 5
                     | control::Recipient::Interface as u8,
-                HIDRequest::SetProtocol as u8, //request
-                0x00,                          //value[0]
-                0x00,                          //value[1]
-                0x00,                          //index[0]
-                0x00,                          //index[1]
-                0x00,                          //length[0]
-                0x00,                          //length[1]
+                Request::SetProtocol as u8, //request
+                0x00,                       //value[0]
+                0x00,                       //value[1]
+                0x00,                       //index[0]
+                0x00,                       //index[1]
+                0x00,                       //length[0]
+                0x00,                       //length[1]
             ],
             //Get protocol
             &[
@@ -726,20 +726,20 @@ mod tests {
                 UsbDirection::In as u8
                     | (control::RequestType::Class as u8) << 5
                     | control::Recipient::Interface as u8,
-                HIDRequest::GetProtocol as u8, //request
-                0x00,                          //value[0]
-                0x00,                          //value[1]
-                0x00,                          //index[0]
-                0x00,                          //index[1]
-                0x01,                          //length[0]
-                0x00,                          //length[1]
+                Request::GetProtocol as u8, //request
+                0x00,                       //value[0]
+                0x00,                       //value[1]
+                0x00,                       //index[0]
+                0x00,                       //index[1]
+                0x01,                       //length[0]
+                0x00,                       //length[1]
             ],
         ];
 
         let validate_write_data = |v: &Vec<u8>| {
             assert_eq!(
                 v[0],
-                HIDProtocol::Report as u8,
+                HidProtocol::Report as u8,
                 "Expected protocol to be Report post reset"
             );
         };
@@ -748,7 +748,7 @@ mod tests {
 
         let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-        let mut hid = HID::new(&usb_alloc, TestHidClass::default());
+        let mut hid = UsbHid::new(&usb_alloc, TestHidClass::default());
 
         let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
             .manufacturer("DLKJ")
