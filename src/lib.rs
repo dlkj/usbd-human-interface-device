@@ -1,5 +1,8 @@
 //! USB HID devices
 #![no_std]
+extern crate num;
+#[macro_use]
+extern crate num_derive;
 
 //Allow the use of std in tests
 #[cfg(test)]

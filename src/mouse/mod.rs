@@ -32,6 +32,10 @@ impl super::hid::HIDClass for HIDBootMouse {
     fn report_descriptor(&self) -> &'static [u8] {
         &descriptors::HID_BOOT_MOUSE_REPORT_DESCRIPTOR
     }
+    fn interface_protocol(&self) -> u8 {
+        super::hid::InterfaceProtocol::Mouse as u8
+    }
+    fn reset(&mut self) {}
 }
 
 impl<B: UsbBus> HIDMouse for super::hid::HID<'_, B, HIDBootMouse> {

@@ -36,6 +36,19 @@ impl super::hid::HIDClass for HIDBootKeyboard {
     fn report_descriptor(&self) -> &'static [u8] {
         &descriptors::HID_BOOT_KEYBOARD_REPORT_DESCRIPTOR
     }
+    fn interface_protocol(&self) -> u8 {
+        super::hid::InterfaceProtocol::Keyboard as u8
+    }
+    fn reset(&mut self) {}
+}
+
+impl super::hid::HIDProtocolSupport for HIDBootKeyboard {
+    fn set_protocol(&mut self, _: u8) {
+        todo!()
+    }
+    fn get_protocol(&self) -> u8 {
+        todo!()
+    }
 }
 
 impl<B: UsbBus> HIDKeyboard for super::hid::HID<'_, B, HIDBootKeyboard> {

@@ -9,20 +9,26 @@ const USB_CLASS_HID: u8 = 0x03;
 const HID_CLASS_SPEC_1_11: [u8; 2] = [0x11, 0x01]; //1.11 in BCD
 const HID_COUNTRY_CODE_NOT_SUPPORTED: u8 = 0x0;
 
-const HID_REQ_SET_IDLE: u8 = 0x0a;
-const HID_REQ_GET_IDLE: u8 = 0x02;
-const HID_REQ_GET_REPORT: u8 = 0x01;
-const HID_REQ_SET_REPORT: u8 = 0x09;
+#[derive(Clone, Copy, Debug, PartialEq, Eq, FromPrimitive)]
+#[repr(u8)]
+pub enum HIDRequest {
+    GetReport = 0x1,
+    GetIdle = 0x2,
+    GetProtocol = 0x3,
+    SetReport = 0x9,
+    SetIdle = 0xA,
+    SetProtocol = 0xB,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
-pub enum HIDProtocol {
+pub enum InterfaceProtocol {
     None = 0x00,
     Keyboard = 0x01,
-    _Mouse = 0x02,
+    Mouse = 0x02,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, FromPrimitive)]
 #[repr(u8)]
 pub enum HIDDescriptorType {
     Hid = 0x21,
@@ -31,7 +37,7 @@ pub enum HIDDescriptorType {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
-pub enum HIDSubclass {
+pub enum InterfaceSubClass {
     None = 0x00,
     Boot = 0x01,
 }
@@ -40,6 +46,16 @@ pub trait HIDClass {
     fn packet_size(&self) -> u8;
     fn poll_interval(&self) -> Milliseconds;
     fn report_descriptor(&self) -> &'static [u8];
+    //todo lift interface protocol up to type-level
+    fn interface_protocol(&self) -> u8;
+    fn reset(&mut self);
+}
+
+//pub struct HIDProtocol(bool);
+
+pub trait HIDProtocolSupport {
+    fn get_protocol(&self) -> u8;
+    fn set_protocol(&mut self, protocol: u8);
 }
 
 /// Implements the generic HID Device
@@ -102,6 +118,66 @@ impl<B: UsbBus, C: HIDClass> HID<'_, B, C> {
     pub fn read_report(&self, data: &mut [u8]) -> Result<usize> {
         self.out_endpoint.read(data)
     }
+
+    fn control_in_get_descriptors(&mut self, transfer: ControlIn<B>) {
+        let request: &control::Request = transfer.request();
+        match num::FromPrimitive::from_u16(request.value >> 8) {
+            Some(HIDDescriptorType::Report) => {
+                debug!(
+                    "interface {:X} - get report descriptor",
+                    u8::from(self.interface_number)
+                );
+
+                transfer
+                    .accept_with_static(self.hid_class.report_descriptor())
+                    .unwrap_or_else(|e| {
+                        error!(
+                            "interface {:X} - Failed to send report descriptor - {:?}",
+                            u8::from(self.interface_number),
+                            e
+                        )
+                    });
+            }
+            Some(HIDDescriptorType::Hid) => {
+                debug!(
+                    "interface {:X} - get hid descriptor",
+                    u8::from(self.interface_number)
+                );
+                match self.hid_descriptor() {
+                    Err(e) => {
+                        error!(
+                            "interface {:X} - Failed to generate HID descriptor - {:?}",
+                            u8::from(self.interface_number),
+                            e
+                        );
+                        transfer.reject().ok();
+                    }
+                    Ok(hid_descriptor) => {
+                        let mut buffer = [0; 9];
+                        buffer[0] = buffer.len() as u8;
+                        buffer[1] = HIDDescriptorType::Hid as u8;
+                        (&mut buffer[2..]).copy_from_slice(&hid_descriptor);
+                        transfer.accept_with(&buffer).unwrap_or_else(|e| {
+                            error!(
+                                "interface {:X} - Failed to send HID descriptor - {:?}",
+                                u8::from(self.interface_number),
+                                e
+                            );
+                        });
+                    }
+                }
+            }
+            _ => {
+                trace!(
+                    "interface {:X} - unsupported - request type: {:?}, request: {:X}, value: {:X}",
+                    u8::from(self.interface_number),
+                    request.request_type,
+                    request.request,
+                    request.value
+                );
+            }
+        }
+    }
 }
 
 impl<B: UsbBus, C: HIDClass> UsbClass<B> for HID<'_, B, C> {
@@ -115,8 +191,8 @@ impl<B: UsbBus, C: HIDClass> UsbClass<B> for HID<'_, B, C> {
             self.interface_number,
             usb_device::device::DEFAULT_ALTERNATE_SETTING,
             USB_CLASS_HID,
-            HIDSubclass::Boot as u8,
-            HIDProtocol::Keyboard as u8,
+            InterfaceSubClass::Boot as u8, //todo should be set by class
+            self.hid_class.interface_protocol(),
             Some(self.string_index),
         )?;
 
@@ -156,99 +232,50 @@ impl<B: UsbBus, C: HIDClass> UsbClass<B> for HID<'_, B, C> {
             request.value
         );
 
-        match (request.request_type, request.request) {
-            (control::RequestType::Standard, control::Request::GET_DESCRIPTOR) => {
-                let request_value = (request.value >> 8) as u8;
-
-                if request_value == HIDDescriptorType::Report as u8 {
-                    debug!(
-                        "interface {:X} - get report descriptor",
-                        u8::from(self.interface_number)
-                    );
-
-                    transfer
-                        .accept_with_static(self.hid_class.report_descriptor())
-                        .unwrap_or_else(|e| {
-                            error!(
-                                "interface {:X} - Failed to send report descriptor - {:?}",
-                                u8::from(self.interface_number),
-                                e
-                            )
-                        });
-                } else if request_value == HIDDescriptorType::Hid as u8 {
-                    debug!(
-                        "interface {:X} - get hid descriptor",
-                        u8::from(self.interface_number)
-                    );
-                    match self.hid_descriptor() {
-                        Err(e) => {
-                            error!(
-                                "interface {:X} - Failed to generate HID descriptor - {:?}",
-                                u8::from(self.interface_number),
-                                e
-                            );
-                            transfer.reject().ok();
-                        }
-                        Ok(hid_descriptor) => {
-                            let mut buffer = [0; 9];
-                            buffer[0] = buffer.len() as u8;
-                            buffer[1] = HIDDescriptorType::Hid as u8;
-                            (&mut buffer[2..]).copy_from_slice(&hid_descriptor);
-                            transfer.accept_with(&buffer).unwrap_or_else(|e| {
-                                error!(
-                                    "interface {:X} - Failed to send HID descriptor - {:?}",
-                                    u8::from(self.interface_number),
-                                    e
-                                );
-                            });
-                        }
-                    }
-                } else {
-                    trace!(
-                        "interface {:X} - unsupported - request type: {:?}, request: {:X}, value: {:X}",
-                        u8::from(self.interface_number),
-                        request.request_type,
-                        request.request,
-                        request.value
-                    );
+        match request.request_type {
+            control::RequestType::Standard => {
+                if request.request == control::Request::GET_DESCRIPTOR {
+                    self.control_in_get_descriptors(transfer);
                 }
             }
-            (control::RequestType::Standard, _) => {
-                // We shouldn't handle any other standard requests, leave for
-                // [`UsbDevice`](crate::device::UsbDevice) to handle
-            }
-            (control::RequestType::Class, HID_REQ_GET_REPORT) => {
-                trace!(
-                    "interface {:X} - unsupported - request type: {:?}, request: {:X}, value: {:X}",
-                    u8::from(self.interface_number),
-                    request.request_type,
-                    request.request,
-                    request.value
-                );
 
-                // Not supported - data reports handled via interrupt endpoints
-                transfer.reject().ok(); // Not supported
+            control::RequestType::Class => {
+                match num::FromPrimitive::from_u8(request.request) {
+                    Some(HIDRequest::GetReport) => {
+                        trace!(
+                            "interface {:X} - unsupported - request type: {:?}, request: {:X}, value: {:X}",
+                            u8::from(self.interface_number),
+                            request.request_type,
+                            request.request,
+                            request.value
+                        );
+
+                        // Not supported - data reports handled via interrupt endpoints
+                        transfer.reject().ok(); // Not supported
+                    }
+                    Some(HIDRequest::GetIdle) => {
+                        trace!(
+                            "interface {:X} - unsupported - request type: {:?}, request: {:X}, value: {:X}",
+                            u8::from(self.interface_number),
+                            request.request_type,
+                            request.request,
+                            request.value
+                        );
+                        transfer.reject().ok(); // Not supported
+                    }
+                    _ => {
+                        trace!(
+                            "interface {:X} - unsupported - request type: {:?}, request: {:X}, value: {:X}",
+                            u8::from(self.interface_number),
+                            request.request_type,
+                            request.request,
+                            request.value
+                        );
+                        transfer.reject().ok(); // Not supported
+                    }
+                }
             }
-            (control::RequestType::Class, HID_REQ_GET_IDLE) => {
-                trace!(
-                    "interface {:X} - unsupported - request type: {:?}, request: {:X}, value: {:X}",
-                    u8::from(self.interface_number),
-                    request.request_type,
-                    request.request,
-                    request.value
-                );
-                transfer.reject().ok(); // Not supported
-            }
-            _ => {
-                trace!(
-                    "interface {:X} - unsupported - request type: {:?}, request: {:X}, value: {:X}",
-                    u8::from(self.interface_number),
-                    request.request_type,
-                    request.request,
-                    request.value
-                );
-                transfer.reject().ok(); // Not supported
-            }
+            _ => {}
         }
     }
 
@@ -271,8 +298,8 @@ impl<B: UsbBus, C: HIDClass> UsbClass<B> for HID<'_, B, C> {
             request.value
         );
 
-        match request.request {
-            HID_REQ_SET_IDLE => {
+        match num::FromPrimitive::from_u8(request.request) {
+            Some(HIDRequest::SetIdle) => {
                 trace!(
                     "interface {:X} - unsupported - request type: {:?}, request: {:X}, value: {:X}",
                     u8::from(self.interface_number),
@@ -282,7 +309,7 @@ impl<B: UsbBus, C: HIDClass> UsbClass<B> for HID<'_, B, C> {
                 );
                 transfer.accept().ok(); //Not supported
             }
-            HID_REQ_SET_REPORT => {
+            Some(HIDRequest::SetReport) => {
                 trace!(
                     "interface {:X} - unsupported - request type: {:?}, request: {:X}, value: {:X}",
                     u8::from(self.interface_number),
@@ -310,13 +337,13 @@ impl<B: UsbBus, C: HIDClass> UsbClass<B> for HID<'_, B, C> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::hid::HIDClass;
     use embedded_time::duration::Milliseconds;
     use std::cell::RefCell;
     use std::sync::Mutex;
     use std::vec::Vec;
     use usb_device::bus::*;
-    use usb_device::class_prelude::*;
     use usb_device::prelude::*;
     use usb_device::*;
 
@@ -331,14 +358,14 @@ mod tests {
             TestUsbBus {
                 next_ep_index: 0,
                 write_data: Mutex::new(RefCell::new(Vec::new())),
-                write_val: write_val,
+                write_val,
             }
         }
     }
 
     impl<F> UsbBus for TestUsbBus<F>
     where
-        F: core::marker::Sync + Fn(&Vec<u8>) -> (),
+        F: core::marker::Sync + Fn(&Vec<u8>),
     {
         fn alloc_ep(
             &mut self,
@@ -434,6 +461,10 @@ mod tests {
             fn report_descriptor(&self) -> &'static [u8] {
                 &[]
             }
+            fn interface_protocol(&self) -> u8 {
+                InterfaceProtocol::None as u8
+            }
+            fn reset(&mut self) {}
         }
 
         let validate_write_data = |v: &Vec<u8>| {
@@ -484,7 +515,7 @@ mod tests {
 
         let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-        let mut hid = super::HID::new(&usb_alloc, TestHidClass::default());
+        let mut hid = HID::new(&usb_alloc, TestHidClass::default());
 
         let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
             .manufacturer("DLKJ")
