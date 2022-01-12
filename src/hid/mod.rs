@@ -103,14 +103,15 @@ pub struct UsbHidClass<'a, B: UsbBus, C: HidConfig> {
     in_endpoint: EndpointIn<'a, B>,
     string_index: StringIndex,
     protocol: HidProtocol,
-    idle: u8,
+    global_idle: u8,
+    report_idle: heapless::FnvIndexMap<u8, u8, 32>,
 }
 
 impl<B: UsbBus, C: HidConfig> UsbHidClass<'_, B, C> {
     pub fn new(usb_alloc: &'_ UsbBusAllocator<B>, hid_class: C) -> UsbHidClass<'_, B, C> {
         let interval_ms = hid_class.poll_interval().integer() as u8;
         let interface_number = usb_alloc.interface();
-        let idle = (hid_class.idle_default().integer() / 4) as u8;
+        let global_idle = (hid_class.idle_default().integer() / 4) as u8;
 
         UsbHidClass {
             hid_class,
@@ -122,7 +123,8 @@ impl<B: UsbBus, C: HidConfig> UsbHidClass<'_, B, C> {
             in_endpoint: usb_alloc.interrupt(8, interval_ms),
             string_index: usb_alloc.string(),
             protocol: HidProtocol::Report, //When initialized, all devices default to report protocol - Hid spec 7.2.6 Set_Protocol Request
-            idle,
+            global_idle,
+            report_idle: heapless::FnvIndexMap::new(),
         }
     }
 
@@ -159,8 +161,18 @@ impl<B: UsbBus, C: HidConfig> UsbHidClass<'_, B, C> {
         self.protocol
     }
 
-    pub fn idle(&self) -> Milliseconds {
-        Milliseconds((self.idle as u32) * 4)
+    pub fn global_idle(&self) -> Milliseconds {
+        Milliseconds((self.global_idle as u32) * 4)
+    }
+
+    pub fn report_idle(&self, report_id: u8) -> Option<Milliseconds> {
+        if report_id == 0 {
+            None
+        } else {
+            self.report_idle
+                .get(&report_id)
+                .map(|&i| Milliseconds((i as u32) * 4))
+        }
     }
 
     pub fn write_report(&self, data: &[u8]) -> Result<usize> {
@@ -175,9 +187,12 @@ impl<B: UsbBus, C: HidConfig> UsbHidClass<'_, B, C> {
         let request: &control::Request = transfer.request();
         match DescriptorType::from_primitive((request.value >> 8) as u8) {
             Some(DescriptorType::Report) => {
-                transfer
-                    .accept_with_static(self.hid_class.report_descriptor())
-                    .unwrap_or_else(|e| error!("Failed to send report descriptor - {:?}", e));
+                match transfer.accept_with_static(self.hid_class.report_descriptor()) {
+                    Err(e) => error!("Failed to send report descriptor - {:?}", e),
+                    Ok(_) => {
+                        trace!("Sent report descriptor")
+                    }
+                }
             }
             Some(DescriptorType::Hid) => match self.hid_descriptor() {
                 Err(e) => {
@@ -189,9 +204,14 @@ impl<B: UsbBus, C: HidConfig> UsbHidClass<'_, B, C> {
                     buffer[0] = buffer.len() as u8;
                     buffer[1] = DescriptorType::Hid as u8;
                     (&mut buffer[2..]).copy_from_slice(&hid_descriptor);
-                    transfer.accept_with(&buffer).unwrap_or_else(|e| {
-                        error!("Failed to send Hid descriptor - {:?}", e);
-                    });
+                    match transfer.accept_with(&buffer) {
+                        Err(e) => {
+                            error!("Failed to send Hid descriptor - {:?}", e);
+                        }
+                        Ok(_) => {
+                            trace!("Sent hid descriptor")
+                        }
+                    }
                 }
             },
             _ => {
@@ -258,6 +278,7 @@ impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
             control::RequestType::Class => {
                 match Request::from_primitive(request.request) {
                     Some(Request::GetReport) => {
+                        warn!("Rejected get report - unsupported");
                         // Not supported - data reports handled via interrupt endpoints
                         transfer.reject().ok();
                     }
@@ -269,9 +290,21 @@ impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
                             );
                         }
 
-                        transfer
-                            .accept_with(&[self.idle])
-                            .unwrap_or_else(|e| error!("Failed to send idle data - {:?}", e));
+                        let report_id = (request.value & 0xFF) as u8;
+
+                        let idle = if report_id == 0 {
+                            self.global_idle
+                        } else {
+                            *self
+                                .report_idle
+                                .get(&report_id)
+                                .unwrap_or(&self.global_idle)
+                        };
+
+                        match transfer.accept_with(&[idle]) {
+                            Err(e) => error!("Failed to send idle data - {:?}", e),
+                            Ok(_) => trace!("Sent idle for {:X}: {:X}", report_id, idle),
+                        }
                     }
                     Some(Request::GetProtocol) => {
                         if request.length != 1 {
@@ -281,9 +314,10 @@ impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
                             );
                         }
 
-                        transfer
-                            .accept_with(&[self.protocol as u8])
-                            .unwrap_or_else(|e| error!("Failed to send protocol data - {:?}", e));
+                        match transfer.accept_with(&[self.protocol as u8]) {
+                            Err(e) => error!("Failed to send protocol data - {:?}", e),
+                            Ok(_) => trace!("Sent protocol: {:?}", self.protocol),
+                        }
                     }
                     _ => {
                         error!(
@@ -324,12 +358,32 @@ impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
                         request.length
                     );
                 }
-                if request.value & 0xFF == 0 {
-                    self.idle = (request.value >> 8) as u8;
+
+                let idle = (request.value >> 8) as u8;
+                let report_id = (request.value & 0xFF) as u8;
+                if report_id == 0 {
+                    self.global_idle = idle;
+                    //"If the lower byte of value is zero, then the idle rate applies to all
+                    //input reports generated by the device" - HID spec 7.2.4
+                    self.report_idle.clear();
+                    trace!("Set global idle to {:X} and cleared report idle map", idle);
+                    transfer.accept().ok();
                 } else {
-                    warn!("Setting per report id idle not supported")
+                    match self.report_idle.insert(report_id, idle) {
+                        Ok(_) => {
+                            trace!("Set report idle for {:X} to {:X}", report_id, idle);
+
+                            transfer.accept().ok();
+                        }
+                        Err(_) => {
+                            error!(
+                                "Failed to set idle for report id {:X}, idle map is full",
+                                report_id
+                            );
+                            transfer.reject().ok();
+                        }
+                    }
                 }
-                transfer.accept().ok();
             }
             Some(Request::SetReport) => {
                 // Not supported - data reports handled via interrupt endpoints
@@ -344,10 +398,11 @@ impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
                 }
                 if let Some(protocol) = HidProtocol::from_primitive((request.value & 0xFF) as u8) {
                     self.protocol = protocol;
+                    trace!("Set protocol to {:?}", protocol);
                     transfer.accept().ok();
                 } else {
                     error!(
-                        "Ctrl_out - Unsupported protocol value:{:X}, Unable to set protocol.",
+                        "Unable to set protocol, unsupported value:{:X}",
                         request.value
                     );
                     transfer.reject().ok();
@@ -365,8 +420,8 @@ impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
 
     fn reset(&mut self) {
         info!("Reset");
-        //Default to report protocol on reset
         self.protocol = HidProtocol::Report;
-        self.idle = Self::idle_from_ms(self.hid_class.idle_default());
+        self.global_idle = Self::idle_from_ms(self.hid_class.idle_default());
+        self.report_idle.clear();
     }
 }

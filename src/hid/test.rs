@@ -68,7 +68,7 @@ where
 
         inner.write_data.extend_from_slice(buf);
 
-        if buf.len() < 8 && !inner.write_data.is_empty() {
+        if buf.len() < 8 && inner.next_read_data >= self.read_data.len() {
             //if we get less than a full buffer, the write is complete, validate the buffer
             (self.write_val)(&inner.write_data)
         }
@@ -838,7 +838,7 @@ fn set_report_idle() {
             "Unexpected report idle value"
         );
         assert_eq!(
-            Milliseconds(v[0] as u32 * 4),
+            Milliseconds(v[1] as u32 * 4),
             IDLE_DEFAULT,
             "Unexpected global idle value"
         );
