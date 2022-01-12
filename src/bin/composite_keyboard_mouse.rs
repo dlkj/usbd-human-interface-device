@@ -11,8 +11,8 @@ use log::*;
 use sh1106::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_hid_devices::keyboard::HIDKeyboard;
-use usbd_hid_devices::mouse::HIDMouse;
+use usbd_hid_devices::keyboard::HidKeyboard;
+use usbd_hid_devices::mouse::HidMouse;
 use usbd_hid_devices_example_rp2040::logger::MacropadLogger;
 
 #[link_section = ".boot2"]
@@ -99,13 +99,15 @@ fn main() -> ! {
         &mut pac.RESETS,
     ));
 
-    let mut keyboard = usbd_hid_devices::hid::HID::new(
+    let mut keyboard = usbd_hid_devices::hid::UsbHidClass::new(
         &usb_bus,
-        usbd_hid_devices::keyboard::HIDBootKeyboard::default(),
+        usbd_hid_devices::keyboard::HidBootKeyboard::default(),
     );
 
-    let mut mouse =
-        usbd_hid_devices::hid::HID::new(&usb_bus, usbd_hid_devices::mouse::HIDBootMouse::default());
+    let mut mouse = usbd_hid_devices::hid::UsbHidClass::new(
+        &usb_bus,
+        usbd_hid_devices::mouse::HidBootMouse::default(),
+    );
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))
