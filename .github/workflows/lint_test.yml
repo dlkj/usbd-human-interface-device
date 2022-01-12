@@ -17,6 +17,7 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
+          target: thumbv6m-none-eabi
           override: true
           components: rustfmt, clippy
       - name: Run cargo check
