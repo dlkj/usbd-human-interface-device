@@ -10,7 +10,7 @@ const USB_CLASS_HID: u8 = 0x03;
 const SPEC_VERSION_1_11: u16 = 0x0111; //1.11 in BCD
 const COUNTRY_CODE_NOT_SUPPORTED: u8 = 0x0;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, FromPrimitive)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PrimitiveEnum)]
 #[repr(u8)]
 pub enum Request {
     GetReport = 0x01,
@@ -43,7 +43,7 @@ pub enum InterfaceSubClass {
     Boot = 0x01,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, FromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PrimitiveEnum)]
 #[repr(u8)]
 pub enum HidProtocol {
     Boot = 0x00,
@@ -257,7 +257,7 @@ impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
             }
 
             control::RequestType::Class => {
-                match num::FromPrimitive::from_u8(request.request) {
+                match Request::from_primitive(request.request) {
                     Some(Request::GetReport) => {
                         // Not supported - data reports handled via interrupt endpoints
                         transfer.reject().ok(); // Not supported
@@ -302,7 +302,7 @@ impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
             request.value
         );
 
-        match num::FromPrimitive::from_u8(request.request) {
+        match Request::from_primitive(request.request) {
             Some(Request::SetIdle) => {
                 transfer.accept().ok(); //Not supported
             }
@@ -311,7 +311,7 @@ impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
                 transfer.reject().ok();
             }
             Some(Request::SetProtocol) => {
-                if let Some(protocol) = num::FromPrimitive::from_u16(request.value) {
+                if let Some(protocol) = HidProtocol::from_primitive((request.value & 0xFF) as u8) {
                     self.protocol = protocol;
                     transfer.accept().ok();
                 } else {
