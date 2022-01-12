@@ -15,6 +15,7 @@ log = "0.4"
 num = { version = "0.4", default-features = false }
 num-derive = { version = "0.3", default-features = false }
 num-traits = { version = "0.2", default-features = false }
+packed_struct = { version = "0.10", default-features=false }
 
 [dev-dependencies]
 

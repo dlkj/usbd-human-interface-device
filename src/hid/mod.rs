@@ -2,11 +2,12 @@
 
 use embedded_time::duration::*;
 use log::{error, info, trace};
+use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::Result;
 
 const USB_CLASS_HID: u8 = 0x03;
-const SPEC_VERSION_1_11: [u8; 2] = [0x11, 0x01]; //1.11 in BCD
+const SPEC_VERSION_1_11: u16 = 0x0111; //1.11 in BCD
 const COUNTRY_CODE_NOT_SUPPORTED: u8 = 0x0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, FromPrimitive)]
@@ -28,7 +29,7 @@ pub enum InterfaceProtocol {
     Mouse = 0x02,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, FromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PrimitiveEnum)]
 #[repr(u8)]
 pub enum DescriptorType {
     Hid = 0x21,
@@ -47,6 +48,17 @@ pub enum InterfaceSubClass {
 pub enum HidProtocol {
     Boot = 0x00,
     Report = 0x01,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PackedStruct)]
+#[packed_struct(endian = "lsb", size_bytes = 7)]
+struct HidDescriptorBody {
+    bcd_hid: u16,
+    country_code: u8,
+    num_descriptors: u8,
+    #[packed_field(ty = "enum", size_bytes = "1")]
+    descriptor_type: DescriptorType,
+    descriptor_length: u16,
 }
 
 pub trait HidConfig {
@@ -116,15 +128,18 @@ impl<B: UsbBus, C: HidConfig> UsbHidClass<'_, B, C> {
             );
             Err(UsbError::InvalidState)
         } else {
-            Ok([
-                SPEC_VERSION_1_11[0], //Hid Class spec version 1.10 (BCD)
-                SPEC_VERSION_1_11[1],
-                COUNTRY_CODE_NOT_SUPPORTED, //Country code 0 - not supported
-                1,                          //Num descriptors
-                DescriptorType::Report as u8, //Class descriptor type is report
-                (descriptor_len & 0xFF) as u8, //Descriptor length
-                (descriptor_len >> 8 & 0xFF) as u8,
-            ])
+            Ok(HidDescriptorBody {
+                bcd_hid: SPEC_VERSION_1_11,
+                country_code: COUNTRY_CODE_NOT_SUPPORTED,
+                num_descriptors: 1,
+                descriptor_type: DescriptorType::Report,
+                descriptor_length: descriptor_len as u16,
+            }
+            .pack()
+            .map_err(|e| {
+                error!("Failed to pack HidDescriptor {}", e);
+                UsbError::InvalidState
+            })?)
         }
     }
 
@@ -142,7 +157,7 @@ impl<B: UsbBus, C: HidConfig> UsbHidClass<'_, B, C> {
 
     fn control_in_get_descriptors(&mut self, transfer: ControlIn<B>) {
         let request: &control::Request = transfer.request();
-        match num::FromPrimitive::from_u16(request.value >> 8) {
+        match DescriptorType::from_primitive((request.value >> 8) as u8) {
             Some(DescriptorType::Report) => {
                 transfer
                     .accept_with_static(self.hid_class.report_descriptor())
