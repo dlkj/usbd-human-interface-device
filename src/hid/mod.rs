@@ -4,7 +4,7 @@
 mod test;
 
 use embedded_time::duration::*;
-use log::{error, info, trace};
+use log::{error, info, trace, warn};
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::Result;
@@ -105,8 +105,6 @@ impl<B: UsbBus, C: HidConfig> UsbHidClass<'_, B, C> {
         let interval_ms = hid_class.poll_interval().integer() as u8;
         let interface_number = usb_alloc.interface();
 
-        info!("Assigned interface {:X}", u8::from(interface_number));
-
         UsbHidClass {
             hid_class,
             interface_number,
@@ -125,8 +123,7 @@ impl<B: UsbBus, C: HidConfig> UsbHidClass<'_, B, C> {
 
         if descriptor_len > u16::max_value() as usize {
             error!(
-                "Report descriptor for interface {:X}, length {} too long to fit in u16",
-                u8::from(self.interface_number),
+                "Report descriptor length {:X} too long to fit in u16",
                 descriptor_len
             );
             Err(UsbError::InvalidState)
@@ -164,21 +161,11 @@ impl<B: UsbBus, C: HidConfig> UsbHidClass<'_, B, C> {
             Some(DescriptorType::Report) => {
                 transfer
                     .accept_with_static(self.hid_class.report_descriptor())
-                    .unwrap_or_else(|e| {
-                        error!(
-                            "interface {:X} - Failed to send report descriptor - {:?}",
-                            u8::from(self.interface_number),
-                            e
-                        )
-                    });
+                    .unwrap_or_else(|e| error!("Failed to send report descriptor - {:?}", e));
             }
             Some(DescriptorType::Hid) => match self.hid_descriptor() {
                 Err(e) => {
-                    error!(
-                        "interface {:X} - Failed to generate Hid descriptor - {:?}",
-                        u8::from(self.interface_number),
-                        e
-                    );
+                    error!("Failed to generate Hid descriptor - {:?}", e);
                     transfer.reject().ok();
                 }
                 Ok(hid_descriptor) => {
@@ -187,21 +174,14 @@ impl<B: UsbBus, C: HidConfig> UsbHidClass<'_, B, C> {
                     buffer[1] = DescriptorType::Hid as u8;
                     (&mut buffer[2..]).copy_from_slice(&hid_descriptor);
                     transfer.accept_with(&buffer).unwrap_or_else(|e| {
-                        error!(
-                            "interface {:X} - Failed to send Hid descriptor - {:?}",
-                            u8::from(self.interface_number),
-                            e
-                        );
+                        error!("Failed to send Hid descriptor - {:?}", e);
                     });
                 }
             },
             _ => {
-                trace!(
-                    "interface {:X} - unsupported - request type: {:?}, request: {:X}, value: {:X}",
-                    u8::from(self.interface_number),
-                    request.request_type,
-                    request.request,
-                    request.value
+                warn!(
+                    "Unsupported descriptor type, request type:{:X?}, request:{:X}, value:{:X}",
+                    request.request_type, request.request, request.value
                 );
             }
         }
@@ -266,9 +246,23 @@ impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
                         transfer.reject().ok(); // Not supported
                     }
                     Some(Request::GetIdle) => {
+                        if request.length != 1 {
+                            warn!(
+                                "Expected GetIdle to have length 1, received {:X}",
+                                request.length
+                            );
+                        }
+
                         transfer.reject().ok(); // Not supported
                     }
                     Some(Request::GetProtocol) => {
+                        if request.length != 1 {
+                            warn!(
+                                "Expected GetProtocol to have length 1, received {:X}",
+                                request.length
+                            );
+                        }
+
                         let data = [self.protocol as u8];
                         transfer
                             .accept_with(&data)
@@ -307,6 +301,12 @@ impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
 
         match Request::from_primitive(request.request) {
             Some(Request::SetIdle) => {
+                if request.length != 0 {
+                    warn!(
+                        "Expected SetIdle to have length 0, received {:X}",
+                        request.length
+                    );
+                }
                 transfer.accept().ok(); //Not supported
             }
             Some(Request::SetReport) => {
@@ -314,6 +314,12 @@ impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
                 transfer.reject().ok();
             }
             Some(Request::SetProtocol) => {
+                if request.length != 0 {
+                    warn!(
+                        "Expected SetProtocol to have length 0, received {:X}",
+                        request.length
+                    );
+                }
                 if let Some(protocol) = HidProtocol::from_primitive((request.value & 0xFF) as u8) {
                     self.protocol = protocol;
                     transfer.accept().ok();
@@ -336,6 +342,7 @@ impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
     }
 
     fn reset(&mut self) {
+        info!("Reset");
         //Default to report protocol on reset
         self.protocol = HidProtocol::Report;
     }
