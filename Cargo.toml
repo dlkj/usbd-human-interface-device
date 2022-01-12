@@ -8,13 +8,10 @@ authors = ["DLKJ"]
 repository = "https://github.com/dlkj/usbd-hid-devices"
 homepage = "https://github.com/dlkj/usbd-hid-devices"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 usb-device = "0.2"
 embedded-time = "0.12"
 log = "0.4"
-sealed = "0.3"
 num = "0.4"
 num-derive = "0.3"
 num-traits = "0.2"
