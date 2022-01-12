@@ -454,7 +454,7 @@ fn get_protocol_default_post_reset() {
 }
 
 #[test]
-fn get_idle_default() {
+fn get_global_idle_default() {
     init_logging();
 
     const IDLE_DEFAULT: Milliseconds = Milliseconds(40);
@@ -523,7 +523,7 @@ fn get_idle_default() {
 }
 
 #[test]
-fn set_idle() {
+fn set_global_idle() {
     init_logging();
     const IDLE_DEFAULT: Milliseconds = Milliseconds(40);
     const IDLE_NEW: Milliseconds = Milliseconds(88);
@@ -550,7 +550,7 @@ fn set_idle() {
     }
 
     let read_data: &[&[u8]] = &[
-        //Set protocol to boot
+        //Set idle
         &UsbRequest {
             direction: UsbDirection::In != UsbDirection::In,
             request_type: control::RequestType::Class as u8,
@@ -562,7 +562,7 @@ fn set_idle() {
         }
         .pack()
         .unwrap(),
-        //Get protocol
+        //Get idle
         &UsbRequest {
             direction: UsbDirection::In != UsbDirection::Out,
             request_type: control::RequestType::Class as u8,
@@ -606,8 +606,268 @@ fn set_idle() {
 }
 
 #[test]
-fn get_idle_default_post_reset() {
+fn get_global_idle_default_post_reset() {
     init_logging();
+
+    const IDLE_DEFAULT: Milliseconds = Milliseconds(40);
+    const IDLE_NEW: Milliseconds = Milliseconds(88);
+
+    #[derive(Default)]
+    struct TestHidClass {}
+
+    impl HidConfig for TestHidClass {
+        fn report_descriptor(&self) -> &'static [u8] {
+            &[]
+        }
+        fn interface_name(&self) -> &str {
+            "Test device"
+        }
+        fn interface_protocol(&self) -> InterfaceProtocol {
+            InterfaceProtocol::Keyboard
+        }
+        fn interface_sub_class(&self) -> InterfaceSubClass {
+            InterfaceSubClass::Boot
+        }
+        fn idle_default(&self) -> Milliseconds {
+            IDLE_DEFAULT
+        }
+    }
+
+    let read_data: &[&[u8]] = &[
+        //Set global idle
+        &UsbRequest {
+            direction: UsbDirection::In != UsbDirection::In,
+            request_type: control::RequestType::Class as u8,
+            recipient: control::Recipient::Interface as u8,
+            request: Request::SetIdle as u8,
+            value: (IDLE_NEW.integer() as u16 / 4) << 8,
+            index: 0x0,
+            length: 0x0,
+        }
+        .pack()
+        .unwrap(),
+        //Get global idle
+        &UsbRequest {
+            direction: UsbDirection::In != UsbDirection::Out,
+            request_type: control::RequestType::Class as u8,
+            recipient: control::Recipient::Interface as u8,
+            request: Request::GetIdle as u8,
+            value: 0x0,
+            index: 0x0,
+            length: 0x1,
+        }
+        .pack()
+        .unwrap(),
+    ];
+
+    let validate_write_data = |v: &Vec<u8>| {
+        assert_eq!(
+            Milliseconds(v[0] as u32 * 4),
+            IDLE_DEFAULT,
+            "Unexpected idle value"
+        );
+    };
+
+    let usb_bus = TestUsbBus::new(read_data, validate_write_data);
+
+    let usb_alloc = UsbBusAllocator::new(usb_bus);
+
+    let mut hid = UsbHidClass::new(&usb_alloc, TestHidClass::default());
+
+    let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
+        .manufacturer("DLKJ")
+        .product("Test Hid Device")
+        .serial_number("TEST")
+        .device_class(USB_CLASS_HID)
+        .composite_with_iads()
+        .max_packet_size_0(8)
+        .build();
+
+    //poll the usb bus
+    assert!(usb_dev.poll(&mut [&mut hid]));
+
+    //simulate a bus reset after setting idle value
+    hid.reset();
+
+    for _ in 0..10 {
+        assert!(usb_dev.poll(&mut [&mut hid]));
+    }
+}
+
+#[test]
+fn get_report_idle_default() {
+    init_logging();
+
+    const IDLE_DEFAULT: Milliseconds = Milliseconds(40);
+    const REPORT_ID: u8 = 0xAB;
+
+    #[derive(Default)]
+    struct TestHidClass {}
+
+    impl HidConfig for TestHidClass {
+        fn report_descriptor(&self) -> &'static [u8] {
+            &[]
+        }
+        fn interface_name(&self) -> &str {
+            "Test device"
+        }
+        fn interface_protocol(&self) -> InterfaceProtocol {
+            InterfaceProtocol::Keyboard
+        }
+        fn interface_sub_class(&self) -> InterfaceSubClass {
+            InterfaceSubClass::Boot
+        }
+        fn idle_default(&self) -> Milliseconds {
+            IDLE_DEFAULT
+        }
+    }
+
+    //Get idle
+    let read_data: &[&[u8]] = &[&UsbRequest {
+        direction: UsbDirection::In != UsbDirection::Out,
+        request_type: control::RequestType::Class as u8,
+        recipient: control::Recipient::Interface as u8,
+        request: Request::GetIdle as u8,
+        value: REPORT_ID as u16,
+        index: 0x0,
+        length: 0x1,
+    }
+    .pack()
+    .unwrap()];
+
+    let validate_write_data = |v: &Vec<u8>| {
+        assert_eq!(
+            Milliseconds(v[0] as u32 * 4),
+            IDLE_DEFAULT,
+            "Unexpected idle value"
+        );
+    };
+
+    let usb_bus = TestUsbBus::new(read_data, validate_write_data);
+
+    let usb_alloc = UsbBusAllocator::new(usb_bus);
+
+    let mut hid = UsbHidClass::new(&usb_alloc, TestHidClass::default());
+
+    let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
+        .manufacturer("DLKJ")
+        .product("Test Hid Device")
+        .serial_number("TEST")
+        .device_class(USB_CLASS_HID)
+        .composite_with_iads()
+        .max_packet_size_0(8)
+        .build();
+
+    //poll the usb bus
+    for _ in 0..10 {
+        assert!(usb_dev.poll(&mut [&mut hid]));
+    }
+}
+
+#[test]
+fn set_report_idle() {
+    init_logging();
+    const IDLE_DEFAULT: Milliseconds = Milliseconds(40);
+    const IDLE_NEW: Milliseconds = Milliseconds(88);
+    const REPORT_ID: u8 = 0xAB;
+
+    #[derive(Default)]
+    struct TestHidClass {}
+
+    impl HidConfig for TestHidClass {
+        fn report_descriptor(&self) -> &'static [u8] {
+            &[]
+        }
+        fn interface_name(&self) -> &str {
+            "Test device"
+        }
+        fn interface_protocol(&self) -> InterfaceProtocol {
+            InterfaceProtocol::Keyboard
+        }
+        fn interface_sub_class(&self) -> InterfaceSubClass {
+            InterfaceSubClass::Boot
+        }
+        fn idle_default(&self) -> Milliseconds {
+            IDLE_DEFAULT
+        }
+    }
+
+    let read_data: &[&[u8]] = &[
+        //Set report idle
+        &UsbRequest {
+            direction: UsbDirection::In != UsbDirection::In,
+            request_type: control::RequestType::Class as u8,
+            recipient: control::Recipient::Interface as u8,
+            request: Request::SetIdle as u8,
+            value: (IDLE_NEW.integer() as u16 / 4) << 8 | REPORT_ID as u16,
+            index: 0x0,
+            length: 0x0,
+        }
+        .pack()
+        .unwrap(),
+        //Get report idle
+        &UsbRequest {
+            direction: UsbDirection::In != UsbDirection::Out,
+            request_type: control::RequestType::Class as u8,
+            recipient: control::Recipient::Interface as u8,
+            request: Request::GetIdle as u8,
+            value: REPORT_ID as u16,
+            index: 0x0,
+            length: 0x1,
+        }
+        .pack()
+        .unwrap(),
+        //Get global idle
+        &UsbRequest {
+            direction: UsbDirection::In != UsbDirection::Out,
+            request_type: control::RequestType::Class as u8,
+            recipient: control::Recipient::Interface as u8,
+            request: Request::GetIdle as u8,
+            value: 0x0,
+            index: 0x0,
+            length: 0x1,
+        }
+        .pack()
+        .unwrap(),
+    ];
+
+    let validate_write_data = |v: &Vec<u8>| {
+        assert_eq!(
+            Milliseconds(v[0] as u32 * 4),
+            IDLE_NEW,
+            "Unexpected report idle value"
+        );
+        assert_eq!(
+            Milliseconds(v[0] as u32 * 4),
+            IDLE_DEFAULT,
+            "Unexpected global idle value"
+        );
+    };
+
+    let usb_bus = TestUsbBus::new(read_data, validate_write_data);
+
+    let usb_alloc = UsbBusAllocator::new(usb_bus);
+
+    let mut hid = UsbHidClass::new(&usb_alloc, TestHidClass::default());
+
+    let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
+        .manufacturer("DLKJ")
+        .product("Test Hid Device")
+        .serial_number("TEST")
+        .device_class(USB_CLASS_HID)
+        .composite_with_iads()
+        .max_packet_size_0(8)
+        .build();
+
+    //poll the usb bus
+    for _ in 0..10 {
+        assert!(usb_dev.poll(&mut [&mut hid]));
+    }
+}
+
+#[test]
+fn get_report_idle_default_post_reset() {
+    const REPORT_ID: u8 = 0xAB;
 
     init_logging();
 
@@ -636,25 +896,25 @@ fn get_idle_default_post_reset() {
     }
 
     let read_data: &[&[u8]] = &[
-        //Set protocol to boot
+        //Set report idle
         &UsbRequest {
             direction: UsbDirection::In != UsbDirection::In,
             request_type: control::RequestType::Class as u8,
             recipient: control::Recipient::Interface as u8,
             request: Request::SetIdle as u8,
-            value: (IDLE_NEW.integer() as u16 / 4) << 8,
+            value: (IDLE_NEW.integer() as u16 / 4) << 8 | REPORT_ID as u16,
             index: 0x0,
             length: 0x0,
         }
         .pack()
         .unwrap(),
-        //Get protocol
+        //Get report idle
         &UsbRequest {
             direction: UsbDirection::In != UsbDirection::Out,
             request_type: control::RequestType::Class as u8,
             recipient: control::Recipient::Interface as u8,
             request: Request::GetIdle as u8,
-            value: 0x0,
+            value: REPORT_ID as u16,
             index: 0x0,
             length: 0x1,
         }
