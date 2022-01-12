@@ -17,7 +17,6 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
-          target: thumbv6m-none-eabi
           override: true
           components: rustfmt, clippy
       - name: Run cargo check
@@ -29,6 +28,22 @@ jobs:
         with:
           command: fmt
           args: --all -- --check
+      # disabled while log gives a false positive
+      # - name: Install cargo nono
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     command: install
+      #     args: cargo-nono
+      # - name: Run cargo nono
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     command: nono
+      #     args: check
+      - name: Check for no_std by doing an arm build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --target thumbv6m-none-eabi
       - name: Run cargo clippy
         uses: actions-rs/cargo@v1
         with:
