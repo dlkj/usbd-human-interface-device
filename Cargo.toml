@@ -2,7 +2,7 @@
 name = "usbd-hid-devices"
 version = "0.1.0"
 edition = "2021"
-description = "Batteries included rust USB HID library for usb-device"
+description = "Batteries included rust USB Hid library for usb-device"
 keywords = ["no-std", "hid", "usb-device"]
 authors = ["DLKJ"]
 repository = "https://github.com/dlkj/usbd-hid-devices"
@@ -13,7 +13,11 @@ homepage = "https://github.com/dlkj/usbd-hid-devices"
 [dependencies]
 usb-device = "0.2"
 embedded-time = "0.12"
-log = "0.4.14"
+log = "0.4"
+sealed = "0.3"
+num = "0.4"
+num-derive = "0.3"
+num-traits = "0.2"
 
 [dev-dependencies]
 
