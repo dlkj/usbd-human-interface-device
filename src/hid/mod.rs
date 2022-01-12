@@ -86,6 +86,11 @@ pub trait HidConfig {
     fn interface_sub_class(&self) -> InterfaceSubClass {
         InterfaceSubClass::None
     }
+    /// When set to 0, the duration is indefinite.
+    /// Should be between 0.004 to 1.020 seconds and divisible by 4
+    fn idle_default(&self) -> Milliseconds {
+        Milliseconds(0)
+    }
     fn interface_name(&self) -> &str;
     fn reset(&mut self) {}
 }
