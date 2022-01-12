@@ -1,9 +1,10 @@
 //!Implements Hid mouse devices
 pub mod descriptors;
 
+use super::hid::UsbHidClass;
+use crate::hid::HidConfig;
 use crate::hid::InterfaceProtocol;
 use crate::hid::InterfaceSubClass;
-use crate::hid::UsbHid;
 use log::warn;
 use usb_device::class_prelude::*;
 use usb_device::Result;
@@ -25,7 +26,7 @@ pub trait HidMouse {
 #[derive(Default)]
 pub struct HidBootMouse {}
 
-impl super::hid::HidClass for HidBootMouse {
+impl HidConfig for HidBootMouse {
     fn packet_size(&self) -> u8 {
         8
     }
@@ -47,7 +48,7 @@ impl super::hid::HidClass for HidBootMouse {
     }
 }
 
-impl<B: UsbBus> HidMouse for UsbHid<'_, B, HidBootMouse> {
+impl<B: UsbBus> HidMouse for UsbHidClass<'_, B, HidBootMouse> {
     fn write_mouse(
         &self,
         buttons: u8,

@@ -1,4 +1,4 @@
-//!Implements generic UsbHid type representing a USB Human Interface Device
+//!Implements UsbHidClass representing a USB Human Interface Device
 
 use embedded_time::duration::*;
 use log::{error, info, trace};
@@ -49,7 +49,15 @@ pub enum HidProtocol {
     Report = 0x01,
 }
 
-pub trait HidClass {
+pub trait HidConfig {
+    /*todo
+     * Replace with builder calling a private constructor on UsbHidClass
+     * Independent config of endpoints
+     * Make out endpoint optional
+     * Default Idle config
+     * Link boot and protocol
+     */
+
     fn packet_size(&self) -> u8 {
         8
     }
@@ -57,8 +65,6 @@ pub trait HidClass {
         Milliseconds(10)
     }
     fn report_descriptor(&self) -> &'static [u8];
-    //todo lift interface protocol and sub class up to type-level
-    ///only not None if subclass is Boot
     fn interface_protocol(&self) -> InterfaceProtocol {
         InterfaceProtocol::None
     }
@@ -66,14 +72,11 @@ pub trait HidClass {
         InterfaceSubClass::None
     }
     fn interface_name(&self) -> &str;
-    fn set_protocol(&mut self, protocol: HidProtocol) {
-        let _ = protocol;
-    }
     fn reset(&mut self) {}
 }
 
 /// Implements the generic Hid Device
-pub struct UsbHid<'a, B: UsbBus, C: HidClass> {
+pub struct UsbHidClass<'a, B: UsbBus, C: HidConfig> {
     hid_class: C,
     interface_number: InterfaceNumber,
     out_endpoint: EndpointOut<'a, B>,
@@ -82,14 +85,14 @@ pub struct UsbHid<'a, B: UsbBus, C: HidClass> {
     protocol: HidProtocol,
 }
 
-impl<B: UsbBus, C: HidClass> UsbHid<'_, B, C> {
-    pub fn new(usb_alloc: &'_ UsbBusAllocator<B>, hid_class: C) -> UsbHid<'_, B, C> {
+impl<B: UsbBus, C: HidConfig> UsbHidClass<'_, B, C> {
+    pub fn new(usb_alloc: &'_ UsbBusAllocator<B>, hid_class: C) -> UsbHidClass<'_, B, C> {
         let interval_ms = hid_class.poll_interval().integer() as u8;
         let interface_number = usb_alloc.interface();
 
         info!("Assigned interface {:X}", u8::from(interface_number));
 
-        UsbHid {
+        UsbHidClass {
             hid_class,
             interface_number,
             //todo make packet size configurable
@@ -127,11 +130,6 @@ impl<B: UsbBus, C: HidClass> UsbHid<'_, B, C> {
 
     pub fn protocol(&self) -> HidProtocol {
         self.protocol
-    }
-
-    fn set_protocol(&mut self, protocol: HidProtocol) {
-        self.protocol = protocol;
-        self.hid_class.set_protocol(protocol);
     }
 
     pub fn write_report(&self, data: &[u8]) -> Result<usize> {
@@ -192,7 +190,7 @@ impl<B: UsbBus, C: HidClass> UsbHid<'_, B, C> {
     }
 }
 
-impl<B: UsbBus, C: HidClass> UsbClass<B> for UsbHid<'_, B, C> {
+impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
     fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
         writer.interface_alt(
             self.interface_number,
@@ -299,7 +297,7 @@ impl<B: UsbBus, C: HidClass> UsbClass<B> for UsbHid<'_, B, C> {
             }
             Some(Request::SetProtocol) => {
                 if let Some(protocol) = num::FromPrimitive::from_u16(request.value) {
-                    self.set_protocol(protocol);
+                    self.protocol = protocol;
                     transfer.accept().ok();
                 } else {
                     error!(
@@ -320,14 +318,14 @@ impl<B: UsbBus, C: HidClass> UsbClass<B> for UsbHid<'_, B, C> {
     }
 
     fn reset(&mut self) {
-        self.set_protocol(HidProtocol::Report);
+        //Default to report protocol on reset
+        self.protocol = HidProtocol::Report;
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::hid::HidClass;
     use std::cell::RefCell;
     use std::sync::Mutex;
     use std::vec::Vec;
@@ -448,7 +446,7 @@ mod tests {
         #[derive(Default)]
         struct TestHidClass {}
 
-        impl HidClass for TestHidClass {
+        impl HidConfig for TestHidClass {
             fn report_descriptor(&self) -> &'static [u8] {
                 &[]
             }
@@ -521,7 +519,7 @@ mod tests {
 
         let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-        let mut hid = UsbHid::new(&usb_alloc, TestHidClass::default());
+        let mut hid = UsbHidClass::new(&usb_alloc, TestHidClass::default());
 
         let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
             .manufacturer("DLKJ")
@@ -543,7 +541,7 @@ mod tests {
         #[derive(Default)]
         struct TestHidClass {}
 
-        impl HidClass for TestHidClass {
+        impl HidConfig for TestHidClass {
             fn report_descriptor(&self) -> &'static [u8] {
                 &[]
             }
@@ -586,7 +584,7 @@ mod tests {
 
         let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-        let mut hid = UsbHid::new(&usb_alloc, TestHidClass::default());
+        let mut hid = UsbHidClass::new(&usb_alloc, TestHidClass::default());
 
         let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
             .manufacturer("DLKJ")
@@ -608,7 +606,7 @@ mod tests {
         #[derive(Default)]
         struct TestHidClass {}
 
-        impl HidClass for TestHidClass {
+        impl HidConfig for TestHidClass {
             fn report_descriptor(&self) -> &'static [u8] {
                 &[]
             }
@@ -667,7 +665,7 @@ mod tests {
 
         let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-        let mut hid = UsbHid::new(&usb_alloc, TestHidClass::default());
+        let mut hid = UsbHidClass::new(&usb_alloc, TestHidClass::default());
 
         let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
             .manufacturer("DLKJ")
@@ -689,7 +687,7 @@ mod tests {
         #[derive(Default)]
         struct TestHidClass {}
 
-        impl HidClass for TestHidClass {
+        impl HidConfig for TestHidClass {
             fn report_descriptor(&self) -> &'static [u8] {
                 &[]
             }
@@ -748,7 +746,7 @@ mod tests {
 
         let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-        let mut hid = UsbHid::new(&usb_alloc, TestHidClass::default());
+        let mut hid = UsbHidClass::new(&usb_alloc, TestHidClass::default());
 
         let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
             .manufacturer("DLKJ")

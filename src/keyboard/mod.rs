@@ -1,9 +1,10 @@
 //!Implements Hid keyboard devices
 pub mod descriptors;
 
+use crate::hid::HidConfig;
 use crate::hid::InterfaceProtocol;
 use crate::hid::InterfaceSubClass;
-use crate::hid::UsbHid;
+use crate::hid::UsbHidClass;
 use log::{error, warn};
 use usb_device::class_prelude::*;
 use usb_device::Result;
@@ -29,7 +30,7 @@ pub trait HidKeyboard {
 #[derive(Default)]
 pub struct HidBootKeyboard {}
 
-impl super::hid::HidClass for HidBootKeyboard {
+impl HidConfig for HidBootKeyboard {
     fn packet_size(&self) -> u8 {
         8
     }
@@ -51,7 +52,7 @@ impl super::hid::HidClass for HidBootKeyboard {
     }
 }
 
-impl<B: UsbBus> HidKeyboard for UsbHid<'_, B, HidBootKeyboard> {
+impl<B: UsbBus> HidKeyboard for UsbHidClass<'_, B, HidBootKeyboard> {
     fn write_keycodes<K>(&self, keycodes: K) -> core::result::Result<(), usb_device::UsbError>
     where
         K: IntoIterator<Item = u8>,
