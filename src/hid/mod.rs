@@ -126,6 +126,10 @@ impl<B: UsbBus, C: HidConfig> UsbHidClass<'_, B, C> {
         }
     }
 
+    fn idle_from_ms(idle: Milliseconds) -> u8 {
+        (idle.integer() / 4) as u8
+    }
+
     fn hid_descriptor(&self) -> Result<[u8; 7]> {
         let descriptor_len = self.hid_class.report_descriptor().len();
 
@@ -153,6 +157,10 @@ impl<B: UsbBus, C: HidConfig> UsbHidClass<'_, B, C> {
 
     pub fn protocol(&self) -> HidProtocol {
         self.protocol
+    }
+
+    pub fn idle(&self) -> Milliseconds {
+        Milliseconds((self.idle as u32) * 4)
     }
 
     pub fn write_report(&self, data: &[u8]) -> Result<usize> {
@@ -316,7 +324,12 @@ impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
                         request.length
                     );
                 }
-                transfer.accept().ok(); //Not supported
+                if request.value & 0xFF == 0 {
+                    self.idle = (request.value >> 8) as u8;
+                } else {
+                    warn!("Setting per report id idle not supported")
+                }
+                transfer.accept().ok();
             }
             Some(Request::SetReport) => {
                 // Not supported - data reports handled via interrupt endpoints
@@ -354,5 +367,6 @@ impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
         info!("Reset");
         //Default to report protocol on reset
         self.protocol = HidProtocol::Report;
+        self.idle = Self::idle_from_ms(self.hid_class.idle_default());
     }
 }
