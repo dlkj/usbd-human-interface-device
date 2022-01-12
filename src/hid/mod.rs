@@ -348,9 +348,9 @@ mod tests {
     use usb_device::prelude::*;
     use usb_device::*;
 
-    struct TestUsbBus<F> {
+    struct TestUsbBus<'a, F> {
         next_ep_index: usize,
-        read_data: &'static [&'static [u8]],
+        read_data: &'a [&'a [u8]],
         write_val: F,
         inner: Mutex<RefCell<TestUsbBusInner>>,
     }
@@ -359,8 +359,8 @@ mod tests {
         write_data: Vec<u8>,
     }
 
-    impl<F> TestUsbBus<F> {
-        fn new(read_data: &'static [&'static [u8]], write_val: F) -> Self {
+    impl<'a, F> TestUsbBus<'a, F> {
+        fn new(read_data: &'a [&'a [u8]], write_val: F) -> Self {
             TestUsbBus {
                 next_ep_index: 0,
                 read_data,
@@ -373,7 +373,7 @@ mod tests {
         }
     }
 
-    impl<F> UsbBus for TestUsbBus<F>
+    impl<F> UsbBus for TestUsbBus<'_, F>
     where
         F: core::marker::Sync + Fn(&Vec<u8>),
     {
@@ -456,6 +456,21 @@ mod tests {
         }
     }
 
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, PackedStruct)]
+    #[packed_struct(endian = "lsb", bit_numbering = "msb0", size_bytes = "8")]
+    struct UsbRequest {
+        #[packed_field(bits = "0")]
+        direction: bool,
+        #[packed_field(bits = "1..=2")]
+        request_type: u8,
+        #[packed_field(bits = "4..=7")]
+        recipient: u8,
+        request: u8,
+        value: u16,
+        index: u16,
+        length: u16,
+    }
+
     #[test]
     fn descriptor_ordering_satisfies_boot_spec() {
         #[derive(Default)]
@@ -513,22 +528,18 @@ mod tests {
                 }
             }
         };
-
-        //todo change to "packed_struct"
         //read a config request for the device config descriptor
-        let read_data: &[&[u8]] = &[&[
-            //direction | request type| recipient
-            UsbDirection::In as u8
-                | (control::RequestType::Standard as u8) << 5
-                | control::Recipient::Device as u8,
-            control::Request::GET_DESCRIPTOR, //request
-            0,                                //value[0]
-            descriptor::descriptor_type::CONFIGURATION as u8, //value[1]
-            0,                                //index[0]
-            0x00,                             //index[1]
-            0xFF,                             //length[0]
-            0xFF,                             //length[1]
-        ]];
+        let read_data: &[&[u8]] = &[&UsbRequest {
+            direction: UsbDirection::In != UsbDirection::Out,
+            request_type: control::RequestType::Standard as u8,
+            recipient: control::Recipient::Device as u8,
+            request: control::Request::GET_DESCRIPTOR,
+            value: (descriptor::descriptor_type::CONFIGURATION as u16) << 8,
+            index: 0,
+            length: 0xFFFF,
+        }
+        .pack()
+        .unwrap()];
 
         let usb_bus = TestUsbBus::new(read_data, validate_write_data);
 
@@ -571,21 +582,18 @@ mod tests {
             }
         }
 
-        //todo change to "packed_struct"
         //Get protocol
-        let read_data: &[&[u8]] = &[&[
-            //direction | request type| recipient
-            UsbDirection::In as u8
-                | (control::RequestType::Class as u8) << 5
-                | control::Recipient::Interface as u8,
-            Request::GetProtocol as u8, //request
-            0x00,                       //value[0]
-            0x00,                       //value[1]
-            0x00,                       //index[0]
-            0x00,                       //index[1]
-            0x01,                       //length[0]
-            0x00,                       //length[1]
-        ]];
+        let read_data: &[&[u8]] = &[&UsbRequest {
+            direction: UsbDirection::In != UsbDirection::Out,
+            request_type: control::RequestType::Class as u8,
+            recipient: control::Recipient::Interface as u8,
+            request: Request::GetProtocol as u8,
+            value: 0x0,
+            index: 0x0,
+            length: 0x1,
+        }
+        .pack()
+        .unwrap()];
 
         let validate_write_data = |v: &Vec<u8>| {
             assert_eq!(
@@ -636,36 +644,31 @@ mod tests {
             }
         }
 
-        //todo change to "packed_struct"
         let read_data: &[&[u8]] = &[
             //Set protocol to boot
-            &[
-                //direction | request type| recipient
-                UsbDirection::Out as u8
-                    | (control::RequestType::Class as u8) << 5
-                    | control::Recipient::Interface as u8,
-                Request::SetProtocol as u8, //request
-                0x00,                       //value[0]
-                0x00,                       //value[1]
-                0x00,                       //index[0]
-                0x00,                       //index[1]
-                0x00,                       //length[0]
-                0x00,                       //length[1]
-            ],
+            &UsbRequest {
+                direction: UsbDirection::In != UsbDirection::In,
+                request_type: control::RequestType::Class as u8,
+                recipient: control::Recipient::Interface as u8,
+                request: Request::SetProtocol as u8,
+                value: HidProtocol::Boot as u16,
+                index: 0x0,
+                length: 0x0,
+            }
+            .pack()
+            .unwrap(),
             //Get protocol
-            &[
-                //direction | request type| recipient
-                UsbDirection::In as u8
-                    | (control::RequestType::Class as u8) << 5
-                    | control::Recipient::Interface as u8,
-                Request::GetProtocol as u8, //request
-                0x00,                       //value[0]
-                0x00,                       //value[1]
-                0x00,                       //index[0]
-                0x00,                       //index[1]
-                0x01,                       //length[0]
-                0x00,                       //length[1]
-            ],
+            &UsbRequest {
+                direction: UsbDirection::In != UsbDirection::Out,
+                request_type: control::RequestType::Class as u8,
+                recipient: control::Recipient::Interface as u8,
+                request: Request::GetProtocol as u8,
+                value: 0x0,
+                index: 0x0,
+                length: 0x1,
+            }
+            .pack()
+            .unwrap(),
         ];
 
         let validate_write_data = |v: &Vec<u8>| {
@@ -717,36 +720,31 @@ mod tests {
             }
         }
 
-        //todo change to "packed_struct"
         let read_data: &[&[u8]] = &[
             //Set protocol to boot
-            &[
-                //direction | request type| recipient
-                UsbDirection::Out as u8
-                    | (control::RequestType::Class as u8) << 5
-                    | control::Recipient::Interface as u8,
-                Request::SetProtocol as u8, //request
-                0x00,                       //value[0]
-                0x00,                       //value[1]
-                0x00,                       //index[0]
-                0x00,                       //index[1]
-                0x00,                       //length[0]
-                0x00,                       //length[1]
-            ],
+            &UsbRequest {
+                direction: UsbDirection::In != UsbDirection::In,
+                request_type: control::RequestType::Class as u8,
+                recipient: control::Recipient::Interface as u8,
+                request: Request::SetProtocol as u8,
+                value: HidProtocol::Boot as u16,
+                index: 0x0,
+                length: 0x0,
+            }
+            .pack()
+            .unwrap(),
             //Get protocol
-            &[
-                //direction | request type| recipient
-                UsbDirection::In as u8
-                    | (control::RequestType::Class as u8) << 5
-                    | control::Recipient::Interface as u8,
-                Request::GetProtocol as u8, //request
-                0x00,                       //value[0]
-                0x00,                       //value[1]
-                0x00,                       //index[0]
-                0x00,                       //index[1]
-                0x01,                       //length[0]
-                0x00,                       //length[1]
-            ],
+            &UsbRequest {
+                direction: UsbDirection::In != UsbDirection::Out,
+                request_type: control::RequestType::Class as u8,
+                recipient: control::Recipient::Interface as u8,
+                request: Request::GetProtocol as u8,
+                value: 0x0,
+                index: 0x0,
+                length: 0x1,
+            }
+            .pack()
+            .unwrap(),
         ];
 
         let validate_write_data = |v: &Vec<u8>| {
