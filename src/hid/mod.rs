@@ -103,12 +103,14 @@ pub struct UsbHidClass<'a, B: UsbBus, C: HidConfig> {
     in_endpoint: EndpointIn<'a, B>,
     string_index: StringIndex,
     protocol: HidProtocol,
+    idle: u8,
 }
 
 impl<B: UsbBus, C: HidConfig> UsbHidClass<'_, B, C> {
     pub fn new(usb_alloc: &'_ UsbBusAllocator<B>, hid_class: C) -> UsbHidClass<'_, B, C> {
         let interval_ms = hid_class.poll_interval().integer() as u8;
         let interface_number = usb_alloc.interface();
+        let idle = (hid_class.idle_default().integer() / 4) as u8;
 
         UsbHidClass {
             hid_class,
@@ -120,6 +122,7 @@ impl<B: UsbBus, C: HidConfig> UsbHidClass<'_, B, C> {
             in_endpoint: usb_alloc.interrupt(8, interval_ms),
             string_index: usb_alloc.string(),
             protocol: HidProtocol::Report, //When initialized, all devices default to report protocol - Hid spec 7.2.6 Set_Protocol Request
+            idle,
         }
     }
 
@@ -248,7 +251,7 @@ impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
                 match Request::from_primitive(request.request) {
                     Some(Request::GetReport) => {
                         // Not supported - data reports handled via interrupt endpoints
-                        transfer.reject().ok(); // Not supported
+                        transfer.reject().ok();
                     }
                     Some(Request::GetIdle) => {
                         if request.length != 1 {
@@ -258,7 +261,9 @@ impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
                             );
                         }
 
-                        transfer.reject().ok(); // Not supported
+                        transfer
+                            .accept_with(&[self.idle])
+                            .unwrap_or_else(|e| error!("Failed to send idle data - {:?}", e));
                     }
                     Some(Request::GetProtocol) => {
                         if request.length != 1 {
@@ -268,10 +273,9 @@ impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
                             );
                         }
 
-                        let data = [self.protocol as u8];
                         transfer
-                            .accept_with(&data)
-                            .unwrap_or_else(|e| error!("Failed to send protocol - {:?}", e));
+                            .accept_with(&[self.protocol as u8])
+                            .unwrap_or_else(|e| error!("Failed to send protocol data - {:?}", e));
                     }
                     _ => {
                         error!(
