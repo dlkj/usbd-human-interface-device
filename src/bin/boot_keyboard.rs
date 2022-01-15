@@ -14,13 +14,9 @@ use usb_device::prelude::*;
 use usbd_hid_devices::keyboard::HidKeyboard;
 use usbd_hid_devices_example_rp2040::logger::MacropadLogger;
 
-#[link_section = ".boot2"]
-#[used]
-pub static BOOT2: [u8; 256] = rp2040_boot2::BOOT_LOADER_GD25Q64CS;
+const XTAL_FREQ_HZ: u32 = 12_000_000u32;
 
 static LOGGER: MacropadLogger = MacropadLogger;
-
-const XTAL_FREQ_HZ: u32 = 12_000_000u32;
 
 #[entry]
 fn main() -> ! {

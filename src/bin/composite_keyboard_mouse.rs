@@ -15,10 +15,6 @@ use usbd_hid_devices::keyboard::HidKeyboard;
 use usbd_hid_devices::mouse::HidMouse;
 use usbd_hid_devices_example_rp2040::logger::MacropadLogger;
 
-#[link_section = ".boot2"]
-#[used]
-pub static BOOT2: [u8; 256] = rp2040_boot2::BOOT_LOADER_GD25Q64CS;
-
 static LOGGER: MacropadLogger = MacropadLogger;
 
 const XTAL_FREQ_HZ: u32 = 12_000_000u32;
@@ -154,17 +150,17 @@ fn main() -> ! {
             }
             if in3.is_low().unwrap() {}
             if in4.is_low().unwrap() {
-                y += -10; //Up
+                y += -5; //Up
             }
             if in5.is_low().unwrap() {}
             if in6.is_low().unwrap() {
-                x += -10; //Left
+                x += -5; //Left
             }
             if in7.is_low().unwrap() {
-                y += 10; //Down
+                y += 5; //Down
             }
             if in8.is_low().unwrap() {
-                x += 10; //Right
+                x += 5; //Right
             }
             if in9.is_low().unwrap() {}
             if in10.is_low().unwrap() {}

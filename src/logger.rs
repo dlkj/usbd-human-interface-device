@@ -26,9 +26,8 @@ pub static OLED_DISPLAY: Mutex<RefCell<Option<GraphicsMode<DisplaySpiInt>>>> =
 pub struct MacropadLogger;
 
 impl log::Log for MacropadLogger {
-    fn enabled(&self, _metadata: &Metadata) -> bool {
-        true
-        //metadata.level() <= Level::Info
+    fn enabled(&self, metadata: &Metadata) -> bool {
+        metadata.level() <= Level::Info
     }
 
     fn log(&self, record: &Record) {
