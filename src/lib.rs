@@ -72,9 +72,7 @@ where
 }
 
 pub fn init_display(spi: Spi<hal::spi::Enabled, pac::SPI1, 8_u8>, dc: DynPin, cs: DynPin) {
-    let mut display: GraphicsMode<_> = sh1106::Builder::new()
-        .connect_spi(spi, dc.into(), cs.into())
-        .into();
+    let mut display: GraphicsMode<_> = sh1106::Builder::new().connect_spi(spi, dc, cs).into();
 
     display.init().unwrap();
     display.flush().unwrap();
