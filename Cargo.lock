@@ -427,6 +427,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "panic-persist"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32bb382689ecd2c4d2d4df9fd56700ba8d43b7b31cca11018cc0e6f8aef39fd5"
+dependencies = [
+ "cortex-m",
+]
+
+[[package]]
 name = "paste"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -662,6 +671,7 @@ dependencies = [
  "embedded-time",
  "log",
  "nb 1.0.0",
+ "panic-persist",
  "rp2040-boot2",
  "sh1106",
  "usb-device",

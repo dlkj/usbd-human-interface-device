@@ -8,16 +8,11 @@ use embedded_time::rate::Hertz;
 use hal::pac;
 use hal::Clock;
 use log::*;
-use sh1106::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_hid_devices::keyboard::HidKeyboard;
 use usbd_hid_devices::mouse::HidMouse;
-use usbd_hid_devices_example_rp2040::logger::MacropadLogger;
-
-static LOGGER: MacropadLogger = MacropadLogger;
-
-const XTAL_FREQ_HZ: u32 = 12_000_000u32;
+use usbd_hid_devices_example_rp2040::*;
 
 #[entry]
 fn main() -> ! {
@@ -66,24 +61,10 @@ fn main() -> ! {
         &embedded_hal::spi::MODE_0,
     );
 
-    let mut display: GraphicsMode<_> = sh1106::Builder::new()
-        .connect_spi(oled_spi, oled_dc.into(), oled_cs.into())
-        .into();
+    let button = pins.gpio0.into_pull_up_input();
 
-    display.init().unwrap();
-    display.flush().unwrap();
-
-    cortex_m::interrupt::free(|cs| {
-        usbd_hid_devices_example_rp2040::logger::OLED_DISPLAY
-            .borrow(cs)
-            .replace(Some(display));
-        unsafe {
-            log::set_logger_racy(&LOGGER)
-                .map(|()| log::set_max_level(LevelFilter::Info))
-                .unwrap();
-        }
-    });
-
+    init_display(oled_spi, oled_dc.into(), oled_cs.into());
+    check_for_persisted_panic(&button);
     info!("Starting up...");
 
     //USB
