@@ -1,9 +1,9 @@
 //!Implements Hid keyboard devices
 pub mod descriptors;
 
+use crate::hid::descriptor::InterfaceProtocol;
+use crate::hid::descriptor::InterfaceSubClass;
 use crate::hid::HidConfig;
-use crate::hid::InterfaceProtocol;
-use crate::hid::InterfaceSubClass;
 use crate::hid::UsbHidClass;
 use log::{error, warn};
 use usb_device::class_prelude::*;

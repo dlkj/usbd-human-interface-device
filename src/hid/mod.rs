@@ -1,68 +1,20 @@
 //!Implements UsbHidClass representing a USB Human Interface Device
 
+pub mod control;
+pub mod descriptor;
 #[cfg(test)]
 mod test;
 
+use control::HidRequest;
+use descriptor::*;
 use embedded_time::duration::*;
 use log::{error, info, trace, warn};
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
+use usb_device::control::Recipient;
+use usb_device::control::Request;
+use usb_device::control::RequestType;
 use usb_device::Result;
-
-const USB_CLASS_HID: u8 = 0x03;
-const SPEC_VERSION_1_11: u16 = 0x0111; //1.11 in BCD
-const COUNTRY_CODE_NOT_SUPPORTED: u8 = 0x0;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PrimitiveEnum)]
-#[repr(u8)]
-pub enum Request {
-    GetReport = 0x01,
-    GetIdle = 0x02,
-    GetProtocol = 0x03,
-    SetReport = 0x09,
-    SetIdle = 0x0A,
-    SetProtocol = 0x0B,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[repr(u8)]
-pub enum InterfaceProtocol {
-    None = 0x00,
-    Keyboard = 0x01,
-    Mouse = 0x02,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PrimitiveEnum)]
-#[repr(u8)]
-pub enum DescriptorType {
-    Hid = 0x21,
-    Report = 0x22,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[repr(u8)]
-pub enum InterfaceSubClass {
-    None = 0x00,
-    Boot = 0x01,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PrimitiveEnum)]
-#[repr(u8)]
-pub enum HidProtocol {
-    Boot = 0x00,
-    Report = 0x01,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PackedStruct)]
-#[packed_struct(endian = "lsb", size_bytes = 7)]
-struct HidDescriptorBody {
-    bcd_hid: u16,
-    country_code: u8,
-    num_descriptors: u8,
-    #[packed_field(ty = "enum", size_bytes = "1")]
-    descriptor_type: DescriptorType,
-    descriptor_length: u16,
-}
 
 pub trait HidConfig {
     /*todo
@@ -132,31 +84,6 @@ impl<B: UsbBus, C: HidConfig> UsbHidClass<'_, B, C> {
         (idle.integer() / 4) as u8
     }
 
-    fn hid_descriptor(&self) -> Result<[u8; 7]> {
-        let descriptor_len = self.hid_class.report_descriptor().len();
-
-        if descriptor_len > u16::max_value() as usize {
-            error!(
-                "Report descriptor length {:X} too long to fit in u16",
-                descriptor_len
-            );
-            Err(UsbError::InvalidState)
-        } else {
-            Ok(HidDescriptorBody {
-                bcd_hid: SPEC_VERSION_1_11,
-                country_code: COUNTRY_CODE_NOT_SUPPORTED,
-                num_descriptors: 1,
-                descriptor_type: DescriptorType::Report,
-                descriptor_length: descriptor_len as u16,
-            }
-            .pack()
-            .map_err(|e| {
-                error!("Failed to pack HidDescriptor {}", e);
-                UsbError::InvalidState
-            })?)
-        }
-    }
-
     pub fn protocol(&self) -> HidProtocol {
         self.protocol
     }
@@ -184,7 +111,7 @@ impl<B: UsbBus, C: HidConfig> UsbHidClass<'_, B, C> {
     }
 
     fn control_in_get_descriptors(&mut self, transfer: ControlIn<B>) {
-        let request: &control::Request = transfer.request();
+        let request: &Request = transfer.request();
         match DescriptorType::from_primitive((request.value >> 8) as u8) {
             Some(DescriptorType::Report) => {
                 match transfer.accept_with_static(self.hid_class.report_descriptor()) {
@@ -194,26 +121,28 @@ impl<B: UsbBus, C: HidConfig> UsbHidClass<'_, B, C> {
                     }
                 }
             }
-            Some(DescriptorType::Hid) => match self.hid_descriptor() {
-                Err(e) => {
-                    error!("Failed to generate Hid descriptor - {:?}", e);
-                    transfer.reject().ok();
-                }
-                Ok(hid_descriptor) => {
-                    let mut buffer = [0; 9];
-                    buffer[0] = buffer.len() as u8;
-                    buffer[1] = DescriptorType::Hid as u8;
-                    (&mut buffer[2..]).copy_from_slice(&hid_descriptor);
-                    match transfer.accept_with(&buffer) {
-                        Err(e) => {
-                            error!("Failed to send Hid descriptor - {:?}", e);
-                        }
-                        Ok(_) => {
-                            trace!("Sent hid descriptor")
+            Some(DescriptorType::Hid) => {
+                match hid_descriptor(self.hid_class.report_descriptor().len()) {
+                    Err(e) => {
+                        error!("Failed to generate Hid descriptor - {:?}", e);
+                        transfer.reject().ok();
+                    }
+                    Ok(hid_descriptor) => {
+                        let mut buffer = [0; 9];
+                        buffer[0] = buffer.len() as u8;
+                        buffer[1] = DescriptorType::Hid as u8;
+                        (&mut buffer[2..]).copy_from_slice(&hid_descriptor);
+                        match transfer.accept_with(&buffer) {
+                            Err(e) => {
+                                error!("Failed to send Hid descriptor - {:?}", e);
+                            }
+                            Ok(_) => {
+                                trace!("Sent hid descriptor")
+                            }
                         }
                     }
                 }
-            },
+            }
             _ => {
                 warn!(
                     "Unsupported descriptor type, request type:{:X?}, request:{:X}, value:{:X}",
@@ -236,7 +165,10 @@ impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
         )?;
 
         //Hid descriptor
-        writer.write(DescriptorType::Hid as u8, &self.hid_descriptor()?)?;
+        writer.write(
+            DescriptorType::Hid as u8,
+            &hid_descriptor(self.hid_class.report_descriptor().len())?,
+        )?;
 
         //Endpoint descriptors
         writer.endpoint(&self.out_endpoint)?;
@@ -254,9 +186,9 @@ impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
     }
 
     fn control_in(&mut self, transfer: ControlIn<B>) {
-        let request: &control::Request = transfer.request();
+        let request: &Request = transfer.request();
         //only respond to requests for this interface
-        if !(request.recipient == control::Recipient::Interface
+        if !(request.recipient == Recipient::Interface
             && request.index == u8::from(self.interface_number) as u16)
         {
             return;
@@ -269,20 +201,20 @@ impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
         );
 
         match request.request_type {
-            control::RequestType::Standard => {
-                if request.request == control::Request::GET_DESCRIPTOR {
+            RequestType::Standard => {
+                if request.request == Request::GET_DESCRIPTOR {
                     self.control_in_get_descriptors(transfer);
                 }
             }
 
-            control::RequestType::Class => {
-                match Request::from_primitive(request.request) {
-                    Some(Request::GetReport) => {
+            RequestType::Class => {
+                match HidRequest::from_primitive(request.request) {
+                    Some(HidRequest::GetReport) => {
                         warn!("Rejected get report - unsupported");
                         // Not supported - data reports handled via interrupt endpoints
                         transfer.reject().ok();
                     }
-                    Some(Request::GetIdle) => {
+                    Some(HidRequest::GetIdle) => {
                         if request.length != 1 {
                             warn!(
                                 "Expected GetIdle to have length 1, received {:X}",
@@ -306,7 +238,7 @@ impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
                             Ok(_) => trace!("Sent idle for {:X}: {:X}", report_id, idle),
                         }
                     }
-                    Some(Request::GetProtocol) => {
+                    Some(HidRequest::GetProtocol) => {
                         if request.length != 1 {
                             warn!(
                                 "Expected GetProtocol to have length 1, received {:X}",
@@ -333,11 +265,11 @@ impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
     }
 
     fn control_out(&mut self, transfer: ControlOut<B>) {
-        let request: &control::Request = transfer.request();
+        let request: &Request = transfer.request();
 
         //only respond to Class requests for this interface
-        if !(request.request_type == control::RequestType::Class
-            && request.recipient == control::Recipient::Interface
+        if !(request.request_type == RequestType::Class
+            && request.recipient == Recipient::Interface
             && request.index == u8::from(self.interface_number) as u16)
         {
             return;
@@ -350,8 +282,8 @@ impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
             request.value
         );
 
-        match Request::from_primitive(request.request) {
-            Some(Request::SetIdle) => {
+        match HidRequest::from_primitive(request.request) {
+            Some(HidRequest::SetIdle) => {
                 if request.length != 0 {
                     warn!(
                         "Expected SetIdle to have length 0, received {:X}",
@@ -385,11 +317,11 @@ impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
                     }
                 }
             }
-            Some(Request::SetReport) => {
+            Some(HidRequest::SetReport) => {
                 // Not supported - data reports handled via interrupt endpoints
                 transfer.reject().ok();
             }
-            Some(Request::SetProtocol) => {
+            Some(HidRequest::SetProtocol) => {
                 if request.length != 0 {
                     warn!(
                         "Expected SetProtocol to have length 0, received {:X}",

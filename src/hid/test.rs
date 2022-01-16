@@ -3,9 +3,9 @@ use env_logger::Env;
 use std::cell::RefCell;
 use std::sync::Mutex;
 use std::vec::Vec;
-use usb_device::bus::*;
+use usb_device::bus::PollResult;
 use usb_device::prelude::*;
-use usb_device::*;
+use usb_device::UsbDirection;
 
 fn init_logging() {
     let _ = env_logger::Builder::from_env(Env::default().default_filter_or("trace"))
@@ -197,10 +197,10 @@ fn descriptor_ordering_satisfies_boot_spec() {
     //read a config request for the device config descriptor
     let read_data: &[&[u8]] = &[&UsbRequest {
         direction: UsbDirection::In != UsbDirection::Out,
-        request_type: control::RequestType::Standard as u8,
-        recipient: control::Recipient::Device as u8,
-        request: control::Request::GET_DESCRIPTOR,
-        value: (descriptor::descriptor_type::CONFIGURATION as u16) << 8,
+        request_type: RequestType::Standard as u8,
+        recipient: Recipient::Device as u8,
+        request: Request::GET_DESCRIPTOR,
+        value: (usb_device::descriptor::descriptor_type::CONFIGURATION as u16) << 8,
         index: 0,
         length: 0xFFFF,
     }
@@ -253,9 +253,9 @@ fn get_protocol_default_to_report() {
     //Get protocol
     let read_data: &[&[u8]] = &[&UsbRequest {
         direction: UsbDirection::In != UsbDirection::Out,
-        request_type: control::RequestType::Class as u8,
-        recipient: control::Recipient::Interface as u8,
-        request: Request::GetProtocol as u8,
+        request_type: RequestType::Class as u8,
+        recipient: Recipient::Interface as u8,
+        request: HidRequest::GetProtocol as u8,
         value: 0x0,
         index: 0x0,
         length: 0x1,
@@ -318,9 +318,9 @@ fn set_protocol() {
         //Set protocol to boot
         &UsbRequest {
             direction: UsbDirection::In != UsbDirection::In,
-            request_type: control::RequestType::Class as u8,
-            recipient: control::Recipient::Interface as u8,
-            request: Request::SetProtocol as u8,
+            request_type: RequestType::Class as u8,
+            recipient: Recipient::Interface as u8,
+            request: HidRequest::SetProtocol as u8,
             value: HidProtocol::Boot as u16,
             index: 0x0,
             length: 0x0,
@@ -330,9 +330,9 @@ fn set_protocol() {
         //Get protocol
         &UsbRequest {
             direction: UsbDirection::In != UsbDirection::Out,
-            request_type: control::RequestType::Class as u8,
-            recipient: control::Recipient::Interface as u8,
-            request: Request::GetProtocol as u8,
+            request_type: RequestType::Class as u8,
+            recipient: Recipient::Interface as u8,
+            request: HidRequest::GetProtocol as u8,
             value: 0x0,
             index: 0x0,
             length: 0x1,
@@ -396,9 +396,9 @@ fn get_protocol_default_post_reset() {
         //Set protocol to boot
         &UsbRequest {
             direction: UsbDirection::In != UsbDirection::In,
-            request_type: control::RequestType::Class as u8,
-            recipient: control::Recipient::Interface as u8,
-            request: Request::SetProtocol as u8,
+            request_type: RequestType::Class as u8,
+            recipient: Recipient::Interface as u8,
+            request: HidRequest::SetProtocol as u8,
             value: HidProtocol::Boot as u16,
             index: 0x0,
             length: 0x0,
@@ -408,9 +408,9 @@ fn get_protocol_default_post_reset() {
         //Get protocol
         &UsbRequest {
             direction: UsbDirection::In != UsbDirection::Out,
-            request_type: control::RequestType::Class as u8,
-            recipient: control::Recipient::Interface as u8,
-            request: Request::GetProtocol as u8,
+            request_type: RequestType::Class as u8,
+            recipient: Recipient::Interface as u8,
+            request: HidRequest::GetProtocol as u8,
             value: 0x0,
             index: 0x0,
             length: 0x1,
@@ -483,9 +483,9 @@ fn get_global_idle_default() {
     //Get idle
     let read_data: &[&[u8]] = &[&UsbRequest {
         direction: UsbDirection::In != UsbDirection::Out,
-        request_type: control::RequestType::Class as u8,
-        recipient: control::Recipient::Interface as u8,
-        request: Request::GetIdle as u8,
+        request_type: RequestType::Class as u8,
+        recipient: Recipient::Interface as u8,
+        request: HidRequest::GetIdle as u8,
         value: 0x0,
         index: 0x0,
         length: 0x1,
@@ -553,9 +553,9 @@ fn set_global_idle() {
         //Set idle
         &UsbRequest {
             direction: UsbDirection::In != UsbDirection::In,
-            request_type: control::RequestType::Class as u8,
-            recipient: control::Recipient::Interface as u8,
-            request: Request::SetIdle as u8,
+            request_type: RequestType::Class as u8,
+            recipient: Recipient::Interface as u8,
+            request: HidRequest::SetIdle as u8,
             value: (IDLE_NEW.integer() as u16 / 4) << 8,
             index: 0x0,
             length: 0x0,
@@ -565,9 +565,9 @@ fn set_global_idle() {
         //Get idle
         &UsbRequest {
             direction: UsbDirection::In != UsbDirection::Out,
-            request_type: control::RequestType::Class as u8,
-            recipient: control::Recipient::Interface as u8,
-            request: Request::GetIdle as u8,
+            request_type: RequestType::Class as u8,
+            recipient: Recipient::Interface as u8,
+            request: HidRequest::GetIdle as u8,
             value: 0x0,
             index: 0x0,
             length: 0x1,
@@ -637,9 +637,9 @@ fn get_global_idle_default_post_reset() {
         //Set global idle
         &UsbRequest {
             direction: UsbDirection::In != UsbDirection::In,
-            request_type: control::RequestType::Class as u8,
-            recipient: control::Recipient::Interface as u8,
-            request: Request::SetIdle as u8,
+            request_type: RequestType::Class as u8,
+            recipient: Recipient::Interface as u8,
+            request: HidRequest::SetIdle as u8,
             value: (IDLE_NEW.integer() as u16 / 4) << 8,
             index: 0x0,
             length: 0x0,
@@ -649,9 +649,9 @@ fn get_global_idle_default_post_reset() {
         //Get global idle
         &UsbRequest {
             direction: UsbDirection::In != UsbDirection::Out,
-            request_type: control::RequestType::Class as u8,
-            recipient: control::Recipient::Interface as u8,
-            request: Request::GetIdle as u8,
+            request_type: RequestType::Class as u8,
+            recipient: Recipient::Interface as u8,
+            request: HidRequest::GetIdle as u8,
             value: 0x0,
             index: 0x0,
             length: 0x1,
@@ -725,9 +725,9 @@ fn get_report_idle_default() {
     //Get idle
     let read_data: &[&[u8]] = &[&UsbRequest {
         direction: UsbDirection::In != UsbDirection::Out,
-        request_type: control::RequestType::Class as u8,
-        recipient: control::Recipient::Interface as u8,
-        request: Request::GetIdle as u8,
+        request_type: RequestType::Class as u8,
+        recipient: Recipient::Interface as u8,
+        request: HidRequest::GetIdle as u8,
         value: REPORT_ID as u16,
         index: 0x0,
         length: 0x1,
@@ -796,9 +796,9 @@ fn set_report_idle() {
         //Set report idle
         &UsbRequest {
             direction: UsbDirection::In != UsbDirection::In,
-            request_type: control::RequestType::Class as u8,
-            recipient: control::Recipient::Interface as u8,
-            request: Request::SetIdle as u8,
+            request_type: RequestType::Class as u8,
+            recipient: Recipient::Interface as u8,
+            request: HidRequest::SetIdle as u8,
             value: (IDLE_NEW.integer() as u16 / 4) << 8 | REPORT_ID as u16,
             index: 0x0,
             length: 0x0,
@@ -808,9 +808,9 @@ fn set_report_idle() {
         //Get report idle
         &UsbRequest {
             direction: UsbDirection::In != UsbDirection::Out,
-            request_type: control::RequestType::Class as u8,
-            recipient: control::Recipient::Interface as u8,
-            request: Request::GetIdle as u8,
+            request_type: RequestType::Class as u8,
+            recipient: Recipient::Interface as u8,
+            request: HidRequest::GetIdle as u8,
             value: REPORT_ID as u16,
             index: 0x0,
             length: 0x1,
@@ -820,9 +820,9 @@ fn set_report_idle() {
         //Get global idle
         &UsbRequest {
             direction: UsbDirection::In != UsbDirection::Out,
-            request_type: control::RequestType::Class as u8,
-            recipient: control::Recipient::Interface as u8,
-            request: Request::GetIdle as u8,
+            request_type: RequestType::Class as u8,
+            recipient: Recipient::Interface as u8,
+            request: HidRequest::GetIdle as u8,
             value: 0x0,
             index: 0x0,
             length: 0x1,
@@ -899,9 +899,9 @@ fn get_report_idle_default_post_reset() {
         //Set report idle
         &UsbRequest {
             direction: UsbDirection::In != UsbDirection::In,
-            request_type: control::RequestType::Class as u8,
-            recipient: control::Recipient::Interface as u8,
-            request: Request::SetIdle as u8,
+            request_type: RequestType::Class as u8,
+            recipient: Recipient::Interface as u8,
+            request: HidRequest::SetIdle as u8,
             value: (IDLE_NEW.integer() as u16 / 4) << 8 | REPORT_ID as u16,
             index: 0x0,
             length: 0x0,
@@ -911,9 +911,9 @@ fn get_report_idle_default_post_reset() {
         //Get report idle
         &UsbRequest {
             direction: UsbDirection::In != UsbDirection::Out,
-            request_type: control::RequestType::Class as u8,
-            recipient: control::Recipient::Interface as u8,
-            request: Request::GetIdle as u8,
+            request_type: RequestType::Class as u8,
+            recipient: Recipient::Interface as u8,
+            request: HidRequest::GetIdle as u8,
             value: REPORT_ID as u16,
             index: 0x0,
             length: 0x1,

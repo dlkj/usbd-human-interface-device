@@ -2,9 +2,9 @@
 pub mod descriptors;
 
 use super::hid::UsbHidClass;
+use crate::hid::descriptor::InterfaceProtocol;
+use crate::hid::descriptor::InterfaceSubClass;
 use crate::hid::HidConfig;
-use crate::hid::InterfaceProtocol;
-use crate::hid::InterfaceSubClass;
 use log::warn;
 use usb_device::class_prelude::*;
 use usb_device::Result;
