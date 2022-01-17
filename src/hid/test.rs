@@ -139,17 +139,6 @@ struct UsbRequest {
 #[test]
 fn descriptor_ordering_satisfies_boot_spec() {
     init_logging();
-    #[derive(Default)]
-    struct TestHidClass {}
-
-    impl HidConfig for TestHidClass {
-        fn report_descriptor(&self) -> &'static [u8] {
-            &[]
-        }
-        fn interface_name(&self) -> &str {
-            "Test device"
-        }
-    }
 
     let validate_write_data = |v: &Vec<u8>| {
         /*
@@ -211,7 +200,7 @@ fn descriptor_ordering_satisfies_boot_spec() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClass::new(&usb_alloc, TestHidClass::default());
+    let mut hid = UsbHidClassBuilder::new(&usb_alloc, &[]).build();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("DLKJ")
@@ -231,24 +220,6 @@ fn descriptor_ordering_satisfies_boot_spec() {
 #[test]
 fn get_protocol_default_to_report() {
     init_logging();
-
-    #[derive(Default)]
-    struct TestHidClass {}
-
-    impl HidConfig for TestHidClass {
-        fn report_descriptor(&self) -> &'static [u8] {
-            &[]
-        }
-        fn interface_name(&self) -> &str {
-            "Test device"
-        }
-        fn interface_protocol(&self) -> InterfaceProtocol {
-            InterfaceProtocol::Keyboard
-        }
-        fn interface_sub_class(&self) -> InterfaceSubClass {
-            InterfaceSubClass::Boot
-        }
-    }
 
     //Get protocol
     let read_data: &[&[u8]] = &[&UsbRequest {
@@ -275,7 +246,7 @@ fn get_protocol_default_to_report() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClass::new(&usb_alloc, TestHidClass::default());
+    let mut hid = UsbHidClassBuilder::new(&usb_alloc, &[]).build();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("DLKJ")
@@ -295,24 +266,6 @@ fn get_protocol_default_to_report() {
 #[test]
 fn set_protocol() {
     init_logging();
-
-    #[derive(Default)]
-    struct TestHidClass {}
-
-    impl HidConfig for TestHidClass {
-        fn report_descriptor(&self) -> &'static [u8] {
-            &[]
-        }
-        fn interface_name(&self) -> &str {
-            "Test device"
-        }
-        fn interface_protocol(&self) -> InterfaceProtocol {
-            InterfaceProtocol::Keyboard
-        }
-        fn interface_sub_class(&self) -> InterfaceSubClass {
-            InterfaceSubClass::Boot
-        }
-    }
 
     let read_data: &[&[u8]] = &[
         //Set protocol to boot
@@ -353,7 +306,7 @@ fn set_protocol() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClass::new(&usb_alloc, TestHidClass::default());
+    let mut hid = UsbHidClassBuilder::new(&usb_alloc, &[]).build();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("DLKJ")
@@ -373,24 +326,6 @@ fn set_protocol() {
 #[test]
 fn get_protocol_default_post_reset() {
     init_logging();
-
-    #[derive(Default)]
-    struct TestHidClass {}
-
-    impl HidConfig for TestHidClass {
-        fn report_descriptor(&self) -> &'static [u8] {
-            &[]
-        }
-        fn interface_name(&self) -> &str {
-            "Test device"
-        }
-        fn interface_protocol(&self) -> InterfaceProtocol {
-            InterfaceProtocol::Keyboard
-        }
-        fn interface_sub_class(&self) -> InterfaceSubClass {
-            InterfaceSubClass::Boot
-        }
-    }
 
     let read_data: &[&[u8]] = &[
         //Set protocol to boot
@@ -431,7 +366,7 @@ fn get_protocol_default_post_reset() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClass::new(&usb_alloc, TestHidClass::default());
+    let mut hid = UsbHidClassBuilder::new(&usb_alloc, &[]).build();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("DLKJ")
@@ -459,27 +394,6 @@ fn get_global_idle_default() {
 
     const IDLE_DEFAULT: Milliseconds = Milliseconds(40);
 
-    #[derive(Default)]
-    struct TestHidClass {}
-
-    impl HidConfig for TestHidClass {
-        fn report_descriptor(&self) -> &'static [u8] {
-            &[]
-        }
-        fn interface_name(&self) -> &str {
-            "Test device"
-        }
-        fn interface_protocol(&self) -> InterfaceProtocol {
-            InterfaceProtocol::Keyboard
-        }
-        fn interface_sub_class(&self) -> InterfaceSubClass {
-            InterfaceSubClass::Boot
-        }
-        fn idle_default(&self) -> Milliseconds {
-            IDLE_DEFAULT
-        }
-    }
-
     //Get idle
     let read_data: &[&[u8]] = &[&UsbRequest {
         direction: UsbDirection::In != UsbDirection::Out,
@@ -505,7 +419,10 @@ fn get_global_idle_default() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClass::new(&usb_alloc, TestHidClass::default());
+    let mut hid = UsbHidClassBuilder::new(&usb_alloc, &[])
+        .idle_default(IDLE_DEFAULT)
+        .unwrap()
+        .build();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("DLKJ")
@@ -527,27 +444,6 @@ fn set_global_idle() {
     init_logging();
     const IDLE_DEFAULT: Milliseconds = Milliseconds(40);
     const IDLE_NEW: Milliseconds = Milliseconds(88);
-
-    #[derive(Default)]
-    struct TestHidClass {}
-
-    impl HidConfig for TestHidClass {
-        fn report_descriptor(&self) -> &'static [u8] {
-            &[]
-        }
-        fn interface_name(&self) -> &str {
-            "Test device"
-        }
-        fn interface_protocol(&self) -> InterfaceProtocol {
-            InterfaceProtocol::Keyboard
-        }
-        fn interface_sub_class(&self) -> InterfaceSubClass {
-            InterfaceSubClass::Boot
-        }
-        fn idle_default(&self) -> Milliseconds {
-            IDLE_DEFAULT
-        }
-    }
 
     let read_data: &[&[u8]] = &[
         //Set idle
@@ -588,7 +484,10 @@ fn set_global_idle() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClass::new(&usb_alloc, TestHidClass::default());
+    let mut hid = UsbHidClassBuilder::new(&usb_alloc, &[])
+        .idle_default(IDLE_DEFAULT)
+        .unwrap()
+        .build();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("DLKJ")
@@ -611,27 +510,6 @@ fn get_global_idle_default_post_reset() {
 
     const IDLE_DEFAULT: Milliseconds = Milliseconds(40);
     const IDLE_NEW: Milliseconds = Milliseconds(88);
-
-    #[derive(Default)]
-    struct TestHidClass {}
-
-    impl HidConfig for TestHidClass {
-        fn report_descriptor(&self) -> &'static [u8] {
-            &[]
-        }
-        fn interface_name(&self) -> &str {
-            "Test device"
-        }
-        fn interface_protocol(&self) -> InterfaceProtocol {
-            InterfaceProtocol::Keyboard
-        }
-        fn interface_sub_class(&self) -> InterfaceSubClass {
-            InterfaceSubClass::Boot
-        }
-        fn idle_default(&self) -> Milliseconds {
-            IDLE_DEFAULT
-        }
-    }
 
     let read_data: &[&[u8]] = &[
         //Set global idle
@@ -672,7 +550,10 @@ fn get_global_idle_default_post_reset() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClass::new(&usb_alloc, TestHidClass::default());
+    let mut hid = UsbHidClassBuilder::new(&usb_alloc, &[])
+        .idle_default(IDLE_DEFAULT)
+        .unwrap()
+        .build();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("DLKJ")
@@ -701,27 +582,6 @@ fn get_report_idle_default() {
     const IDLE_DEFAULT: Milliseconds = Milliseconds(40);
     const REPORT_ID: u8 = 0xAB;
 
-    #[derive(Default)]
-    struct TestHidClass {}
-
-    impl HidConfig for TestHidClass {
-        fn report_descriptor(&self) -> &'static [u8] {
-            &[]
-        }
-        fn interface_name(&self) -> &str {
-            "Test device"
-        }
-        fn interface_protocol(&self) -> InterfaceProtocol {
-            InterfaceProtocol::Keyboard
-        }
-        fn interface_sub_class(&self) -> InterfaceSubClass {
-            InterfaceSubClass::Boot
-        }
-        fn idle_default(&self) -> Milliseconds {
-            IDLE_DEFAULT
-        }
-    }
-
     //Get idle
     let read_data: &[&[u8]] = &[&UsbRequest {
         direction: UsbDirection::In != UsbDirection::Out,
@@ -747,7 +607,10 @@ fn get_report_idle_default() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClass::new(&usb_alloc, TestHidClass::default());
+    let mut hid = UsbHidClassBuilder::new(&usb_alloc, &[])
+        .idle_default(IDLE_DEFAULT)
+        .unwrap()
+        .build();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("DLKJ")
@@ -770,27 +633,6 @@ fn set_report_idle() {
     const IDLE_DEFAULT: Milliseconds = Milliseconds(40);
     const IDLE_NEW: Milliseconds = Milliseconds(88);
     const REPORT_ID: u8 = 0xAB;
-
-    #[derive(Default)]
-    struct TestHidClass {}
-
-    impl HidConfig for TestHidClass {
-        fn report_descriptor(&self) -> &'static [u8] {
-            &[]
-        }
-        fn interface_name(&self) -> &str {
-            "Test device"
-        }
-        fn interface_protocol(&self) -> InterfaceProtocol {
-            InterfaceProtocol::Keyboard
-        }
-        fn interface_sub_class(&self) -> InterfaceSubClass {
-            InterfaceSubClass::Boot
-        }
-        fn idle_default(&self) -> Milliseconds {
-            IDLE_DEFAULT
-        }
-    }
 
     let read_data: &[&[u8]] = &[
         //Set report idle
@@ -848,7 +690,10 @@ fn set_report_idle() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClass::new(&usb_alloc, TestHidClass::default());
+    let mut hid = UsbHidClassBuilder::new(&usb_alloc, &[])
+        .idle_default(IDLE_DEFAULT)
+        .unwrap()
+        .build();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("DLKJ")
@@ -873,27 +718,6 @@ fn get_report_idle_default_post_reset() {
 
     const IDLE_DEFAULT: Milliseconds = Milliseconds(40);
     const IDLE_NEW: Milliseconds = Milliseconds(88);
-
-    #[derive(Default)]
-    struct TestHidClass {}
-
-    impl HidConfig for TestHidClass {
-        fn report_descriptor(&self) -> &'static [u8] {
-            &[]
-        }
-        fn interface_name(&self) -> &str {
-            "Test device"
-        }
-        fn interface_protocol(&self) -> InterfaceProtocol {
-            InterfaceProtocol::Keyboard
-        }
-        fn interface_sub_class(&self) -> InterfaceSubClass {
-            InterfaceSubClass::Boot
-        }
-        fn idle_default(&self) -> Milliseconds {
-            IDLE_DEFAULT
-        }
-    }
 
     let read_data: &[&[u8]] = &[
         //Set report idle
@@ -934,7 +758,10 @@ fn get_report_idle_default_post_reset() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClass::new(&usb_alloc, TestHidClass::default());
+    let mut hid = UsbHidClassBuilder::new(&usb_alloc, &[])
+        .idle_default(IDLE_DEFAULT)
+        .unwrap()
+        .build();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("DLKJ")

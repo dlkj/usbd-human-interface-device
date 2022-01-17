@@ -52,7 +52,7 @@ impl HidConfig for HidBootKeyboard {
     }
 }
 
-impl<B: UsbBus> HidKeyboard for UsbHidClass<'_, B, HidBootKeyboard> {
+impl<B: UsbBus> HidKeyboard for UsbHidClass<'_, B> {
     fn write_keycodes<K>(&self, keycodes: K) -> core::result::Result<(), usb_device::UsbError>
     where
         K: IntoIterator<Item = u8>,

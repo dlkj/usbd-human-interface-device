@@ -47,45 +47,131 @@ pub trait HidConfig {
     fn reset(&mut self) {}
 }
 
-/// Implements the generic Hid Device
-pub struct UsbHidClass<'a, B: UsbBus, C: HidConfig> {
-    hid_class: C,
-    interface_number: InterfaceNumber,
-    out_endpoint: EndpointOut<'a, B>,
-    in_endpoint: EndpointIn<'a, B>,
-    string_index: StringIndex,
-    protocol: HidProtocol,
-    global_idle: u8,
-    report_idle: heapless::FnvIndexMap<u8, u8, 32>,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, PrimitiveEnum)]
+#[repr(u8)]
+pub enum UsbPacketSize {
+    Size8 = 8,
+    Size16 = 16,
+    Size32 = 32,
+    Size64 = 64,
 }
 
-impl<B: UsbBus, C: HidConfig> UsbHidClass<'_, B, C> {
-    pub fn new(usb_alloc: &'_ UsbBusAllocator<B>, hid_class: C) -> UsbHidClass<'_, B, C> {
-        let interval_ms = hid_class.poll_interval().integer() as u8;
-        let interface_number = usb_alloc.interface();
-        let global_idle = (hid_class.idle_default().integer() / 4) as u8;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Config<'a> {
+    report_descriptor: &'a [u8],
+    interface_description: Option<&'a str>,
+    interface_protocol: InterfaceProtocol,
+    interface_sub_class: InterfaceSubClass,
+    idle_default: u8,
+    endpoint_poll_interval: u8,
+    endpoint_max_packet_size: UsbPacketSize,
+}
 
-        UsbHidClass {
-            hid_class,
-            interface_number,
-            //todo make packet size configurable
-            //todo make endpoints independently configurable
-            //todo make endpoints optional
-            out_endpoint: usb_alloc.interrupt(8, interval_ms),
-            in_endpoint: usb_alloc.interrupt(8, interval_ms),
-            string_index: usb_alloc.string(),
-            protocol: HidProtocol::Report, //When initialized, all devices default to report protocol - Hid spec 7.2.6 Set_Protocol Request
-            global_idle,
-            report_idle: heapless::FnvIndexMap::new(),
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UsbHidClassBuilderError {
+    ValueOverflow,
+}
+
+#[must_use = "this `UsbHidClassBuilder` must be assigned or consumed by `::build()`"]
+#[derive(Clone, Copy)]
+pub struct UsbHidClassBuilder<'a, B: UsbBus> {
+    usb_alloc: &'a UsbBusAllocator<B>,
+    config: Config<'a>,
+}
+
+impl<'a, B: UsbBus> core::fmt::Debug for UsbHidClassBuilder<'a, B> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("UsbHidClassBuilder")
+            .field("bus_alloc", &"UsbBusAllocator{...}")
+            .field("config", &self.config)
+            .finish()
+    }
+}
+
+impl<'a, B: UsbBus> UsbHidClassBuilder<'a, B> {
+    pub fn new(
+        usb_alloc: &'a UsbBusAllocator<B>,
+        report_descriptor: &'a [u8],
+    ) -> UsbHidClassBuilder<'a, B> {
+        UsbHidClassBuilder {
+            usb_alloc,
+            config: Config {
+                report_descriptor,
+                interface_description: None,
+                interface_protocol: InterfaceProtocol::None,
+                interface_sub_class: InterfaceSubClass::None,
+                idle_default: 0,
+                endpoint_max_packet_size: UsbPacketSize::Size8,
+                endpoint_poll_interval: 20,
+            },
         }
     }
 
-    fn idle_from_ms(idle: Milliseconds) -> u8 {
-        (idle.integer() / 4) as u8
+    pub fn idle_default(
+        mut self,
+        duration: Milliseconds,
+    ) -> core::result::Result<UsbHidClassBuilder<'a, B>, UsbHidClassBuilderError> {
+        if duration == Milliseconds(0_u32) {
+            self.config.idle_default = 0;
+        } else {
+            let scaled_duration = duration.integer() / 4;
+
+            if scaled_duration == 0 {
+                //round up for 1-3ms
+                self.config.idle_default = 1;
+            } else {
+                self.config.idle_default = u8::try_from(scaled_duration)
+                    .map_err(|_| UsbHidClassBuilderError::ValueOverflow)?;
+            }
+        }
+        Ok(self)
+    }
+
+    pub fn build(self) -> UsbHidClass<'a, B> {
+        UsbHidClass::new(self.usb_alloc, self.config)
+    }
+}
+
+/// Implements the generic Hid Device
+pub struct UsbHidClass<'a, B: UsbBus> {
+    config: Config<'a>,
+    interface_number: InterfaceNumber,
+    out_endpoint: EndpointOut<'a, B>,
+    in_endpoint: EndpointIn<'a, B>,
+    interface_description_string_index: Option<StringIndex>,
+    current_protocol: HidProtocol,
+    report_idle: heapless::FnvIndexMap<u8, u8, 32>,
+    global_idle: u8,
+}
+
+impl<'a, B: UsbBus> UsbHidClass<'a, B> {
+    pub fn new(usb_alloc: &'a UsbBusAllocator<B>, config: Config<'a>) -> UsbHidClass<'a, B> {
+        UsbHidClass {
+            config,
+            interface_number: usb_alloc.interface(),
+            //todo make packet size configurable
+            //todo make endpoints independently configurable
+            //todo make endpoints optional
+            out_endpoint: usb_alloc.interrupt(
+                config.endpoint_max_packet_size as u16,
+                config.endpoint_poll_interval,
+            ),
+            in_endpoint: usb_alloc.interrupt(
+                config.endpoint_max_packet_size as u16,
+                config.endpoint_poll_interval,
+            ),
+            interface_description_string_index: config
+                .interface_description
+                .map(|_| usb_alloc.string()),
+            //When initialized, all devices default to report protocol - Hid spec 7.2.6 Set_Protocol Request
+            current_protocol: HidProtocol::Report,
+            report_idle: heapless::FnvIndexMap::new(),
+            global_idle: config.idle_default,
+        }
     }
 
     pub fn protocol(&self) -> HidProtocol {
-        self.protocol
+        self.current_protocol
     }
 
     pub fn global_idle(&self) -> Milliseconds {
@@ -114,7 +200,7 @@ impl<B: UsbBus, C: HidConfig> UsbHidClass<'_, B, C> {
         let request: &Request = transfer.request();
         match DescriptorType::from_primitive((request.value >> 8) as u8) {
             Some(DescriptorType::Report) => {
-                match transfer.accept_with_static(self.hid_class.report_descriptor()) {
+                match transfer.accept_with(self.config.report_descriptor) {
                     Err(e) => error!("Failed to send report descriptor - {:?}", e),
                     Ok(_) => {
                         trace!("Sent report descriptor")
@@ -122,7 +208,7 @@ impl<B: UsbBus, C: HidConfig> UsbHidClass<'_, B, C> {
                 }
             }
             Some(DescriptorType::Hid) => {
-                match hid_descriptor(self.hid_class.report_descriptor().len()) {
+                match hid_descriptor(self.config.report_descriptor.len()) {
                     Err(e) => {
                         error!("Failed to generate Hid descriptor - {:?}", e);
                         transfer.reject().ok();
@@ -153,21 +239,21 @@ impl<B: UsbBus, C: HidConfig> UsbHidClass<'_, B, C> {
     }
 }
 
-impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
+impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
     fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
         writer.interface_alt(
             self.interface_number,
             usb_device::device::DEFAULT_ALTERNATE_SETTING,
             USB_CLASS_HID,
-            self.hid_class.interface_sub_class() as u8,
-            self.hid_class.interface_protocol() as u8,
-            Some(self.string_index),
+            self.config.interface_sub_class as u8,
+            self.config.interface_protocol as u8,
+            self.interface_description_string_index,
         )?;
 
         //Hid descriptor
         writer.write(
             DescriptorType::Hid as u8,
-            &hid_descriptor(self.hid_class.report_descriptor().len())?,
+            &hid_descriptor(self.config.report_descriptor.len())?,
         )?;
 
         //Endpoint descriptors
@@ -178,11 +264,10 @@ impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
     }
 
     fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&str> {
-        if index == self.string_index {
-            Some(self.hid_class.interface_name())
-        } else {
-            None
-        }
+        self.interface_description_string_index
+            .filter(|&i| i == index)
+            .map(|_| self.config.interface_description)
+            .flatten()
     }
 
     fn control_in(&mut self, transfer: ControlIn<B>) {
@@ -246,9 +331,9 @@ impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
                             );
                         }
 
-                        match transfer.accept_with(&[self.protocol as u8]) {
+                        match transfer.accept_with(&[self.current_protocol as u8]) {
                             Err(e) => error!("Failed to send protocol data - {:?}", e),
-                            Ok(_) => trace!("Sent protocol: {:?}", self.protocol),
+                            Ok(_) => trace!("Sent protocol: {:?}", self.current_protocol),
                         }
                     }
                     _ => {
@@ -329,7 +414,7 @@ impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
                     );
                 }
                 if let Some(protocol) = HidProtocol::from_primitive((request.value & 0xFF) as u8) {
-                    self.protocol = protocol;
+                    self.current_protocol = protocol;
                     trace!("Set protocol to {:?}", protocol);
                     transfer.accept().ok();
                 } else {
@@ -352,8 +437,8 @@ impl<B: UsbBus, C: HidConfig> UsbClass<B> for UsbHidClass<'_, B, C> {
 
     fn reset(&mut self) {
         info!("Reset");
-        self.protocol = HidProtocol::Report;
-        self.global_idle = Self::idle_from_ms(self.hid_class.idle_default());
+        self.current_protocol = HidProtocol::Report;
+        self.global_idle = self.config.idle_default;
         self.report_idle.clear();
     }
 }

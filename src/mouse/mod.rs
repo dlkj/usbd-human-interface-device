@@ -48,7 +48,7 @@ impl HidConfig for HidBootMouse {
     }
 }
 
-impl<B: UsbBus> HidMouse for UsbHidClass<'_, B, HidBootMouse> {
+impl<B: UsbBus> HidMouse for UsbHidClass<'_, B> {
     fn write_mouse(
         &self,
         buttons: u8,
