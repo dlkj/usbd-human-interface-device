@@ -75,10 +75,7 @@ fn main() -> ! {
         &mut pac.RESETS,
     ));
 
-    let mut mouse = usbd_hid_devices::hid::UsbHidClass::new(
-        &usb_bus,
-        usbd_hid_devices::mouse::HidBootMouse::default(),
-    );
+    let mut mouse = usbd_hid_devices::hid::UsbHidClassBuilder::new_boot_mouse(&usb_bus).build();
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))
@@ -141,7 +138,7 @@ fn main() -> ! {
             if in10.is_low().unwrap() {}
             if in11.is_low().unwrap() {}
 
-            mouse.write_mouse(buttons, x, y).ok();
+            mouse.write_mouse_report(buttons, x, y).ok();
         }
     }
 }

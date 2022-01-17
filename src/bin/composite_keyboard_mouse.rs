@@ -76,15 +76,10 @@ fn main() -> ! {
         &mut pac.RESETS,
     ));
 
-    let mut keyboard = usbd_hid_devices::hid::UsbHidClass::new(
-        &usb_bus,
-        usbd_hid_devices::keyboard::HidBootKeyboard::default(),
-    );
+    let mut keyboard =
+        usbd_hid_devices::hid::UsbHidClassBuilder::new_boot_keyboard(&usb_bus).build();
 
-    let mut mouse = usbd_hid_devices::hid::UsbHidClass::new(
-        &usb_bus,
-        usbd_hid_devices::mouse::HidBootMouse::default(),
-    );
+    let mut mouse = usbd_hid_devices::hid::UsbHidClassBuilder::new_boot_mouse(&usb_bus).build();
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))
@@ -147,7 +142,7 @@ fn main() -> ! {
             if in10.is_low().unwrap() {}
             if in11.is_low().unwrap() {}
 
-            mouse.write_mouse(buttons, x, y).ok();
+            mouse.write_mouse_report(buttons, x, y).ok();
 
             let keys = [
                 if in9.is_low().unwrap() { 0x04 } else { 0x00 },  //A
@@ -155,7 +150,7 @@ fn main() -> ! {
                 if in11.is_low().unwrap() { 0x06 } else { 0x00 }, //C
             ];
 
-            match keyboard.read_leds() {
+            match keyboard.read_keyboard_report() {
                 Err(_) => {
                     //do nothing
                 }
@@ -165,7 +160,7 @@ fn main() -> ! {
                 }
             }
 
-            keyboard.write_keycodes(keys).ok();
+            keyboard.write_keyboard_report(keys).ok();
         }
     }
 }
