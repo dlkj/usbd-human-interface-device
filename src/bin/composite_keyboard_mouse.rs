@@ -142,7 +142,13 @@ fn main() -> ! {
             if in10.is_low().unwrap() {}
             if in11.is_low().unwrap() {}
 
-            mouse.write_mouse_report(buttons, x, y).ok();
+            match mouse.write_mouse_report(buttons, x, y) {
+                Err(UsbError::WouldBlock) => {}
+                Ok(_) => {}
+                Err(e) => {
+                    panic!("Failed to write mouse report: {:?}", e)
+                }
+            }
 
             let keys = [
                 if in9.is_low().unwrap() { 0x04 } else { 0x00 },  //A
@@ -151,8 +157,11 @@ fn main() -> ! {
             ];
 
             match keyboard.read_keyboard_report() {
-                Err(_) => {
+                Err(UsbError::WouldBlock) => {
                     //do nothing
+                }
+                Err(e) => {
+                    panic!("Failed to read keyboard report: {:?}", e)
                 }
                 Ok(leds) => {
                     //send scroll lock to the led
@@ -160,7 +169,13 @@ fn main() -> ! {
                 }
             }
 
-            keyboard.write_keyboard_report(keys).ok();
+            match keyboard.write_keyboard_report(keys) {
+                Err(UsbError::WouldBlock) => {}
+                Ok(_) => {}
+                Err(e) => {
+                    panic!("Failed to write keyboard report: {:?}", e)
+                }
+            };
         }
     }
 }

@@ -138,7 +138,13 @@ fn main() -> ! {
             if in10.is_low().unwrap() {}
             if in11.is_low().unwrap() {}
 
-            mouse.write_mouse_report(buttons, x, y).ok();
+            match mouse.write_mouse_report(buttons, x, y) {
+                Err(UsbError::WouldBlock) => {}
+                Ok(_) => {}
+                Err(e) => {
+                    panic!("Failed to write mouse report: {:?}", e)
+                }
+            }
         }
     }
 }

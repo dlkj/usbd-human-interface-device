@@ -108,16 +108,6 @@ fn main() -> ! {
 
     loop {
         if usb_dev.poll(&mut [&mut keyboard]) {
-            match keyboard.read_keyboard_report() {
-                Err(_) => {
-                    //do nothing
-                }
-                Ok(leds) => {
-                    //send scroll lock to the led
-                    led_pin.set_state(PinState::from((leds & 0x1) != 0)).ok();
-                }
-            }
-
             let keys = [
                 if in0.is_low().unwrap() { 0x53 } else { 0x00 }, //Numlock
                 if in1.is_low().unwrap() { 0x52 } else { 0x00 }, //Up
@@ -133,7 +123,26 @@ fn main() -> ! {
                 if in11.is_low().unwrap() { 0x28 } else { 0x00 }, //Enter
             ];
 
-            keyboard.write_keyboard_report(keys).ok();
+            match keyboard.read_keyboard_report() {
+                Err(UsbError::WouldBlock) => {
+                    //do nothing
+                }
+                Err(e) => {
+                    panic!("Failed to read keyboard report: {:?}", e)
+                }
+                Ok(leds) => {
+                    //send scroll lock to the led
+                    led_pin.set_state(PinState::from((leds & 0x1) != 0)).ok();
+                }
+            }
+
+            match keyboard.write_keyboard_report(keys) {
+                Err(UsbError::WouldBlock) => {}
+                Ok(_) => {}
+                Err(e) => {
+                    panic!("Failed to write keyboard report: {:?}", e)
+                }
+            };
         }
     }
 }
