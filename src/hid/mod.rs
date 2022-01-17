@@ -16,37 +16,6 @@ use usb_device::control::Request;
 use usb_device::control::RequestType;
 use usb_device::Result;
 
-pub trait HidConfig {
-    /*todo
-     * Replace with builder calling a private constructor on UsbHidClass
-     * Independent config of endpoints
-     * Make out endpoint optional
-     * Default Idle config
-     * Link boot and protocol
-     */
-
-    fn packet_size(&self) -> u8 {
-        8
-    }
-    fn poll_interval(&self) -> Milliseconds {
-        Milliseconds(10)
-    }
-    fn report_descriptor(&self) -> &'static [u8];
-    fn interface_protocol(&self) -> InterfaceProtocol {
-        InterfaceProtocol::None
-    }
-    fn interface_sub_class(&self) -> InterfaceSubClass {
-        InterfaceSubClass::None
-    }
-    /// When set to 0, the duration is indefinite.
-    /// Should be between 0.004 to 1.020 seconds and divisible by 4
-    fn idle_default(&self) -> Milliseconds {
-        Milliseconds(0)
-    }
-    fn interface_name(&self) -> &str;
-    fn reset(&mut self) {}
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, PrimitiveEnum)]
 #[repr(u8)]
 pub enum UsbPacketSize {
@@ -79,7 +48,7 @@ pub struct UsbHidClassBuilder<'a, B: UsbBus> {
     config: Config<'a>,
 }
 
-impl<'a, B: UsbBus> core::fmt::Debug for UsbHidClassBuilder<'a, B> {
+impl<'a, B: UsbBus> core::fmt::Debug for UsbHidClassBuilder<'_, B> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("UsbHidClassBuilder")
             .field("bus_alloc", &"UsbBusAllocator{...}")
@@ -107,14 +76,46 @@ impl<'a, B: UsbBus> UsbHidClassBuilder<'a, B> {
         }
     }
 
-    pub fn idle_default(
+    pub fn new_boot_keyboard(usb_alloc: &'a UsbBusAllocator<B>) -> UsbHidClassBuilder<'a, B> {
+        let mut builder = Self::new(
+            usb_alloc,
+            crate::keyboard::descriptors::HID_BOOT_KEYBOARD_REPORT_DESCRIPTOR,
+        );
+        builder.config.interface_sub_class = InterfaceSubClass::Boot;
+        builder.config.interface_protocol = InterfaceProtocol::Keyboard;
+
+        builder
+            .interface_description("Keyboard")
+            .idle_default(Milliseconds(500))
+            .unwrap()
+            .endpoint_max_packet_size(UsbPacketSize::Size8)
+    }
+
+    pub fn new_boot_mouse(usb_alloc: &'a UsbBusAllocator<B>) -> UsbHidClassBuilder<'a, B> {
+        let mut builder = Self::new(
+            usb_alloc,
+            crate::mouse::descriptors::HID_BOOT_MOUSE_REPORT_DESCRIPTOR,
+        );
+        builder.config.interface_sub_class = InterfaceSubClass::Boot;
+        builder.config.interface_protocol = InterfaceProtocol::Mouse;
+
+        builder
+            .interface_description("Mouse")
+            .idle_default(Milliseconds(0))
+            .unwrap()
+            .endpoint_max_packet_size(UsbPacketSize::Size8)
+    }
+
+    pub fn idle_default<D: Into<Milliseconds>>(
         mut self,
-        duration: Milliseconds,
+        duration: D,
     ) -> core::result::Result<UsbHidClassBuilder<'a, B>, UsbHidClassBuilderError> {
-        if duration == Milliseconds(0_u32) {
+        let d_ms = duration.into();
+
+        if d_ms == Milliseconds(0_u32) {
             self.config.idle_default = 0;
         } else {
-            let scaled_duration = duration.integer() / 4;
+            let scaled_duration = d_ms.integer() / 4;
 
             if scaled_duration == 0 {
                 //round up for 1-3ms
@@ -125,6 +126,16 @@ impl<'a, B: UsbBus> UsbHidClassBuilder<'a, B> {
             }
         }
         Ok(self)
+    }
+
+    pub fn interface_description(mut self, s: &'a str) -> UsbHidClassBuilder<'_, B> {
+        self.config.interface_description = Some(s);
+        self
+    }
+
+    pub fn endpoint_max_packet_size(mut self, size: UsbPacketSize) -> UsbHidClassBuilder<'a, B> {
+        self.config.endpoint_max_packet_size = size;
+        self
     }
 
     pub fn build(self) -> UsbHidClass<'a, B> {

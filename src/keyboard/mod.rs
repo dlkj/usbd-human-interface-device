@@ -1,9 +1,6 @@
 //!Implements Hid keyboard devices
 pub mod descriptors;
 
-use crate::hid::descriptor::InterfaceProtocol;
-use crate::hid::descriptor::InterfaceSubClass;
-use crate::hid::HidConfig;
 use crate::hid::UsbHidClass;
 use log::{error, warn};
 use usb_device::class_prelude::*;
@@ -13,47 +10,19 @@ use usb_device::Result;
 /// receive LED status information
 pub trait HidKeyboard {
     /// Writes an input report given representing keycodes to the host system
-    fn write_keycodes<K>(&self, keycodes: K) -> Result<()>
+    fn write_keyboard_report<K>(&self, keycodes: K) -> Result<()>
     where
         K: IntoIterator<Item = u8>;
 
     /// Read LED status from the host system
-    fn read_leds(&self) -> Result<u8>;
-}
-
-/// Implements a Hid Keyboard that conforms to the Boot specification. This aims
-/// to be compatible with BIOS and other reduced functionality USB hosts
-///
-/// This is defined in Appendix B.1 of Device Class Definition for Human
-/// Interface Devices (Hid) Version 1.11 -
-/// https://www.usb.org/sites/default/files/hid1_11.pdf
-#[derive(Default)]
-pub struct HidBootKeyboard {}
-
-impl HidConfig for HidBootKeyboard {
-    fn packet_size(&self) -> u8 {
-        8
-    }
-    fn poll_interval(&self) -> embedded_time::duration::Milliseconds {
-        embedded_time::duration::Milliseconds(20)
-    }
-    fn report_descriptor(&self) -> &'static [u8] {
-        &descriptors::HID_BOOT_KEYBOARD_REPORT_DESCRIPTOR
-    }
-    fn interface_protocol(&self) -> InterfaceProtocol {
-        InterfaceProtocol::Keyboard
-    }
-    fn interface_sub_class(&self) -> InterfaceSubClass {
-        InterfaceSubClass::Boot
-    }
-    fn reset(&mut self) {}
-    fn interface_name(&self) -> &str {
-        "Keyboard"
-    }
+    fn read_keyboard_report(&self) -> Result<u8>;
 }
 
 impl<B: UsbBus> HidKeyboard for UsbHidClass<'_, B> {
-    fn write_keycodes<K>(&self, keycodes: K) -> core::result::Result<(), usb_device::UsbError>
+    fn write_keyboard_report<K>(
+        &self,
+        keycodes: K,
+    ) -> core::result::Result<(), usb_device::UsbError>
     where
         K: IntoIterator<Item = u8>,
     {
@@ -96,7 +65,7 @@ impl<B: UsbBus> HidKeyboard for UsbHidClass<'_, B> {
         }
     }
 
-    fn read_leds(&self) -> core::result::Result<u8, usb_device::UsbError> {
+    fn read_keyboard_report(&self) -> core::result::Result<u8, usb_device::UsbError> {
         let mut data = [0; 8];
         match self.read_report(&mut data) {
             Ok(0) => {

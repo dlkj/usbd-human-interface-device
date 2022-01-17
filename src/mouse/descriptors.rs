@@ -1,6 +1,11 @@
-//https://www.usb.org/sites/default/files/hid1_11.pdf - Appendix B.2, E.10
+/// Implements a Hid Mouse that conforms to the Boot specification. This aims
+/// to be compatible with BIOS and other reduced functionality USB hosts
+///
+/// This is defined in Appendix B.1 of Device Class Definition for Human
+/// Interface Devices (Hid) Version 1.11 -
+/// https://www.usb.org/sites/default/files/hid1_11.pdf - Appendix B.2, E.10
 #[rustfmt::skip] 
-pub const HID_BOOT_MOUSE_REPORT_DESCRIPTOR: [u8; 50] = [
+pub const HID_BOOT_MOUSE_REPORT_DESCRIPTOR: &[u8] = &[
     0x05, 0x01,         // Usage Page (Generic Desktop),
     0x09, 0x02,         // Usage (Mouse),
     0xA1, 0x01,         // Collection (Application),

@@ -1,6 +1,11 @@
-//https://www.usb.org/sites/default/files/hid1_11.pdf - Appendix B.1, E.6
+/// Implements a Hid Keyboard that conforms to the Boot specification. This aims
+/// to be compatible with BIOS and other reduced functionality USB hosts
+///
+/// This is defined in Appendix B.1 of Device Class Definition for Human
+/// Interface Devices (Hid) Version 1.11 -
+/// https://www.usb.org/sites/default/files/hid1_11.pdf - Appendix B.1, E.6
 #[rustfmt::skip] 
-pub const HID_BOOT_KEYBOARD_REPORT_DESCRIPTOR: [u8; 65] = [
+pub const HID_BOOT_KEYBOARD_REPORT_DESCRIPTOR: &[u8] = &[
     0x05, 0x01,         // Usage Page (Generic Desktop),
     0x09, 0x06,         // Usage (Keyboard),
     0xA1, 0x01,         // Collection (Application),
