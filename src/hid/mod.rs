@@ -6,8 +6,10 @@ pub mod descriptor;
 mod test;
 
 use control::HidRequest;
+use core::cell::RefCell;
 use descriptor::*;
 use embedded_time::duration::*;
+use heapless::Vec;
 use log::{error, info, trace, warn};
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
@@ -26,13 +28,19 @@ pub enum UsbPacketSize {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EndpointConfig {
+    poll_interval: u8,
+    max_packet_size: UsbPacketSize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Config<'a> {
     report_descriptor: &'a [u8],
     interface_description: Option<&'a str>,
     interface_protocol: InterfaceProtocol,
     idle_default: u8,
-    endpoint_poll_interval: u8,
-    endpoint_max_packet_size: UsbPacketSize,
+    out_endpoint: Option<EndpointConfig>,
+    in_endpoint: EndpointConfig,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -68,8 +76,11 @@ impl<'a, B: UsbBus> UsbHidClassBuilder<'a, B> {
                 interface_description: None,
                 interface_protocol: InterfaceProtocol::None,
                 idle_default: 0,
-                endpoint_max_packet_size: UsbPacketSize::Size8,
-                endpoint_poll_interval: 20,
+                out_endpoint: None,
+                in_endpoint: EndpointConfig {
+                    max_packet_size: UsbPacketSize::Size8,
+                    poll_interval: 20,
+                },
             },
         }
     }
@@ -83,7 +94,9 @@ impl<'a, B: UsbBus> UsbHidClassBuilder<'a, B> {
         .interface_description("Keyboard")
         .idle_default(Milliseconds(500))
         .unwrap()
-        .endpoint_max_packet_size(UsbPacketSize::Size8)
+        .in_endpoint(UsbPacketSize::Size8, Milliseconds(20))
+        .unwrap()
+        .without_out_endpoint()
     }
 
     pub fn new_boot_mouse(usb_alloc: &'a UsbBusAllocator<B>) -> UsbHidClassBuilder<'a, B> {
@@ -95,7 +108,9 @@ impl<'a, B: UsbBus> UsbHidClassBuilder<'a, B> {
         .interface_description("Mouse")
         .idle_default(Milliseconds(0))
         .unwrap()
-        .endpoint_max_packet_size(UsbPacketSize::Size8)
+        .in_endpoint(UsbPacketSize::Size8, Milliseconds(20))
+        .unwrap()
+        .without_out_endpoint()
     }
 
     pub fn boot_device(mut self, protocol: InterfaceProtocol) -> UsbHidClassBuilder<'a, B> {
@@ -130,9 +145,35 @@ impl<'a, B: UsbBus> UsbHidClassBuilder<'a, B> {
         self
     }
 
-    pub fn endpoint_max_packet_size(mut self, size: UsbPacketSize) -> UsbHidClassBuilder<'a, B> {
-        self.config.endpoint_max_packet_size = size;
+    pub fn with_out_endpoint(
+        mut self,
+        max_packet_size: UsbPacketSize,
+        poll_interval: Milliseconds,
+    ) -> core::result::Result<UsbHidClassBuilder<'a, B>, UsbHidClassBuilderError> {
+        self.config.out_endpoint = Some(EndpointConfig {
+            max_packet_size,
+            poll_interval: u8::try_from(poll_interval.integer())
+                .map_err(|_| UsbHidClassBuilderError::ValueOverflow)?,
+        });
+        Ok(self)
+    }
+
+    pub fn without_out_endpoint(mut self) -> UsbHidClassBuilder<'a, B> {
+        self.config.out_endpoint = None;
         self
+    }
+
+    pub fn in_endpoint(
+        mut self,
+        max_packet_size: UsbPacketSize,
+        poll_interval: Milliseconds,
+    ) -> core::result::Result<UsbHidClassBuilder<'a, B>, UsbHidClassBuilderError> {
+        self.config.in_endpoint = EndpointConfig {
+            max_packet_size,
+            poll_interval: u8::try_from(poll_interval.integer())
+                .map_err(|_| UsbHidClassBuilderError::ValueOverflow)?,
+        };
+        Ok(self)
     }
 
     pub fn build(self) -> UsbHidClass<'a, B> {
@@ -144,12 +185,14 @@ impl<'a, B: UsbBus> UsbHidClassBuilder<'a, B> {
 pub struct UsbHidClass<'a, B: UsbBus> {
     config: Config<'a>,
     interface_number: InterfaceNumber,
-    out_endpoint: EndpointOut<'a, B>,
+    out_endpoint: Option<EndpointOut<'a, B>>,
     in_endpoint: EndpointIn<'a, B>,
     interface_description_string_index: Option<StringIndex>,
     current_protocol: HidProtocol,
     report_idle: heapless::FnvIndexMap<u8, u8, 32>,
     global_idle: u8,
+    control_in_report_buffer: RefCell<Vec<u8, 64>>,
+    control_out_report_buffer: RefCell<Vec<u8, 64>>,
 }
 
 impl<'a, B: UsbBus> UsbHidClass<'a, B> {
@@ -157,24 +200,22 @@ impl<'a, B: UsbBus> UsbHidClass<'a, B> {
         UsbHidClass {
             config,
             interface_number: usb_alloc.interface(),
-            //todo make packet size configurable
-            //todo make endpoints independently configurable
-            //todo make endpoints optional
-            out_endpoint: usb_alloc.interrupt(
-                config.endpoint_max_packet_size as u16,
-                config.endpoint_poll_interval,
-            ),
             in_endpoint: usb_alloc.interrupt(
-                config.endpoint_max_packet_size as u16,
-                config.endpoint_poll_interval,
+                config.in_endpoint.max_packet_size as u16,
+                config.in_endpoint.poll_interval,
             ),
+            out_endpoint: config
+                .out_endpoint
+                .map(|c| usb_alloc.interrupt(c.max_packet_size as u16, c.poll_interval)),
             interface_description_string_index: config
                 .interface_description
                 .map(|_| usb_alloc.string()),
             //When initialized, all devices default to report protocol - Hid spec 7.2.6 Set_Protocol Request
             current_protocol: HidProtocol::Report,
-            report_idle: heapless::FnvIndexMap::new(),
+            report_idle: Default::default(),
             global_idle: config.idle_default,
+            control_in_report_buffer: Default::default(),
+            control_out_report_buffer: Default::default(),
         }
     }
 
@@ -197,11 +238,52 @@ impl<'a, B: UsbBus> UsbHidClass<'a, B> {
     }
 
     pub fn write_report(&self, data: &[u8]) -> Result<usize> {
-        self.in_endpoint.write(data)
+        let mut buffer = self.control_in_report_buffer.borrow_mut();
+        let control_result = if buffer.is_empty() {
+            match buffer.extend_from_slice(data) {
+                Ok(_) => Ok(data.len()),
+                Err(_) => Err(UsbError::BufferOverflow),
+            }
+        } else {
+            Err(UsbError::WouldBlock)
+        };
+
+        let endpoint_result = self.in_endpoint.write(data);
+
+        match (control_result, endpoint_result) {
+            (_, Ok(n)) => Ok(n),
+            (Ok(n), _) => Ok(n),
+            (Err(UsbError::WouldBlock), Err(e)) => Err(e),
+            (Err(e), Err(UsbError::WouldBlock)) => Err(e),
+            (_, Err(e)) => Err(e),
+        }
     }
 
     pub fn read_report(&self, data: &mut [u8]) -> Result<usize> {
-        self.out_endpoint.read(data)
+        let ep_result = if let Some(ep) = &self.out_endpoint {
+            ep.read(data)
+        } else {
+            //No endpoint configured
+            Err(UsbError::WouldBlock)
+        };
+
+        match ep_result {
+            Err(UsbError::WouldBlock) => {
+                let mut buffer = self.control_out_report_buffer.borrow_mut();
+
+                if buffer.is_empty() {
+                    Err(UsbError::WouldBlock)
+                } else if data.len() < buffer.len() {
+                    Err(UsbError::BufferOverflow)
+                } else {
+                    let n = buffer.len();
+                    data[..n].copy_from_slice(&buffer);
+                    buffer.clear();
+                    Ok(n)
+                }
+            }
+            _ => ep_result,
+        }
     }
 
     fn control_in_get_descriptors(&mut self, transfer: ControlIn<B>) {
@@ -269,8 +351,10 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
         )?;
 
         //Endpoint descriptors
-        writer.endpoint(&self.out_endpoint)?;
         writer.endpoint(&self.in_endpoint)?;
+        if let Some(e) = &self.out_endpoint {
+            writer.endpoint(e)?;
+        }
 
         Ok(())
     }
@@ -307,9 +391,19 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
             RequestType::Class => {
                 match HidRequest::from_primitive(request.request) {
                     Some(HidRequest::GetReport) => {
-                        warn!("Rejected get report - unsupported");
-                        // Not supported - data reports handled via interrupt endpoints
-                        transfer.reject().ok();
+                        let mut buffer = self.control_in_report_buffer.borrow_mut();
+                        if buffer.is_empty() {
+                            trace!("Declined GetReport - empty buffer");
+                            transfer.reject().ok();
+                        } else {
+                            match transfer.accept_with(&buffer) {
+                                Err(e) => error!("Failed to send in report - {:?}", e),
+                                Ok(_) => {
+                                    trace!("Sent report, {:X} bytes", buffer.len())
+                                }
+                            }
+                            buffer.clear();
+                        }
                     }
                     Some(HidRequest::GetIdle) => {
                         if request.length != 1 {
@@ -380,6 +474,21 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
         );
 
         match HidRequest::from_primitive(request.request) {
+            Some(HidRequest::SetReport) => {
+                let mut buffer = self.control_out_report_buffer.borrow_mut();
+                buffer.clear();
+                match buffer.extend_from_slice(transfer.data()) {
+                    Err(_) => error!(
+                        "Failed to receive in report. Report size {:X}, expected <={:X}",
+                        transfer.data().len(),
+                        buffer.capacity()
+                    ),
+                    Ok(_) => {
+                        trace!("Received report, {:X} bytes", buffer.len())
+                    }
+                }
+                transfer.accept().ok();
+            }
             Some(HidRequest::SetIdle) => {
                 if request.length != 0 {
                     warn!(
@@ -413,10 +522,6 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
                         }
                     }
                 }
-            }
-            Some(HidRequest::SetReport) => {
-                // Not supported - data reports handled via interrupt endpoints
-                transfer.reject().ok();
             }
             Some(HidRequest::SetProtocol) => {
                 if request.length != 0 {
@@ -452,5 +557,7 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
         self.current_protocol = HidProtocol::Report;
         self.global_idle = self.config.idle_default;
         self.report_idle.clear();
+        self.control_in_report_buffer.borrow_mut().clear();
+        self.control_out_report_buffer.borrow_mut().clear();
     }
 }
