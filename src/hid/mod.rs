@@ -30,7 +30,6 @@ pub struct Config<'a> {
     report_descriptor: &'a [u8],
     interface_description: Option<&'a str>,
     interface_protocol: InterfaceProtocol,
-    interface_sub_class: InterfaceSubClass,
     idle_default: u8,
     endpoint_poll_interval: u8,
     endpoint_max_packet_size: UsbPacketSize,
@@ -68,7 +67,6 @@ impl<'a, B: UsbBus> UsbHidClassBuilder<'a, B> {
                 report_descriptor,
                 interface_description: None,
                 interface_protocol: InterfaceProtocol::None,
-                interface_sub_class: InterfaceSubClass::None,
                 idle_default: 0,
                 endpoint_max_packet_size: UsbPacketSize::Size8,
                 endpoint_poll_interval: 20,
@@ -77,33 +75,32 @@ impl<'a, B: UsbBus> UsbHidClassBuilder<'a, B> {
     }
 
     pub fn new_boot_keyboard(usb_alloc: &'a UsbBusAllocator<B>) -> UsbHidClassBuilder<'a, B> {
-        let mut builder = Self::new(
+        Self::new(
             usb_alloc,
             crate::keyboard::descriptors::HID_BOOT_KEYBOARD_REPORT_DESCRIPTOR,
-        );
-        builder.config.interface_sub_class = InterfaceSubClass::Boot;
-        builder.config.interface_protocol = InterfaceProtocol::Keyboard;
-
-        builder
-            .interface_description("Keyboard")
-            .idle_default(Milliseconds(500))
-            .unwrap()
-            .endpoint_max_packet_size(UsbPacketSize::Size8)
+        )
+        .boot_device(InterfaceProtocol::Keyboard)
+        .interface_description("Keyboard")
+        .idle_default(Milliseconds(500))
+        .unwrap()
+        .endpoint_max_packet_size(UsbPacketSize::Size8)
     }
 
     pub fn new_boot_mouse(usb_alloc: &'a UsbBusAllocator<B>) -> UsbHidClassBuilder<'a, B> {
-        let mut builder = Self::new(
+        Self::new(
             usb_alloc,
             crate::mouse::descriptors::HID_BOOT_MOUSE_REPORT_DESCRIPTOR,
-        );
-        builder.config.interface_sub_class = InterfaceSubClass::Boot;
-        builder.config.interface_protocol = InterfaceProtocol::Mouse;
+        )
+        .boot_device(InterfaceProtocol::Mouse)
+        .interface_description("Mouse")
+        .idle_default(Milliseconds(0))
+        .unwrap()
+        .endpoint_max_packet_size(UsbPacketSize::Size8)
+    }
 
-        builder
-            .interface_description("Mouse")
-            .idle_default(Milliseconds(0))
-            .unwrap()
-            .endpoint_max_packet_size(UsbPacketSize::Size8)
+    pub fn boot_device(mut self, protocol: InterfaceProtocol) -> UsbHidClassBuilder<'a, B> {
+        self.config.interface_protocol = protocol;
+        self
     }
 
     pub fn idle_default<D: Into<Milliseconds>>(
@@ -256,7 +253,11 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
             self.interface_number,
             usb_device::device::DEFAULT_ALTERNATE_SETTING,
             USB_CLASS_HID,
-            self.config.interface_sub_class as u8,
+            if self.config.interface_protocol == InterfaceProtocol::None {
+                InterfaceSubClass::None
+            } else {
+                InterfaceSubClass::Boot
+            } as u8,
             self.config.interface_protocol as u8,
             self.interface_description_string_index,
         )?;
