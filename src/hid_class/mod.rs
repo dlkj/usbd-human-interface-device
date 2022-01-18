@@ -2,6 +2,7 @@
 
 pub mod control;
 pub mod descriptor;
+pub mod prelude;
 #[cfg(test)]
 mod test;
 
@@ -83,34 +84,6 @@ impl<'a, B: UsbBus> UsbHidClassBuilder<'a, B> {
                 },
             },
         }
-    }
-
-    pub fn new_boot_keyboard(usb_alloc: &'a UsbBusAllocator<B>) -> UsbHidClassBuilder<'a, B> {
-        Self::new(
-            usb_alloc,
-            crate::keyboard::descriptors::HID_BOOT_KEYBOARD_REPORT_DESCRIPTOR,
-        )
-        .boot_device(InterfaceProtocol::Keyboard)
-        .interface_description("Keyboard")
-        .idle_default(Milliseconds(500))
-        .unwrap()
-        .in_endpoint(UsbPacketSize::Size8, Milliseconds(20))
-        .unwrap()
-        .without_out_endpoint()
-    }
-
-    pub fn new_boot_mouse(usb_alloc: &'a UsbBusAllocator<B>) -> UsbHidClassBuilder<'a, B> {
-        Self::new(
-            usb_alloc,
-            crate::mouse::descriptors::HID_BOOT_MOUSE_REPORT_DESCRIPTOR,
-        )
-        .boot_device(InterfaceProtocol::Mouse)
-        .interface_description("Mouse")
-        .idle_default(Milliseconds(0))
-        .unwrap()
-        .in_endpoint(UsbPacketSize::Size8, Milliseconds(20))
-        .unwrap()
-        .without_out_endpoint()
     }
 
     pub fn boot_device(mut self, protocol: InterfaceProtocol) -> UsbHidClassBuilder<'a, B> {

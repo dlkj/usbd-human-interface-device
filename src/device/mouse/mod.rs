@@ -1,10 +1,24 @@
 //!Implements Hid mouse devices
-pub mod descriptors;
+pub mod descriptor;
 
-use super::hid::UsbHidClass;
+use crate::hid_class::prelude::*;
+use embedded_time::duration::Milliseconds;
 use log::warn;
 use usb_device::class_prelude::*;
 use usb_device::Result;
+
+pub fn new_boot_mouse<B: usb_device::bus::UsbBus>(
+    usb_alloc: &'_ UsbBusAllocator<B>,
+) -> UsbHidClassBuilder<'_, B> {
+    UsbHidClassBuilder::new(usb_alloc, descriptor::HID_BOOT_MOUSE_REPORT_DESCRIPTOR)
+        .boot_device(InterfaceProtocol::Mouse)
+        .interface_description("Mouse")
+        .idle_default(Milliseconds(0))
+        .unwrap()
+        .in_endpoint(UsbPacketSize::Size8, Milliseconds(20))
+        .unwrap()
+        .without_out_endpoint()
+}
 
 /// HidMouse provides an interface to send mouse movement and button presses to
 /// the host device

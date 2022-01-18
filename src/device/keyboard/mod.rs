@@ -1,10 +1,24 @@
 //!Implements Hid keyboard devices
-pub mod descriptors;
+pub mod descriptor;
 
-use crate::hid::UsbHidClass;
+use crate::hid_class::prelude::*;
+use embedded_time::duration::Milliseconds;
 use log::{error, warn};
 use usb_device::class_prelude::*;
 use usb_device::Result;
+
+pub fn new_boot_keyboard<B: usb_device::bus::UsbBus>(
+    usb_alloc: &'_ UsbBusAllocator<B>,
+) -> UsbHidClassBuilder<'_, B> {
+    UsbHidClassBuilder::new(usb_alloc, descriptor::HID_BOOT_KEYBOARD_REPORT_DESCRIPTOR)
+        .boot_device(InterfaceProtocol::Keyboard)
+        .interface_description("Keyboard")
+        .idle_default(Milliseconds(500))
+        .unwrap()
+        .in_endpoint(UsbPacketSize::Size8, Milliseconds(20))
+        .unwrap()
+        .without_out_endpoint()
+}
 
 /// HidKeyboard provides an interface to send keycodes to the host device and
 /// receive LED status information
