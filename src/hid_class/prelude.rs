@@ -5,7 +5,7 @@
 //!
 //! ```
 //! # #![allow(unused_imports)]
-//! use usbd-hid-devices::hid_class::prelude::*;
+//! use usbd_hid_devices::hid_class::prelude::*;
 //! ```
 
 pub use super::{descriptor::InterfaceProtocol, UsbHidClass, UsbHidClassBuilder, UsbPacketSize};

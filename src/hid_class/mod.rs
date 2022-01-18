@@ -1,12 +1,10 @@
-//!Implements UsbHidClass representing a USB Human Interface Device
+//! Abstract Human Interface Device Class for implementing any HID compliant device
 
-pub mod control;
 pub mod descriptor;
 pub mod prelude;
 #[cfg(test)]
 mod test;
 
-use control::HidRequest;
 use core::cell::RefCell;
 use descriptor::*;
 use embedded_time::duration::*;
@@ -18,6 +16,17 @@ use usb_device::control::Recipient;
 use usb_device::control::Request;
 use usb_device::control::RequestType;
 use usb_device::Result;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PrimitiveEnum)]
+#[repr(u8)]
+pub enum HidRequest {
+    GetReport = 0x01,
+    GetIdle = 0x02,
+    GetProtocol = 0x03,
+    SetReport = 0x09,
+    SetIdle = 0x0A,
+    SetProtocol = 0x0B,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, PrimitiveEnum)]
 #[repr(u8)]

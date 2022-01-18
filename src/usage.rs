@@ -14,9 +14,7 @@ use packed_struct::prelude::*;
 
 /// LEDs usage page
 ///
-/// See Universal Serial Bus (USB) HID Usage Tables Version 1.12
-/// <https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>
-///
+/// See [Universal Serial Bus (USB) HID Usage Tables Version 1.12](<https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>):
 /// Section 11 LED Page (0x08)
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, PrimitiveEnum)]
 #[repr(u8)]
@@ -102,8 +100,7 @@ pub enum Leds {
 
 /// Consumer usage page
 ///
-/// See Universal Serial Bus (USB) HID Usage Tables Version 1.12
-/// <https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>
+/// See [Universal Serial Bus (USB) HID Usage Tables Version 1.12](<https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>):
 /// Section 15 Consumer Page (0x0C)
 ///
 /// NB. This is currently incomplete
@@ -233,9 +230,7 @@ pub enum Consumer {
 
 /// Generic Desktop usage page
 ///
-/// See Universal Serial Bus (USB) HID Usage Tables Version 1.12
-/// <https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>
-///
+/// See [Universal Serial Bus (USB) HID Usage Tables Version 1.12](<https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>):
 /// Section 4 Desktop Page (0x01)
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, PrimitiveEnum)]
 #[repr(u8)]
@@ -302,9 +297,7 @@ pub enum Desktop {
 
 /// Game Controls usage page
 ///
-/// See Universal Serial Bus (USB) HID Usage Tables Version 1.12
-/// <https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>
-///
+/// See [Universal Serial Bus (USB) HID Usage Tables Version 1.12](<https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>):
 /// Section 4 Game Controls Page (0x05)
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, PrimitiveEnum)]
 #[repr(u8)]
@@ -344,9 +337,7 @@ pub enum Game {
 
 /// Keyboard usage page
 ///
-/// See Universal Serial Bus (USB) HID Usage Tables Version 1.12
-/// <https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>
-///
+/// See [Universal Serial Bus (USB) HID Usage Tables Version 1.12](<https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>):
 /// Section 10 Keyboard/Keypad Page (0x04)
 ///
 /// Naming from the specification has been preserved where possible but some names
@@ -533,9 +524,7 @@ pub enum Keyboard {
 
 /// Simulation Controls usage page
 ///
-/// See Universal Serial Bus (USB) HID Usage Tables Version 1.12
-/// <https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>
-///
+/// See [Universal Serial Bus (USB) HID Usage Tables Version 1.12](<https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>):
 /// Section 5 Simulation Controls Page (0x02)
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, PrimitiveEnum)]
 #[repr(u8)]
@@ -600,9 +589,7 @@ pub enum Simulation {
 
 /// Telephony Device usage page
 ///
-/// See Universal Serial Bus (USB) HID Usage Tables Version 1.12
-/// <https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>
-///
+/// See [Universal Serial Bus (USB) HID Usage Tables Version 1.12](<https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>):
 /// Section 14 Telephony Device  Page (0x0B)
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, PrimitiveEnum)]
 #[repr(u8)]
