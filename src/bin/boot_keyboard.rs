@@ -10,8 +10,7 @@ use hal::Clock;
 use log::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_hid_devices::hid::UsbHidClassBuilder;
-use usbd_hid_devices::keyboard::HidKeyboard;
+use usbd_hid_devices::device::keyboard::HidKeyboard;
 use usbd_hid_devices_example_rp2040::*;
 
 #[entry]
@@ -76,7 +75,7 @@ fn main() -> ! {
         &mut pac.RESETS,
     ));
 
-    let mut keyboard = UsbHidClassBuilder::new_boot_keyboard(&usb_bus).build();
+    let mut keyboard = usbd_hid_devices::device::keyboard::new_boot_keyboard(&usb_bus).build();
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))
