@@ -6,10 +6,11 @@ use log::{error, warn};
 use usb_device::class_prelude::*;
 use usb_device::Result;
 
+/// Create a pre-configured [`crate::hid_class::UsbHidClassBuilder`] for a boot keyboard
 pub fn new_boot_keyboard<B: usb_device::bus::UsbBus>(
     usb_alloc: &'_ UsbBusAllocator<B>,
 ) -> UsbHidClassBuilder<'_, B> {
-    UsbHidClassBuilder::new(usb_alloc, HID_BOOT_KEYBOARD_REPORT_DESCRIPTOR)
+    UsbHidClassBuilder::new(usb_alloc, BOOT_KEYBOARD_REPORT_DESCRIPTOR)
         .boot_device(InterfaceProtocol::Keyboard)
         .interface_description("Keyboard")
         .idle_default(Milliseconds(500))
@@ -22,7 +23,7 @@ pub fn new_boot_keyboard<B: usb_device::bus::UsbBus>(
 /// Provides an interface to send keycodes to the host device and
 /// receive LED status information
 pub trait HidKeyboard {
-    /// Writes an input report given representing keycodes to the host system
+    /// Writes an input report to the host system indicating the stat of the keyboard
     fn write_keyboard_report<K>(&self, keycodes: K) -> Result<()>
     where
         K: IntoIterator<Item = u8>;
@@ -99,7 +100,7 @@ impl<B: UsbBus> HidKeyboard for UsbHidClass<'_, B> {
 /// This is defined in Appendix B.1 & E.6 of [Device Class Definition for Human
 /// Interface Devices (Hid) Version 1.11](<https://www.usb.org/sites/default/files/hid1_11.pdf>)
 #[rustfmt::skip]
-pub const HID_BOOT_KEYBOARD_REPORT_DESCRIPTOR: &[u8] = &[
+pub const BOOT_KEYBOARD_REPORT_DESCRIPTOR: &[u8] = &[
     0x05, 0x01, // Usage Page (Generic Desktop),
     0x09, 0x06, // Usage (Keyboard),
     0xA1, 0x01, // Collection (Application),
