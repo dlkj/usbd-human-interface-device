@@ -1,7 +1,7 @@
 //!HID keyboards
 
 use crate::hid_class::prelude::*;
-use crate::usage::Keyboard;
+use crate::page::Keyboard;
 use embedded_time::duration::Milliseconds;
 use log::{error, warn};
 use usb_device::class_prelude::*;

@@ -1,4 +1,4 @@
-//! USB HID Usage pages
+//! USB HID usage pages
 //!
 //! See Universal Serial Bus (USB) HID Usage Tables Version 1.12
 //! <https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>

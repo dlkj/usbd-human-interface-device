@@ -10,4 +10,4 @@ extern crate std;
 
 pub mod device;
 pub mod hid_class;
-pub mod usage;
+pub mod page;

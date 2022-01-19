@@ -1,7 +1,7 @@
 //!HID consumer control devices
 
 use crate::hid_class::prelude::*;
-use crate::usage::Consumer;
+use crate::page::Consumer;
 use embedded_time::duration::Milliseconds;
 use log::warn;
 use usb_device::class_prelude::*;
@@ -132,7 +132,7 @@ impl<B: UsbBus> HidConsumerControl for UsbHidClass<'_, B> {
         let mut i = 0;
         for c in codes
             .into_iter()
-            .filter(|&c| c != crate::usage::Consumer::Unassigned)
+            .filter(|&c| c != crate::page::Consumer::Unassigned)
         {
             if i > report.len() {
                 break;
