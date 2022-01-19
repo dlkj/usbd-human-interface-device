@@ -25,8 +25,8 @@ nb = "1.0"
 usbd-hid-devices = { git = "https://github.com/dlkj/usbd-hid-devices"}
 panic-persist = { version = "0.3", features = ["utf8"] }
 
-# [patch."https://github.com/dlkj/usbd-hid-devices"]
-# usbd-hid-devices = { path = "../usbd-hid-devices" }
+[patch."https://github.com/dlkj/usbd-hid-devices"]
+usbd-hid-devices = { path = "../usbd-hid-devices" }
 
 # cargo build/run
 [profile.dev]
