@@ -1,11 +1,10 @@
-//!Implements UsbHidClass representing a USB Human Interface Device
+//! Abstract Human Interface Device Class for implementing any HID compliant device
 
-pub mod control;
 pub mod descriptor;
+pub mod prelude;
 #[cfg(test)]
 mod test;
 
-use control::HidRequest;
 use core::cell::RefCell;
 use descriptor::*;
 use embedded_time::duration::*;
@@ -17,6 +16,17 @@ use usb_device::control::Recipient;
 use usb_device::control::Request;
 use usb_device::control::RequestType;
 use usb_device::Result;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PrimitiveEnum)]
+#[repr(u8)]
+pub enum HidRequest {
+    GetReport = 0x01,
+    GetIdle = 0x02,
+    GetProtocol = 0x03,
+    SetReport = 0x09,
+    SetIdle = 0x0A,
+    SetProtocol = 0x0B,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, PrimitiveEnum)]
 #[repr(u8)]
@@ -83,34 +93,6 @@ impl<'a, B: UsbBus> UsbHidClassBuilder<'a, B> {
                 },
             },
         }
-    }
-
-    pub fn new_boot_keyboard(usb_alloc: &'a UsbBusAllocator<B>) -> UsbHidClassBuilder<'a, B> {
-        Self::new(
-            usb_alloc,
-            crate::keyboard::descriptors::HID_BOOT_KEYBOARD_REPORT_DESCRIPTOR,
-        )
-        .boot_device(InterfaceProtocol::Keyboard)
-        .interface_description("Keyboard")
-        .idle_default(Milliseconds(500))
-        .unwrap()
-        .in_endpoint(UsbPacketSize::Size8, Milliseconds(20))
-        .unwrap()
-        .without_out_endpoint()
-    }
-
-    pub fn new_boot_mouse(usb_alloc: &'a UsbBusAllocator<B>) -> UsbHidClassBuilder<'a, B> {
-        Self::new(
-            usb_alloc,
-            crate::mouse::descriptors::HID_BOOT_MOUSE_REPORT_DESCRIPTOR,
-        )
-        .boot_device(InterfaceProtocol::Mouse)
-        .interface_description("Mouse")
-        .idle_default(Milliseconds(0))
-        .unwrap()
-        .in_endpoint(UsbPacketSize::Size8, Milliseconds(20))
-        .unwrap()
-        .without_out_endpoint()
     }
 
     pub fn boot_device(mut self, protocol: InterfaceProtocol) -> UsbHidClassBuilder<'a, B> {

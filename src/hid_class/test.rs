@@ -142,8 +142,8 @@ fn descriptor_ordering_satisfies_boot_spec() {
 
     let validate_write_data = |v: &Vec<u8>| {
         /*
-          Expected descriptor order (https://www.usb.org/sites/default/files/hid1_11.pdf Appendix F.3):
-          Configuration descriptor (other Interface, Endpoint, and Vendor Specific descriptors if required)
+          Expected descriptor order (<https://www.usb.org/sites/default/files/hid1_11.pdf> Appendix F.3):
+            Configuration descriptor (other Interface, Endpoint, and Vendor Specific descriptors if required)
             Interface descriptor (with Subclass and Protocol specifying Boot Keyboard)
                 Hid descriptor (associated with this Interface)
                 Endpoint descriptor (Hid Interrupt In Endpoint)
