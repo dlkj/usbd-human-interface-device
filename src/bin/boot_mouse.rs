@@ -106,6 +106,9 @@ fn main() -> ! {
     led_pin.set_low().ok();
 
     loop {
+        if button.is_low().unwrap() {
+            hal::rom_data::reset_to_usb_boot(0x1 << 13, 0x0);
+        }
         if usb_dev.poll(&mut [&mut mouse]) {
             let mut buttons = 0;
             let mut x = 0;

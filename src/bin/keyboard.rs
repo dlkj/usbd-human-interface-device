@@ -13,6 +13,7 @@ use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_hid_devices::device::keyboard::HidKeyboard;
 use usbd_hid_devices::hid_class::prelude::*;
+use usbd_hid_devices::page::Keyboard;
 use usbd_hid_devices_example_rp2040::*;
 
 #[entry]
@@ -159,18 +160,66 @@ fn main() -> ! {
         }
         if usb_dev.poll(&mut [&mut keyboard]) {
             let keys = [
-                if in0.is_low().unwrap() { 0x53 } else { 0x00 }, //Numlock
-                if in1.is_low().unwrap() { 0x52 } else { 0x00 }, //Up
-                if in2.is_low().unwrap() { 0x45 } else { 0x00 }, //F12
-                if in3.is_low().unwrap() { 0x50 } else { 0x00 }, //Left
-                if in4.is_low().unwrap() { 0x51 } else { 0x00 }, //Down
-                if in5.is_low().unwrap() { 0x4F } else { 0x00 }, //Right
-                if in6.is_low().unwrap() { 0x04 } else { 0x00 }, //A
-                if in7.is_low().unwrap() { 0x05 } else { 0x00 }, //B
-                if in8.is_low().unwrap() { 0x06 } else { 0x00 }, //C
-                if in9.is_low().unwrap() { 0xE0 } else { 0x00 }, //LCtrl
-                if in10.is_low().unwrap() { 0xE1 } else { 0x00 }, //LShift
-                if in11.is_low().unwrap() { 0x28 } else { 0x00 }, //Enter
+                if in0.is_low().unwrap() {
+                    Keyboard::KeypadNumLockAndClear
+                } else {
+                    Keyboard::NoEventIndicated
+                }, //Numlock
+                if in1.is_low().unwrap() {
+                    Keyboard::UpArrow
+                } else {
+                    Keyboard::NoEventIndicated
+                }, //Up
+                if in2.is_low().unwrap() {
+                    Keyboard::F12
+                } else {
+                    Keyboard::NoEventIndicated
+                }, //F12
+                if in3.is_low().unwrap() {
+                    Keyboard::LeftArrow
+                } else {
+                    Keyboard::NoEventIndicated
+                }, //Left
+                if in4.is_low().unwrap() {
+                    Keyboard::DownArrow
+                } else {
+                    Keyboard::NoEventIndicated
+                }, //Down
+                if in5.is_low().unwrap() {
+                    Keyboard::RightArrow
+                } else {
+                    Keyboard::NoEventIndicated
+                }, //Right
+                if in6.is_low().unwrap() {
+                    Keyboard::A
+                } else {
+                    Keyboard::NoEventIndicated
+                }, //A
+                if in7.is_low().unwrap() {
+                    Keyboard::B
+                } else {
+                    Keyboard::NoEventIndicated
+                }, //B
+                if in8.is_low().unwrap() {
+                    Keyboard::C
+                } else {
+                    Keyboard::NoEventIndicated
+                }, //C
+                if in9.is_low().unwrap() {
+                    Keyboard::LeftControl
+                } else {
+                    Keyboard::NoEventIndicated
+                }, //LCtrl
+                if in10.is_low().unwrap() {
+                    Keyboard::LeftShift
+                } else {
+                    Keyboard::NoEventIndicated
+                }, //LShift
+                if in11.is_low().unwrap() {
+                    Keyboard::ReturnEnter
+                } else {
+                    Keyboard::NoEventIndicated
+                }, //Enter
             ];
 
             match keyboard.read_keyboard_report() {

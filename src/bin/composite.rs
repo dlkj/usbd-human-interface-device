@@ -10,7 +10,10 @@ use hal::Clock;
 use log::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
+use usbd_hid_devices::device::consumer::HidConsumerControl;
 use usbd_hid_devices::device::keyboard::HidKeyboard;
+use usbd_hid_devices::device::mouse::HidMouse;
+use usbd_hid_devices::page::Consumer;
 use usbd_hid_devices::page::Keyboard;
 use usbd_hid_devices_example_rp2040::*;
 
@@ -77,11 +80,13 @@ fn main() -> ! {
     ));
 
     let mut keyboard = usbd_hid_devices::device::keyboard::new_boot_keyboard(&usb_bus).build();
+    let mut mouse = usbd_hid_devices::device::mouse::new_boot_mouse(&usb_bus).build();
+    let mut consumer = usbd_hid_devices::device::consumer::new_consumer_control(&usb_bus).build();
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))
         .manufacturer("DLKJ")
-        .product("Keyboard")
+        .product("Keyboard & Mouse")
         .serial_number("TEST")
         .device_class(3) // HID - from: https://www.usb.org/defined-class-codes
         .composite_with_iads()
@@ -110,68 +115,70 @@ fn main() -> ! {
         if button.is_low().unwrap() {
             hal::rom_data::reset_to_usb_boot(0x1 << 13, 0x0);
         }
-        if usb_dev.poll(&mut [&mut keyboard]) {
-            let keys = [
-                if in0.is_low().unwrap() {
-                    Keyboard::KeypadNumLockAndClear
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //Numlock
-                if in1.is_low().unwrap() {
-                    Keyboard::UpArrow
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //Up
-                if in2.is_low().unwrap() {
-                    Keyboard::F12
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //F12
+        if usb_dev.poll(&mut [&mut keyboard, &mut mouse, &mut consumer]) {
+            let mut buttons = 0;
+            let mut x = 0;
+            let mut y = 0;
+
+            if in0.is_low().unwrap() {
+                buttons |= 0x1; //Left
+            }
+            if in1.is_low().unwrap() {
+                buttons |= 0x4; //Middle
+            }
+            if in2.is_low().unwrap() {
+                buttons |= 0x2; //Right
+            }
+            if in4.is_low().unwrap() {
+                y += -5; //Up
+            }
+            if in6.is_low().unwrap() {
+                x += -5; //Left
+            }
+            if in7.is_low().unwrap() {
+                y += 5; //Down
+            }
+            if in8.is_low().unwrap() {
+                x += 5; //Right
+            }
+
+            match mouse.write_mouse_report(buttons, x, y) {
+                Err(UsbError::WouldBlock) => {}
+                Ok(_) => {}
+                Err(e) => {
+                    panic!("Failed to write mouse report: {:?}", e)
+                }
+            }
+
+            let consumer_codes = [
                 if in3.is_low().unwrap() {
-                    Keyboard::LeftArrow
+                    Consumer::VolumeDecrement
                 } else {
-                    Keyboard::NoEventIndicated
-                }, //Left
-                if in4.is_low().unwrap() {
-                    Keyboard::DownArrow
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //Down
+                    Consumer::Unassigned
+                },
                 if in5.is_low().unwrap() {
-                    Keyboard::RightArrow
+                    Consumer::VolumeIncrement
                 } else {
-                    Keyboard::NoEventIndicated
-                }, //Right
-                if in6.is_low().unwrap() {
+                    Consumer::Unassigned
+                },
+            ];
+
+            let keys = [
+                if in9.is_low().unwrap() {
                     Keyboard::A
                 } else {
                     Keyboard::NoEventIndicated
-                }, //A
-                if in7.is_low().unwrap() {
+                },
+                if in10.is_low().unwrap() {
                     Keyboard::B
                 } else {
                     Keyboard::NoEventIndicated
-                }, //B
-                if in8.is_low().unwrap() {
+                },
+                if in11.is_low().unwrap() {
                     Keyboard::C
                 } else {
                     Keyboard::NoEventIndicated
-                }, //C
-                if in9.is_low().unwrap() {
-                    Keyboard::LeftControl
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //LCtrl
-                if in10.is_low().unwrap() {
-                    Keyboard::LeftShift
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //LShift
-                if in11.is_low().unwrap() {
-                    Keyboard::ReturnEnter
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //Enter
+                },
             ];
 
             match keyboard.read_keyboard_report() {
@@ -194,6 +201,14 @@ fn main() -> ! {
                     panic!("Failed to write keyboard report: {:?}", e)
                 }
             };
+
+            match consumer.write_consumer_control_report(consumer_codes) {
+                Err(UsbError::WouldBlock) => {}
+                Ok(_) => {}
+                Err(e) => {
+                    panic!("Failed to write consumer control report: {:?}", e)
+                }
+            }
         }
     }
 }

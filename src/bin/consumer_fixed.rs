@@ -76,38 +76,17 @@ fn main() -> ! {
         &mut pac.RESETS,
     ));
 
-    #[rustfmt::skip]
-    pub const FIXED_BUTTONS_CONSUMER_CONTROL_REPORT_DESCRIPTOR: &[u8] = &[
-        0x05, 0x0C, //        Usage Page (Consumer Devices)  
-        0x09, 0x01, //        Usage (Consumer Control)  
-        0xA1, 0x01, //        Collection (Application)  
-        0x05, 0x0C, //            Usage Page (Consumer Devices)  
-        0x15, 0x00, //            Logical Minimum (0)  
-        0x25, 0x01, //            Logical Maximum (1)  
-        0x75, 0x01, //            Report Size (1)  
-        0x95, 0x07, //            Report Count (7)  
-        0x09, 0xB5, //            Usage (Scan Next Track)  
-        0x09, 0xB6, //            Usage (Scan Previous Track)  
-        0x09, 0xB7, //            Usage (Stop)  
-        0x09, 0xCD, //            Usage (Play/Pause)  
-        0x09, 0xE2, //            Usage (Mute)  
-        0x09, 0xE9, //            Usage (Volume Increment)  
-        0x09, 0xEA, //            Usage (Volume Decrement)  
-        0x81, 0x02, //            Input (Data,Var,Abs,NWrp,Lin,Pref,NNul,Bit)  
-        0x95, 0x01, //            Report Count (1)  
-        0x81, 0x01, //            Input (Cnst,Ary,Abs)  
-        0xC0, //        End Collection
-    ];
-
-    let mut control =
-        UsbHidClassBuilder::new(&usb_bus, FIXED_BUTTONS_CONSUMER_CONTROL_REPORT_DESCRIPTOR)
-            .interface_description("Consumer Control")
-            .idle_default(Milliseconds(0))
-            .unwrap()
-            .in_endpoint(UsbPacketSize::Size8, Milliseconds(10))
-            .unwrap()
-            .without_out_endpoint()
-            .build();
+    let mut consumer = UsbHidClassBuilder::new(
+        &usb_bus,
+        usbd_hid_devices::device::consumer::FIXED_FUNCTION_REPORT_DESCRIPTOR,
+    )
+    .interface_description("Consumer Control")
+    .idle_default(Milliseconds(0))
+    .unwrap()
+    .in_endpoint(UsbPacketSize::Size8, Milliseconds(10))
+    .unwrap()
+    .without_out_endpoint()
+    .build();
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))
@@ -138,7 +117,7 @@ fn main() -> ! {
         if button.is_low().unwrap() {
             hal::rom_data::reset_to_usb_boot(0x1 << 13, 0x0);
         }
-        if usb_dev.poll(&mut [&mut control]) {
+        if usb_dev.poll(&mut [&mut consumer]) {
             let keys = [
                 if in0.is_low().unwrap() { 0x1 } else { 0x00 },  //next
                 if in1.is_low().unwrap() { 0x2 } else { 0x00 },  //previous
@@ -150,7 +129,7 @@ fn main() -> ! {
             ];
 
             let mut buff = [0; 64];
-            match control.read_report(&mut buff) {
+            match consumer.read_report(&mut buff) {
                 Err(UsbError::WouldBlock) => {
                     //do nothing
                 }
@@ -164,12 +143,26 @@ fn main() -> ! {
 
             if report_code != last {
                 last = report_code;
+            } else {
                 report_code = 0;
             }
 
-            match control.write_report(&[report_code]) {
+            match consumer.write_report(&[report_code]) {
                 Err(UsbError::WouldBlock) => {}
                 Ok(_) => {}
+                Err(e) => {
+                    panic!("Failed to write consumer report: {:?}", e)
+                }
+            };
+
+            let report_code = keys.into_iter().find(|&c| c != 0).unwrap_or(0);
+
+            match consumer.write_report(&[if report_code != last { report_code } else { 0 } as u8])
+            {
+                Err(UsbError::WouldBlock) => {}
+                Ok(_) => {
+                    last = report_code;
+                }
                 Err(e) => {
                     panic!("Failed to write consumer report: {:?}", e)
                 }
