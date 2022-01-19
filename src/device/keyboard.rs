@@ -1,6 +1,7 @@
 //!HID keyboards
 
 use crate::hid_class::prelude::*;
+use crate::usage::Keyboard;
 use embedded_time::duration::Milliseconds;
 use log::{error, warn};
 use usb_device::class_prelude::*;
@@ -26,7 +27,7 @@ pub trait HidKeyboard {
     /// Writes an input report to the host system indicating the stat of the keyboard
     fn write_keyboard_report<K>(&self, keycodes: K) -> Result<()>
     where
-        K: IntoIterator<Item = u8>;
+        K: IntoIterator<Item = Keyboard>;
 
     /// Read LED status from the host system
     fn read_keyboard_report(&self) -> Result<u8>;
@@ -38,7 +39,7 @@ impl<B: UsbBus> HidKeyboard for UsbHidClass<'_, B> {
         keycodes: K,
     ) -> core::result::Result<(), usb_device::UsbError>
     where
-        K: IntoIterator<Item = u8>,
+        K: IntoIterator<Item = Keyboard>,
     {
         let mut data = [0; 8];
 
@@ -46,24 +47,24 @@ impl<B: UsbBus> HidKeyboard for UsbHidClass<'_, B> {
         let mut key_report_idx = 2;
 
         for k in keycodes {
-            if k == 0x00 {
+            if k == Keyboard::NoEventIndicated {
                 //ignore none keycode
-            } else if (0xE0..=0xE7).contains(&k) {
+            } else if (Keyboard::LeftControl..=Keyboard::RightGUI).contains(&k) {
                 //modifiers
-                data[0] |= 1 << (k - 0xE0);
+                data[0] |= 1 << (k as u8 - Keyboard::LeftControl as u8);
             } else if !reporting_error {
                 //only do other keycodes if we aren't already sending an error
-                if k < 0x04 {
+                if k < Keyboard::A {
                     //Fill report if any keycode is an error
-                    (&mut data[2..]).fill(k);
+                    (&mut data[2..]).fill(k as u8);
                     reporting_error = true;
                 } else if key_report_idx < data.len() {
                     //Report a standard keycode
-                    data[key_report_idx] = k;
+                    data[key_report_idx] = k as u8;
                     key_report_idx += 1;
                 } else {
                     //Rollover if full
-                    (&mut data[2..]).fill(0x1);
+                    (&mut data[2..]).fill(Keyboard::ErrorRollOver as u8);
                     reporting_error = true;
                 }
             }
