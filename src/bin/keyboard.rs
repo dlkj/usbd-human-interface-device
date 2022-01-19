@@ -4,6 +4,7 @@
 use adafruit_macropad::hal;
 use cortex_m_rt::entry;
 use embedded_hal::digital::v2::*;
+use embedded_time::duration::Milliseconds;
 use embedded_time::rate::Hertz;
 use hal::pac;
 use hal::Clock;
@@ -11,6 +12,7 @@ use log::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_hid_devices::device::keyboard::HidKeyboard;
+use usbd_hid_devices::hid_class::prelude::*;
 use usbd_hid_devices::page::Keyboard;
 use usbd_hid_devices_example_rp2040::*;
 
@@ -76,7 +78,53 @@ fn main() -> ! {
         &mut pac.RESETS,
     ));
 
-    let mut keyboard = usbd_hid_devices::device::keyboard::new_boot_keyboard(&usb_bus).build();
+    //http://www.usblyzer.com/reports/usb-properties/usb-keyboard.html
+    #[rustfmt::skip]
+    pub const LOGITECH_GAMING_KEYBOARD_REPORT_DESCRIPTOR: &[u8] = &[
+        0x05, 0x01, //    Usage Page (Generic Desktop)
+        0x09, 0x06, //    Usage (Keyboard)
+        0xA1, 0x01, //    Collection (Application)
+        0x05, 0x07, //        Usage Page (Keyboard/Keypad)
+        0x19, 0xE0, //        Usage Minimum (Keyboard Left Control)
+        0x29, 0xE7, //        Usage Maximum (Keyboard Right GUI)
+        0x15, 0x00, //        Logical Minimum (0)
+        0x25, 0x01, //        Logical Maximum (1)
+        0x75, 0x01, //        Report Size (1)
+        0x95, 0x08, //        Report Count (8)
+        0x81, 0x02, //        Input (Data,Var,Abs,NWrp,Lin,Pref,NNul,Bit)
+        0x95, 0x01, //        Report Count (1)
+        0x75, 0x08, //        Report Size (8)
+        0x81, 0x01, //        Input (Cnst,Ary,Abs)
+        0x95, 0x05, //        Report Count (5)
+        0x75, 0x01, //        Report Size (1)
+        0x05, 0x08, //        Usage Page (LEDs)
+        0x19, 0x01, //        Usage Minimum (Num Lock)
+        0x29, 0x05, //        Usage Maximum (Kana)
+        0x91, 0x02, //        Output (Data,Var,Abs,NWrp,Lin,Pref,NNul,NVol,Bit)
+        0x95, 0x01, //        Report Count (1)
+        0x75, 0x03, //        Report Size (3)
+        0x91, 0x01, //        Output (Cnst,Ary,Abs,NWrp,Lin,Pref,NNul,NVol,Bit)
+        0x95, 0x06, //        Report Count (6)
+        0x75, 0x08, //        Report Size (8)
+        0x15, 0x00, //        Logical Minimum (0)
+        0x26, 0x97, 0x00, //        Logical Maximum (151)
+        0x05, 0x07, //        Usage Page (Keyboard/Keypad)
+        0x19, 0x00, //        Usage Minimum (Undefined)
+        0x29, 0x97, //        Usage Maximum (Keyboard LANG8)
+        0x81, 0x00, //        Input (Data,Ary,Abs)
+        0xC0, //        End Collection
+    ];
+
+    let mut keyboard =
+        UsbHidClassBuilder::new(&usb_bus, LOGITECH_GAMING_KEYBOARD_REPORT_DESCRIPTOR)
+            //UsbHidClassBuilder::new(&usb_bus, usbd_hid_devices::device::keyboard::HID_BOOT_KEYBOARD_REPORT_DESCRIPTOR)
+            .interface_description("Keyboard")
+            .idle_default(Milliseconds(500))
+            .unwrap()
+            .in_endpoint(UsbPacketSize::Size8, Milliseconds(20))
+            .unwrap()
+            .without_out_endpoint()
+            .build();
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))

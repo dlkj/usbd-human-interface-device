@@ -10,7 +10,7 @@ use hal::Clock;
 use log::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_hid_devices::mouse::HidMouse;
+use usbd_hid_devices::device::mouse::HidMouse;
 use usbd_hid_devices_example_rp2040::*;
 
 #[entry]
@@ -75,7 +75,7 @@ fn main() -> ! {
         &mut pac.RESETS,
     ));
 
-    let mut mouse = usbd_hid_devices::hid::UsbHidClassBuilder::new_boot_mouse(&usb_bus).build();
+    let mut mouse = usbd_hid_devices::device::mouse::new_boot_mouse(&usb_bus).build();
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))
@@ -106,6 +106,9 @@ fn main() -> ! {
     led_pin.set_low().ok();
 
     loop {
+        if button.is_low().unwrap() {
+            hal::rom_data::reset_to_usb_boot(0x1 << 13, 0x0);
+        }
         if usb_dev.poll(&mut [&mut mouse]) {
             let mut buttons = 0;
             let mut x = 0;

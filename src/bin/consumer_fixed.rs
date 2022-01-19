@@ -4,14 +4,14 @@
 use adafruit_macropad::hal;
 use cortex_m_rt::entry;
 use embedded_hal::digital::v2::*;
+use embedded_time::duration::Milliseconds;
 use embedded_time::rate::Hertz;
 use hal::pac;
 use hal::Clock;
 use log::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_hid_devices::keyboard::HidKeyboard;
-use usbd_hid_devices::mouse::HidMouse;
+use usbd_hid_devices::hid_class::prelude::*;
 use usbd_hid_devices_example_rp2040::*;
 
 #[entry]
@@ -76,15 +76,22 @@ fn main() -> ! {
         &mut pac.RESETS,
     ));
 
-    let mut keyboard =
-        usbd_hid_devices::hid::UsbHidClassBuilder::new_boot_keyboard(&usb_bus).build();
-
-    let mut mouse = usbd_hid_devices::hid::UsbHidClassBuilder::new_boot_mouse(&usb_bus).build();
+    let mut consumer = UsbHidClassBuilder::new(
+        &usb_bus,
+        usbd_hid_devices::device::consumer::FIXED_FUNCTION_REPORT_DESCRIPTOR,
+    )
+    .interface_description("Consumer Control")
+    .idle_default(Milliseconds(0))
+    .unwrap()
+    .in_endpoint(UsbPacketSize::Size8, Milliseconds(10))
+    .unwrap()
+    .without_out_endpoint()
+    .build();
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))
         .manufacturer("DLKJ")
-        .product("Keyboard & Mouse")
+        .product("Consumer Control")
         .serial_number("TEST")
         .device_class(3) // HID - from: https://www.usb.org/defined-class-codes
         .composite_with_iads()
@@ -101,79 +108,63 @@ fn main() -> ! {
     let in4 = pins.gpio5.into_pull_up_input();
     let in5 = pins.gpio6.into_pull_up_input();
     let in6 = pins.gpio7.into_pull_up_input();
-    let in7 = pins.gpio8.into_pull_up_input();
-    let in8 = pins.gpio9.into_pull_up_input();
-    let in9 = pins.gpio10.into_pull_up_input();
-    let in10 = pins.gpio11.into_pull_up_input();
-    let in11 = pins.gpio12.into_pull_up_input();
 
     led_pin.set_low().ok();
 
+    let mut last = 0xFF;
+
     loop {
-        if usb_dev.poll(&mut [&mut keyboard, &mut mouse]) {
-            let mut buttons = 0;
-            let mut x = 0;
-            let mut y = 0;
-
-            if in0.is_low().unwrap() {
-                buttons |= 0x1; //Left
-            }
-            if in1.is_low().unwrap() {
-                buttons |= 0x4; //Middle
-            }
-            if in2.is_low().unwrap() {
-                buttons |= 0x2; //Right
-            }
-            if in3.is_low().unwrap() {}
-            if in4.is_low().unwrap() {
-                y += -5; //Up
-            }
-            if in5.is_low().unwrap() {}
-            if in6.is_low().unwrap() {
-                x += -5; //Left
-            }
-            if in7.is_low().unwrap() {
-                y += 5; //Down
-            }
-            if in8.is_low().unwrap() {
-                x += 5; //Right
-            }
-            if in9.is_low().unwrap() {}
-            if in10.is_low().unwrap() {}
-            if in11.is_low().unwrap() {}
-
-            match mouse.write_mouse_report(buttons, x, y) {
-                Err(UsbError::WouldBlock) => {}
-                Ok(_) => {}
-                Err(e) => {
-                    panic!("Failed to write mouse report: {:?}", e)
-                }
-            }
-
+        if button.is_low().unwrap() {
+            hal::rom_data::reset_to_usb_boot(0x1 << 13, 0x0);
+        }
+        if usb_dev.poll(&mut [&mut consumer]) {
             let keys = [
-                if in9.is_low().unwrap() { 0x04 } else { 0x00 },  //A
-                if in10.is_low().unwrap() { 0x05 } else { 0x00 }, //B
-                if in11.is_low().unwrap() { 0x06 } else { 0x00 }, //C
+                if in0.is_low().unwrap() { 0x1 } else { 0x00 },  //next
+                if in1.is_low().unwrap() { 0x2 } else { 0x00 },  //previous
+                if in2.is_low().unwrap() { 0x4 } else { 0x00 },  //stop
+                if in3.is_low().unwrap() { 0x8 } else { 0x00 },  //play pause
+                if in4.is_low().unwrap() { 0x10 } else { 0x00 }, //mute
+                if in5.is_low().unwrap() { 0x20 } else { 0x00 }, //vol+
+                if in6.is_low().unwrap() { 0x40 } else { 0x00 }, //vol-
             ];
 
-            match keyboard.read_keyboard_report() {
+            let mut buff = [0; 64];
+            match consumer.read_report(&mut buff) {
                 Err(UsbError::WouldBlock) => {
                     //do nothing
                 }
                 Err(e) => {
-                    panic!("Failed to read keyboard report: {:?}", e)
+                    panic!("Failed to read consumer report: {:?}", e)
                 }
-                Ok(leds) => {
-                    //send scroll lock to the led
-                    led_pin.set_state(PinState::from((leds & 0x1) != 0)).ok();
-                }
+                Ok(_) => {}
             }
 
-            match keyboard.write_keyboard_report(keys) {
+            let mut report_code = keys.into_iter().reduce(|a, b| (a | b)).unwrap_or(0);
+
+            if report_code != last {
+                last = report_code;
+            } else {
+                report_code = 0;
+            }
+
+            match consumer.write_report(&[report_code]) {
                 Err(UsbError::WouldBlock) => {}
                 Ok(_) => {}
                 Err(e) => {
-                    panic!("Failed to write keyboard report: {:?}", e)
+                    panic!("Failed to write consumer report: {:?}", e)
+                }
+            };
+
+            let report_code = keys.into_iter().find(|&c| c != 0).unwrap_or(0);
+
+            match consumer.write_report(&[if report_code != last { report_code } else { 0 } as u8])
+            {
+                Err(UsbError::WouldBlock) => {}
+                Ok(_) => {
+                    last = report_code;
+                }
+                Err(e) => {
+                    panic!("Failed to write consumer report: {:?}", e)
                 }
             };
         }

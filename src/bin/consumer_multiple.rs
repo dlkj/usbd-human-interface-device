@@ -10,8 +10,8 @@ use hal::Clock;
 use log::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_hid_devices::device::keyboard::HidKeyboard;
-use usbd_hid_devices::page::Keyboard;
+use usbd_hid_devices::device::consumer::HidConsumerControl;
+use usbd_hid_devices::page::Consumer;
 use usbd_hid_devices_example_rp2040::*;
 
 #[entry]
@@ -76,12 +76,12 @@ fn main() -> ! {
         &mut pac.RESETS,
     ));
 
-    let mut keyboard = usbd_hid_devices::device::keyboard::new_boot_keyboard(&usb_bus).build();
+    let mut consumer = usbd_hid_devices::device::consumer::new_consumer_control(&usb_bus).build();
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))
         .manufacturer("DLKJ")
-        .product("Keyboard")
+        .product("Consumer Control")
         .serial_number("TEST")
         .device_class(3) // HID - from: https://www.usb.org/defined-class-codes
         .composite_with_iads()
@@ -100,98 +100,51 @@ fn main() -> ! {
     let in6 = pins.gpio7.into_pull_up_input();
     let in7 = pins.gpio8.into_pull_up_input();
     let in8 = pins.gpio9.into_pull_up_input();
-    let in9 = pins.gpio10.into_pull_up_input();
-    let in10 = pins.gpio11.into_pull_up_input();
-    let in11 = pins.gpio12.into_pull_up_input();
 
     led_pin.set_low().ok();
+
+    let mut last = [Consumer::Unassigned; 9];
 
     loop {
         if button.is_low().unwrap() {
             hal::rom_data::reset_to_usb_boot(0x1 << 13, 0x0);
         }
-        if usb_dev.poll(&mut [&mut keyboard]) {
+
+        if usb_dev.poll(&mut [&mut consumer]) {
+            #[rustfmt::skip]
             let keys = [
-                if in0.is_low().unwrap() {
-                    Keyboard::KeypadNumLockAndClear
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //Numlock
-                if in1.is_low().unwrap() {
-                    Keyboard::UpArrow
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //Up
-                if in2.is_low().unwrap() {
-                    Keyboard::F12
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //F12
-                if in3.is_low().unwrap() {
-                    Keyboard::LeftArrow
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //Left
-                if in4.is_low().unwrap() {
-                    Keyboard::DownArrow
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //Down
-                if in5.is_low().unwrap() {
-                    Keyboard::RightArrow
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //Right
-                if in6.is_low().unwrap() {
-                    Keyboard::A
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //A
-                if in7.is_low().unwrap() {
-                    Keyboard::B
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //B
-                if in8.is_low().unwrap() {
-                    Keyboard::C
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //C
-                if in9.is_low().unwrap() {
-                    Keyboard::LeftControl
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //LCtrl
-                if in10.is_low().unwrap() {
-                    Keyboard::LeftShift
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //LShift
-                if in11.is_low().unwrap() {
-                    Keyboard::ReturnEnter
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //Enter
+                if in0.is_low().unwrap() { Consumer::PlayPause } else { Consumer::Unassigned },
+                if in1.is_low().unwrap() { Consumer::ScanPreviousTrack } else { Consumer::Unassigned },
+                if in2.is_low().unwrap() { Consumer::ScanNextTrack } else { Consumer::Unassigned },
+                if in3.is_low().unwrap() { Consumer::Mute } else { Consumer::Unassigned },
+                if in4.is_low().unwrap() { Consumer::VolumeDecrement } else { Consumer::Unassigned },
+                if in5.is_low().unwrap() { Consumer::VolumeIncrement } else { Consumer::Unassigned },
+                if in6.is_low().unwrap() { Consumer::ALCalculator } else { Consumer::Unassigned },
+                if in7.is_low().unwrap() { Consumer::ALInternetBrowser } else { Consumer::Unassigned },
+                if in8.is_low().unwrap() { Consumer::ALFileBrowser } else { Consumer::Unassigned },
             ];
 
-            match keyboard.read_keyboard_report() {
+            let mut buff = [0; 64];
+            match consumer.read_report(&mut buff) {
                 Err(UsbError::WouldBlock) => {
                     //do nothing
                 }
                 Err(e) => {
-                    panic!("Failed to read keyboard report: {:?}", e)
+                    panic!("Failed to read consumer report: {:?}", e)
                 }
-                Ok(leds) => {
-                    //send scroll lock to the led
-                    led_pin.set_state(PinState::from((leds & 0x1) != 0)).ok();
-                }
-            }
-
-            match keyboard.write_keyboard_report(keys) {
-                Err(UsbError::WouldBlock) => {}
                 Ok(_) => {}
+            }
+            match consumer.write_consumer_control_report(if keys != last {
+                keys
+            } else {
+                [Consumer::Unassigned; 9]
+            }) {
+                Err(UsbError::WouldBlock) => {}
+                Ok(_) => {
+                    last = keys;
+                }
                 Err(e) => {
-                    panic!("Failed to write keyboard report: {:?}", e)
+                    panic!("Failed to write consumer report: {:?}", e)
                 }
             };
         }
