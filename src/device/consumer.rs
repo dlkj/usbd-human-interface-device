@@ -1,6 +1,7 @@
 //!HID consumer control devices
 
 use crate::hid_class::prelude::*;
+use crate::usage::Consumer;
 use embedded_time::duration::Milliseconds;
 use log::warn;
 use usb_device::class_prelude::*;
@@ -116,22 +117,22 @@ pub fn new_consumer_control<B: usb_device::bus::UsbBus>(
 pub trait HidConsumerControl {
     /// Writes an input report given representing the update to the mouse state
     /// to the host system
-    fn write_consumer_control_report(
+    fn write_consumer_control_report<C: IntoIterator<Item = Consumer>>(
         &self,
-        codes: &[crate::usage::Consumer],
-    ) -> usb_device::Result<()>;
+        codes: C,
+    ) -> core::result::Result<(), usb_device::UsbError>;
 }
 
 impl<B: UsbBus> HidConsumerControl for UsbHidClass<'_, B> {
-    fn write_consumer_control_report(
+    fn write_consumer_control_report<C: IntoIterator<Item = Consumer>>(
         &self,
-        codes: &[crate::usage::Consumer],
+        codes: C,
     ) -> core::result::Result<(), usb_device::UsbError> {
         let mut report = [0; 8];
         let mut i = 0;
-        for &c in codes
-            .iter()
-            .filter(|&&c| c != crate::usage::Consumer::Unassigned)
+        for c in codes
+            .into_iter()
+            .filter(|&c| c != crate::usage::Consumer::Unassigned)
         {
             if i > report.len() {
                 break;
