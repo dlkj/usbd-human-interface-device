@@ -231,7 +231,7 @@ fn main() -> ! {
                 }
                 Ok(leds) => {
                     //send scroll lock to the led
-                    led_pin.set_state(PinState::from((leds & 0x1) != 0)).ok();
+                    led_pin.set_state(PinState::from(leds.num_lock)).ok();
                 }
             }
 

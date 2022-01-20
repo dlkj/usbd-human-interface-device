@@ -2,20 +2,50 @@
 #![no_main]
 
 use adafruit_macropad::hal;
+use core::cell::Cell;
+use core::default::Default;
+use cortex_m::interrupt::Mutex;
 use cortex_m_rt::entry;
 use embedded_hal::digital::v2::*;
 use embedded_time::rate::Hertz;
 use hal::pac;
 use hal::Clock;
 use log::*;
+use pac::interrupt;
+use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_hid_devices::device::consumer::HidConsumerControl;
-use usbd_hid_devices::device::keyboard::HidKeyboard;
-use usbd_hid_devices::device::mouse::HidMouse;
+use usbd_hid_devices::device::consumer::MultipleConsumerReport;
+use usbd_hid_devices::device::keyboard::{BootKeyboardReport, KeyboardLeds};
+use usbd_hid_devices::device::mouse::BootMouseReport;
+use usbd_hid_devices::hid_class::UsbHidClass;
 use usbd_hid_devices::page::Consumer;
 use usbd_hid_devices::page::Keyboard;
 use usbd_hid_devices_example_rp2040::*;
+
+type UsbDevices = (
+    UsbDevice<'static, hal::usb::UsbBus>,
+    UsbHidClass<'static, hal::usb::UsbBus>,
+    UsbHidClass<'static, hal::usb::UsbBus>,
+    UsbHidClass<'static, hal::usb::UsbBus>,
+);
+
+static USB_DEVICES: Mutex<Cell<Option<UsbDevices>>> = Mutex::new(Cell::new(None));
+
+#[derive(Default, Eq, PartialEq)]
+struct UsbData {
+    keyboard_report: Option<[u8; 8]>,
+    mouse_report: Option<[u8; 3]>,
+    consumer_report: Option<[u8; 8]>,
+    keyboard_led_report: Option<[u8; 1]>,
+}
+
+static USB_DATA: Mutex<Cell<UsbData>> = Mutex::new(Cell::new(UsbData {
+    keyboard_report: None,
+    mouse_report: None,
+    consumer_report: None,
+    keyboard_led_report: None,
+}));
 
 #[entry]
 fn main() -> ! {
@@ -71,20 +101,26 @@ fn main() -> ! {
     info!("Starting up...");
 
     //USB
-    let usb_bus = UsbBusAllocator::new(hal::usb::UsbBus::new(
-        pac.USBCTRL_REGS,
-        pac.USBCTRL_DPRAM,
-        clocks.usb_clock,
-        true,
-        &mut pac.RESETS,
-    ));
+    static mut USB_ALLOC: Option<UsbBusAllocator<hal::usb::UsbBus>> = None;
 
-    let mut keyboard = usbd_hid_devices::device::keyboard::new_boot_keyboard(&usb_bus).build();
-    let mut mouse = usbd_hid_devices::device::mouse::new_boot_mouse(&usb_bus).build();
-    let mut consumer = usbd_hid_devices::device::consumer::new_consumer_control(&usb_bus).build();
+    //Safety: interrupts not enabled yet
+    let usb_alloc = unsafe {
+        USB_ALLOC = Some(UsbBusAllocator::new(hal::usb::UsbBus::new(
+            pac.USBCTRL_REGS,
+            pac.USBCTRL_DPRAM,
+            clocks.usb_clock,
+            true,
+            &mut pac.RESETS,
+        )));
+        USB_ALLOC.as_ref().unwrap()
+    };
+
+    let keyboard = usbd_hid_devices::device::keyboard::new_boot_keyboard(usb_alloc).build();
+    let mouse = usbd_hid_devices::device::mouse::new_boot_mouse(usb_alloc).build();
+    let consumer = usbd_hid_devices::device::consumer::new_consumer_control(usb_alloc).build();
 
     //https://pid.codes
-    let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))
+    let usb_dev = UsbDeviceBuilder::new(usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("DLKJ")
         .product("Keyboard & Mouse")
         .serial_number("TEST")
@@ -92,6 +128,12 @@ fn main() -> ! {
         .composite_with_iads()
         .supports_remote_wakeup(true)
         .build();
+
+    cortex_m::interrupt::free(|cs| {
+        USB_DEVICES
+            .borrow(cs)
+            .replace(Some((usb_dev, keyboard, mouse, consumer)));
+    });
 
     //GPIO pins
     let mut led_pin = pins.gpio13.into_push_pull_output();
@@ -111,102 +153,165 @@ fn main() -> ! {
 
     led_pin.set_low().ok();
 
+    // Enable the USB interrupt
+    unsafe {
+        pac::NVIC::unmask(hal::pac::Interrupt::USBCTRL_IRQ);
+    };
+
     loop {
         if button.is_low().unwrap() {
             hal::rom_data::reset_to_usb_boot(0x1 << 13, 0x0);
         }
-        if usb_dev.poll(&mut [&mut keyboard, &mut mouse, &mut consumer]) {
-            let mut buttons = 0;
-            let mut x = 0;
-            let mut y = 0;
 
-            if in0.is_low().unwrap() {
-                buttons |= 0x1; //Left
-            }
-            if in1.is_low().unwrap() {
-                buttons |= 0x4; //Middle
-            }
-            if in2.is_low().unwrap() {
-                buttons |= 0x2; //Right
-            }
-            if in4.is_low().unwrap() {
-                y += -5; //Up
-            }
-            if in6.is_low().unwrap() {
-                x += -5; //Left
-            }
-            if in7.is_low().unwrap() {
-                y += 5; //Down
-            }
-            if in8.is_low().unwrap() {
-                x += 5; //Right
-            }
+        let mut buttons: u8 = 0;
+        let mut x = 0;
+        let mut y = 0;
 
-            match mouse.write_mouse_report(buttons, x, y) {
-                Err(UsbError::WouldBlock) => {}
-                Ok(_) => {}
-                Err(e) => {
-                    panic!("Failed to write mouse report: {:?}", e)
+        if in0.is_low().unwrap() {
+            buttons |= 0x1; //Left
+        }
+        if in1.is_low().unwrap() {
+            buttons |= 0x4; //Middle
+        }
+        if in2.is_low().unwrap() {
+            buttons |= 0x2; //Right
+        }
+        if in4.is_low().unwrap() {
+            y += -5; //Up
+        }
+        if in6.is_low().unwrap() {
+            x += -5; //Left
+        }
+        if in7.is_low().unwrap() {
+            y += 5; //Down
+        }
+        if in8.is_low().unwrap() {
+            x += 5; //Right
+        }
+
+        let consumer_codes = [
+            if in3.is_low().unwrap() {
+                Consumer::VolumeDecrement
+            } else {
+                Consumer::Unassigned
+            },
+            if in5.is_low().unwrap() {
+                Consumer::VolumeIncrement
+            } else {
+                Consumer::Unassigned
+            },
+        ];
+
+        let keys = [
+            if in9.is_low().unwrap() {
+                Keyboard::A
+            } else {
+                Keyboard::NoEventIndicated
+            },
+            if in10.is_low().unwrap() {
+                Keyboard::B
+            } else {
+                Keyboard::NoEventIndicated
+            },
+            if in11.is_low().unwrap() {
+                Keyboard::C
+            } else {
+                Keyboard::NoEventIndicated
+            },
+        ];
+
+        let usb_data = UsbData {
+            keyboard_report: Some(
+                BootKeyboardReport::new(keys)
+                    .pack()
+                    .expect("Failed to pack keyboard report"),
+            ),
+            mouse_report: Some(
+                BootMouseReport { buttons, x, y }
+                    .pack()
+                    .expect("Failed to pack mouse report"),
+            ),
+            consumer_report: Some(
+                MultipleConsumerReport {
+                    codes: [
+                        consumer_codes[0],
+                        consumer_codes[1],
+                        Consumer::Unassigned,
+                        Consumer::Unassigned,
+                    ],
                 }
-            }
+                .pack()
+                .expect("Failed to pack consumer report"),
+            ),
+            keyboard_led_report: None,
+        };
 
-            let consumer_codes = [
-                if in3.is_low().unwrap() {
-                    Consumer::VolumeDecrement
-                } else {
-                    Consumer::Unassigned
-                },
-                if in5.is_low().unwrap() {
-                    Consumer::VolumeIncrement
-                } else {
-                    Consumer::Unassigned
-                },
-            ];
+        let keyboard_leds = cortex_m::interrupt::free(|cs| {
+            let data = USB_DATA.borrow(cs).replace(usb_data);
+            data.keyboard_led_report
+        });
 
-            let keys = [
-                if in9.is_low().unwrap() {
-                    Keyboard::A
-                } else {
-                    Keyboard::NoEventIndicated
-                },
-                if in10.is_low().unwrap() {
-                    Keyboard::B
-                } else {
-                    Keyboard::NoEventIndicated
-                },
-                if in11.is_low().unwrap() {
-                    Keyboard::C
-                } else {
-                    Keyboard::NoEventIndicated
-                },
-            ];
+        if let Some(leds) = keyboard_leds
+            .map(|l| KeyboardLeds::unpack(&l).expect("Failed to parse keyboard led report"))
+        {
+            led_pin.set_state(PinState::from(leds.num_lock)).ok();
+        }
+    }
+}
 
-            match keyboard.read_keyboard_report() {
-                Err(UsbError::WouldBlock) => {
-                    //do nothing
-                }
+#[allow(non_snake_case)]
+#[interrupt]
+fn USBCTRL_IRQ() {
+    static mut IRQ_USB_DEVICES: Option<UsbDevices> = None;
+
+    if IRQ_USB_DEVICES.is_none() {
+        cortex_m::interrupt::free(|cs| {
+            *IRQ_USB_DEVICES = USB_DEVICES.borrow(cs).take();
+        });
+    }
+
+    if let Some((ref mut usb_device, ref mut keyboard, ref mut mouse, ref mut consumer)) =
+        IRQ_USB_DEVICES
+    {
+        if usb_device.poll(&mut [keyboard, mouse, consumer]) {
+            let mut new_data: UsbData = Default::default();
+
+            let mut buf = [1];
+            new_data.keyboard_led_report = match keyboard.read_report(&mut buf) {
+                Err(UsbError::WouldBlock) => None,
                 Err(e) => {
                     panic!("Failed to read keyboard report: {:?}", e)
                 }
-                Ok(leds) => {
-                    //send scroll lock to the led
-                    led_pin.set_state(PinState::from((leds & 0x1) != 0)).ok();
-                }
-            }
-
-            match keyboard.write_keyboard_report(keys) {
-                Err(UsbError::WouldBlock) => {}
-                Ok(_) => {}
-                Err(e) => {
-                    panic!("Failed to write keyboard report: {:?}", e)
-                }
+                Ok(_) => Some(buf),
             };
 
-            match consumer.write_consumer_control_report(consumer_codes) {
-                Err(UsbError::WouldBlock) => {}
-                Ok(_) => {}
-                Err(e) => {
-                    panic!("Failed to write consumer control report: {:?}", e)
+            let data = cortex_m::interrupt::free(|cs| USB_DATA.borrow(cs).replace(new_data));
+
+            if let Some(k) = data.keyboard_report {
+                match keyboard.write_report(&k) {
+                    Err(UsbError::WouldBlock) => {}
+                    Ok(_) => {}
+                    Err(e) => {
+                        panic!("Failed to write keyboard report: {:?}", e)
+                    }
+                };
+            }
+            if let Some(m) = data.mouse_report {
+                match mouse.write_report(&m) {
+                    Err(UsbError::WouldBlock) => {}
+                    Ok(_) => {}
+                    Err(e) => {
+                        panic!("Failed to write mouse report: {:?}", e)
+                    }
+                }
+            }
+            if let Some(c) = data.consumer_report {
+                match consumer.write_report(&c) {
+                    Err(UsbError::WouldBlock) => {}
+                    Ok(_) => {}
+                    Err(e) => {
+                        panic!("Failed to write consumer control report: {:?}", e)
+                    }
                 }
             }
         }

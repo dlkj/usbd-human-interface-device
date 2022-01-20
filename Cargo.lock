@@ -618,9 +618,9 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "syn"
-version = "1.0.85"
+version = "1.0.86"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a684ac3dcd8913827e18cd09a68384ee66c1de24157e3c556c9ab16d85695fb7"
+checksum = "8a65b3f4ffa0092e9887669db0eae07941f023991ab58ea44da8fe8e2d511c6b"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -648,7 +648,7 @@ checksum = "6be90410d4772074ea49525e2e753b65920b94b57eee21a6ef7b6a6fe6296245"
 [[package]]
 name = "usbd-hid-devices"
 version = "0.1.0"
-source = "git+https://github.com/dlkj/usbd-hid-devices#d1ba17c13b41aa4269ba218210dafac8e8924907"
+source = "git+https://github.com/dlkj/usbd-hid-devices#c67539dc3bae58fde4a35bb4a910ba94b0ae0fc9"
 dependencies = [
  "embedded-time",
  "heapless",
@@ -671,6 +671,7 @@ dependencies = [
  "embedded-time",
  "log",
  "nb 1.0.0",
+ "packed_struct",
  "panic-persist",
  "rp2040-boot2",
  "sh1106",
