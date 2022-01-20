@@ -1,11 +1,13 @@
-use super::*;
-use env_logger::Env;
 use std::cell::RefCell;
 use std::sync::Mutex;
 use std::vec::Vec;
+
+use env_logger::Env;
 use usb_device::bus::PollResult;
 use usb_device::prelude::*;
 use usb_device::UsbDirection;
+
+use super::*;
 
 fn init_logging() {
     let _ = env_logger::Builder::from_env(Env::default().default_filter_or("trace"))
@@ -57,10 +59,10 @@ where
 
     fn enable(&mut self) {}
     fn reset(&self) {
-        todo!();
+        todo!()
     }
     fn set_device_address(&self, _addr: u8) {
-        todo!();
+        todo!()
     }
     fn write(&self, _ep_addr: EndpointAddress, buf: &[u8]) -> Result<usize> {
         let inner_ref = self.inner.lock().unwrap();
@@ -89,13 +91,13 @@ where
     }
     fn set_stalled(&self, _ep_addr: EndpointAddress, _stalled: bool) {}
     fn is_stalled(&self, _ep_addr: EndpointAddress) -> bool {
-        todo!();
+        todo!()
     }
     fn suspend(&self) {
-        todo!();
+        todo!()
     }
     fn resume(&self) {
-        todo!();
+        todo!()
     }
     fn poll(&self) -> PollResult {
         let inner_ref = self.inner.lock().unwrap();
@@ -126,9 +128,9 @@ where
 struct UsbRequest {
     #[packed_field(bits = "0")]
     direction: bool,
-    #[packed_field(bits = "1..=2")]
+    #[packed_field(bits = "1:2")]
     request_type: u8,
-    #[packed_field(bits = "4..=7")]
+    #[packed_field(bits = "4:7")]
     recipient: u8,
     request: u8,
     value: u16,
@@ -164,7 +166,6 @@ fn descriptor_ordering_satisfies_boot_spec() {
 
         let len = it.next().unwrap();
         assert_eq!(*it.next().unwrap(), 0x04, "Expected Interface descriptor");
-        //todo new test Subclass and Protocol specifying Boot Keyboard
         for _ in 0..(len - 2) {
             it.next().unwrap();
         }

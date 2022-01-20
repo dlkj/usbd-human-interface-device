@@ -1,11 +1,13 @@
 //!HID keyboards
 
-use crate::hid_class::prelude::*;
-use crate::page::Keyboard;
 use embedded_time::duration::Milliseconds;
-use log::{error, warn};
+use log::{error, info, warn};
+use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::Result;
+
+use crate::hid_class::prelude::*;
+use crate::page::Keyboard;
 
 /// Create a pre-configured [`crate::hid_class::UsbHidClassBuilder`] for a boot keyboard
 pub fn new_boot_keyboard<B: usb_device::bus::UsbBus>(
@@ -21,6 +23,21 @@ pub fn new_boot_keyboard<B: usb_device::bus::UsbBus>(
         .without_out_endpoint()
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PackedStruct)]
+#[packed_struct(endian = "lsb", bit_numbering = "lsb0", size_bytes = "1")]
+pub struct KeyboardLeds {
+    #[packed_field(bits = "0")]
+    pub num_lock: bool,
+    #[packed_field(bits = "1")]
+    pub caps_lock: bool,
+    #[packed_field(bits = "2")]
+    pub scroll_lock: bool,
+    #[packed_field(bits = "3")]
+    pub compose: bool,
+    #[packed_field(bits = "4")]
+    pub kana: bool,
+}
+
 /// Provides an interface to send keycodes to the host device and
 /// receive LED status information
 pub trait HidKeyboard {
@@ -30,7 +47,7 @@ pub trait HidKeyboard {
         K: IntoIterator<Item = Keyboard>;
 
     /// Read LED status from the host system
-    fn read_keyboard_report(&self) -> Result<u8>;
+    fn read_keyboard_report(&self) -> Result<KeyboardLeds>;
 }
 
 impl<B: UsbBus> HidKeyboard for UsbHidClass<'_, B> {
@@ -80,17 +97,20 @@ impl<B: UsbBus> HidKeyboard for UsbHidClass<'_, B> {
         }
     }
 
-    fn read_keyboard_report(&self) -> core::result::Result<u8, usb_device::UsbError> {
-        let mut data = [0; 8];
+    fn read_keyboard_report(&self) -> core::result::Result<KeyboardLeds, usb_device::UsbError> {
+        let mut data = [0; 1];
         match self.read_report(&mut data) {
             Ok(0) => {
                 error!("received zero length report, expected 1 byte",);
                 Err(UsbError::ParseError)
             }
-            Ok(_) => Ok(data[0]),
+            Ok(_) => {
+                let unpacked = KeyboardLeds::unpack(&data).unwrap();
+                info!("Led: {:#X} {:?}", data[0], unpacked);
+                Ok(unpacked)
+            }
             Err(e) => Err(e),
         }
-        //todo convert to bitflags
     }
 }
 
@@ -135,3 +155,50 @@ pub const BOOT_KEYBOARD_REPORT_DESCRIPTOR: &[u8] = &[
     0x81, 0x00, //     Input (Data, Array),
     0xC0, // End Collection
 ];
+
+#[cfg(test)]
+mod test {
+    use packed_struct::prelude::*;
+
+    use crate::device::keyboard::KeyboardLeds;
+
+    #[test]
+    fn leds_num_lock() {
+        assert_eq!(
+            KeyboardLeds::unpack(&[1]),
+            Ok(KeyboardLeds {
+                num_lock: true,
+                caps_lock: false,
+                scroll_lock: false,
+                compose: false,
+                kana: false,
+            })
+        );
+    }
+
+    #[test]
+    fn leds_caps_lock() {
+        assert_eq!(
+            KeyboardLeds::unpack(&[2]),
+            Ok(KeyboardLeds {
+                num_lock: false,
+                caps_lock: true,
+                scroll_lock: false,
+                compose: false,
+                kana: false,
+            })
+        );
+
+        assert_eq!(
+            KeyboardLeds {
+                num_lock: false,
+                caps_lock: true,
+                scroll_lock: false,
+                compose: false,
+                kana: false,
+            }
+            .pack(),
+            Ok([2])
+        );
+    }
+}
