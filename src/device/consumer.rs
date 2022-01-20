@@ -2,6 +2,7 @@
 
 use embedded_time::duration::Milliseconds;
 use log::warn;
+use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 
 use crate::hid_class::prelude::*;
@@ -38,6 +39,13 @@ pub const MULTIPLE_CODE_REPORT_DESCRIPTOR: &[u8] = &[
     0x81, 0x00, //     Input (Array, Data, Variable)
     0xC0, // End Collection
 ];
+
+#[derive(Clone, Copy, Debug, PartialEq, PackedStruct)]
+#[packed_struct(endian = "lsb", size_bytes = "8")]
+pub struct MultipleConsumerReport {
+    #[packed_field(ty = "enum", element_size_bytes = "2")]
+    pub codes: [Consumer; 4],
+}
 
 // #[rustfmt::skip]
 // pub const HID_CONSUMER_CONTROL_VOL_KNOB_7_ARRAY_REPORT_DESCRIPTOR: &[u8] = &[

@@ -2,6 +2,7 @@
 use crate::hid_class::prelude::*;
 use embedded_time::duration::Milliseconds;
 use log::warn;
+use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::Result;
 
@@ -40,6 +41,17 @@ pub const BOOT_MOUSE_REPORT_DESCRIPTOR: &[u8] = &[
     0xC0, //   End Collection,
     0xC0, // End Collection
 ];
+
+#[derive(Clone, Copy, Debug, PartialEq, PackedStruct)]
+#[packed_struct(endian = "lsb", size_bytes = "3")]
+pub struct BootMouseReport {
+    #[packed_field]
+    pub buttons: u8,
+    #[packed_field]
+    pub x: i8,
+    #[packed_field]
+    pub y: i8,
+}
 
 /// Create a pre-configured [`crate::hid_class::UsbHidClassBuilder`] for a boot mouse
 pub fn new_boot_mouse<B: usb_device::bus::UsbBus>(

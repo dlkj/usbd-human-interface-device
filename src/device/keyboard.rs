@@ -38,6 +38,99 @@ pub struct KeyboardLeds {
     pub kana: bool,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, PackedStruct)]
+#[packed_struct(endian = "lsb", bit_numbering = "msb0", size_bytes = "8")]
+pub struct BootKeyboardReport {
+    #[packed_field(bits = "0")]
+    pub right_gui: bool,
+    #[packed_field(bits = "1")]
+    pub right_alt: bool,
+    #[packed_field(bits = "2")]
+    pub right_shift: bool,
+    #[packed_field(bits = "3")]
+    pub right_ctrl: bool,
+    #[packed_field(bits = "4")]
+    pub left_gui: bool,
+    #[packed_field(bits = "5")]
+    pub left_alt: bool,
+    #[packed_field(bits = "6")]
+    pub left_shift: bool,
+    #[packed_field(bits = "7")]
+    pub left_ctrl: bool,
+    #[packed_field(bytes = "2..8", ty = "enum", element_size_bytes = "1")]
+    pub keys: [Keyboard; 6],
+}
+
+impl BootKeyboardReport {
+    pub fn new<K: IntoIterator<Item = Keyboard>>(keys: K) -> Self {
+        let mut report = Self {
+            left_ctrl: false,
+            left_shift: false,
+            left_alt: false,
+            left_gui: false,
+            right_ctrl: false,
+            right_shift: false,
+            right_alt: false,
+            right_gui: false,
+            keys: [Keyboard::NoEventIndicated; 6],
+        };
+
+        let mut error = false;
+        let mut i = 0;
+        for k in keys.into_iter() {
+            match k {
+                Keyboard::LeftControl => {
+                    report.left_ctrl = true;
+                }
+                Keyboard::LeftShift => {
+                    report.left_shift = true;
+                }
+                Keyboard::LeftAlt => {
+                    report.left_alt = true;
+                }
+                Keyboard::LeftGUI => {
+                    report.left_gui = true;
+                }
+                Keyboard::RightControl => {
+                    report.right_ctrl = true;
+                }
+                Keyboard::RightShift => {
+                    report.right_shift = true;
+                }
+                Keyboard::RightAlt => {
+                    report.right_alt = true;
+                }
+                Keyboard::RightGUI => {
+                    report.right_gui = true;
+                }
+                Keyboard::NoEventIndicated => {}
+                Keyboard::ErrorRollOver | Keyboard::POSTFail | Keyboard::ErrorUndefine => {
+                    if !error {
+                        error = true;
+                        i = report.keys.len();
+                        report.keys.fill(k);
+                    }
+                }
+                _ => {
+                    if error {
+                        continue;
+                    }
+
+                    if i < report.keys.len() {
+                        report.keys[i] = k;
+                        i += 1;
+                    } else {
+                        error = true;
+                        i = report.keys.len();
+                        report.keys.fill(Keyboard::ErrorRollOver);
+                    }
+                }
+            }
+        }
+        report
+    }
+}
+
 /// Provides an interface to send keycodes to the host device and
 /// receive LED status information
 pub trait HidKeyboard {
@@ -156,7 +249,8 @@ pub const BOOT_KEYBOARD_REPORT_DESCRIPTOR: &[u8] = &[
 mod test {
     use packed_struct::prelude::*;
 
-    use crate::device::keyboard::KeyboardLeds;
+    use crate::device::keyboard::{BootKeyboardReport, KeyboardLeds};
+    use crate::page::Keyboard;
 
     #[test]
     fn leds_num_lock() {
@@ -195,6 +289,94 @@ mod test {
             }
             .pack(),
             Ok([2])
+        );
+    }
+
+    #[test]
+    fn boot_keyboard_report_mixed() {
+        let bytes = BootKeyboardReport::new([
+            Keyboard::LeftAlt,
+            Keyboard::A,
+            Keyboard::B,
+            Keyboard::C,
+            Keyboard::RightGUI,
+        ])
+        .pack()
+        .unwrap();
+
+        assert_eq!(
+            bytes,
+            [
+                0x1_u8 << (Keyboard::LeftAlt as u8 - Keyboard::LeftControl as u8)
+                    | 0x1_u8 << (Keyboard::RightGUI as u8 - Keyboard::LeftControl as u8),
+                0,
+                Keyboard::A as u8,
+                Keyboard::B as u8,
+                Keyboard::C as u8,
+                0,
+                0,
+                0
+            ]
+        );
+    }
+
+    #[test]
+    fn boot_keyboard_report_keys() {
+        let bytes = BootKeyboardReport::new([
+            Keyboard::A,
+            Keyboard::B,
+            Keyboard::C,
+            Keyboard::D,
+            Keyboard::E,
+            Keyboard::F,
+        ])
+        .pack()
+        .unwrap();
+
+        assert_eq!(
+            bytes,
+            [
+                0,
+                0,
+                Keyboard::A as u8,
+                Keyboard::B as u8,
+                Keyboard::C as u8,
+                Keyboard::D as u8,
+                Keyboard::E as u8,
+                Keyboard::F as u8
+            ]
+        );
+    }
+
+    #[test]
+    fn boot_keyboard_report_rollover() {
+        let bytes = BootKeyboardReport::new([
+            Keyboard::LeftAlt,
+            Keyboard::A,
+            Keyboard::B,
+            Keyboard::C,
+            Keyboard::D,
+            Keyboard::E,
+            Keyboard::F,
+            Keyboard::G,
+            Keyboard::RightGUI,
+        ])
+        .pack()
+        .unwrap();
+
+        assert_eq!(
+            bytes,
+            [
+                0x1_u8 << (Keyboard::LeftAlt as u8 - Keyboard::LeftControl as u8)
+                    | 0x1_u8 << (Keyboard::RightGUI as u8 - Keyboard::LeftControl as u8),
+                0,
+                Keyboard::ErrorRollOver as u8,
+                Keyboard::ErrorRollOver as u8,
+                Keyboard::ErrorRollOver as u8,
+                Keyboard::ErrorRollOver as u8,
+                Keyboard::ErrorRollOver as u8,
+                Keyboard::ErrorRollOver as u8,
+            ]
         );
     }
 }
