@@ -1,10 +1,11 @@
 //!HID consumer control devices
 
-use crate::hid_class::prelude::*;
-use crate::page::Consumer;
 use embedded_time::duration::Milliseconds;
 use log::warn;
 use usb_device::class_prelude::*;
+
+use crate::hid_class::prelude::*;
+use crate::page::Consumer;
 
 ///Consumer control report descriptor - Single `u16` consumer control usage code (2 bytes)
 #[rustfmt::skip]
@@ -14,9 +15,9 @@ pub const SINGLE_CODE_REPORT_DESCRIPTOR: &[u8] = &[
     0xA1, 0x01, // Collection (Application),
     0x75, 0x10, //     Report Size(16)
     0x95, 0x01, //     Report Count(1)
-    0x15, 0x00, //     Logical Minium(0)
+    0x15, 0x00, //     Logical Minimum(0)
     0x26, 0x9C, 0x02, //     Logical Maximum(0x029C)
-    0x19, 0x00, //     Usage Minium(0)
+    0x19, 0x00, //     Usage Minimum(0)
     0x2A, 0x9C, 0x02, //     Usage Maximum(0x029C)
     0x81, 0x00, //     Input (Array, Data, Variable)
     0xC0, // End Collection
@@ -30,9 +31,9 @@ pub const MULTIPLE_CODE_REPORT_DESCRIPTOR: &[u8] = &[
     0xA1, 0x01, // Collection (Application),
     0x75, 0x10, //     Report Size(16)
     0x95, 0x04, //     Report Count(4)
-    0x15, 0x00, //     Logical Minium(0)
+    0x15, 0x00, //     Logical Minimum(0)
     0x26, 0x9C, 0x02, //     Logical Maximum(0x029C)
-    0x19, 0x00, //     Usage Minium(0)
+    0x19, 0x00, //     Usage Minimum(0)
     0x2A, 0x9C, 0x02, //     Usage Maximum(0x029C)
     0x81, 0x00, //     Input (Array, Data, Variable)
     0xC0, // End Collection
@@ -53,10 +54,10 @@ pub const MULTIPLE_CODE_REPORT_DESCRIPTOR: &[u8] = &[
 //                 //
 //     0x75, 0x08, //     Report Size(8)
 //     0x95, 0x07, //     Report Count(7)
-//     0x15, 0x00, //     Logical Minium(0)
+//     0x15, 0x00, //     Logical Minimum(0)
 //     0x26, 0xF5, 0x00, //     Logical Maximum(0xF5)
 //     0x05, 0x0C, //     Usage Page (Consumer),
-//     0x19, 0x00, //     Usage Minium(0)
+//     0x19, 0x00, //     Usage Minimum(0)
 //     0x2A, 0xF5, 0x00, //     Usage Maximum(0xF5)
 //     0x81, 0x00, //     Input (Array, Data, Variable)
 //     0xC0, // End Collection
@@ -95,7 +96,7 @@ pub const FIXED_FUNCTION_REPORT_DESCRIPTOR: &[u8] = &[
     0x09, 0xEA, //            Usage (Volume Decrement)  
     0x81, 0x02, //            Input (Data,Var,Abs,NWrp,Lin,Pref,NNul,Bit)  
     0x95, 0x01, //            Report Count (1)  
-    0x81, 0x01, //            Input (Cnst,Ary,Abs)  
+    0x81, 0x01, //            Input (Const,Ary,Abs)  
     0xC0, //        End Collection
 ];
 

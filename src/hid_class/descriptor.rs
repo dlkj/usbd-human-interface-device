@@ -48,7 +48,7 @@ pub struct HidDescriptorBody {
 }
 
 pub fn hid_descriptor(class_descriptor_len: usize) -> Result<[u8; 7]> {
-    if class_descriptor_len > u16::max_value() as usize {
+    if class_descriptor_len > u16::MAX as usize {
         error!(
             "Report descriptor length {:X} too long to fit in u16",
             class_descriptor_len

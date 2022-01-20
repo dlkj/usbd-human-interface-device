@@ -1,12 +1,7 @@
 //! Abstract Human Interface Device Class for implementing any HID compliant device
 
-pub mod descriptor;
-pub mod prelude;
-#[cfg(test)]
-mod test;
-
 use core::cell::RefCell;
-use descriptor::*;
+
 use embedded_time::duration::*;
 use heapless::Vec;
 use log::{error, info, trace, warn};
@@ -16,6 +11,13 @@ use usb_device::control::Recipient;
 use usb_device::control::Request;
 use usb_device::control::RequestType;
 use usb_device::Result;
+
+use descriptor::*;
+
+pub mod descriptor;
+pub mod prelude;
+#[cfg(test)]
+mod test;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PrimitiveEnum)]
 #[repr(u8)]
@@ -348,93 +350,13 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
             .flatten()
     }
 
-    fn control_in(&mut self, transfer: ControlIn<B>) {
-        let request: &Request = transfer.request();
-        //only respond to requests for this interface
-        if !(request.recipient == Recipient::Interface
-            && request.index == u8::from(self.interface_number) as u16)
-        {
-            return;
-        }
-        trace!(
-            "ctrl_in: request type: {:?}, request: {:X}, value: {:X}",
-            request.request_type,
-            request.request,
-            request.value
-        );
-
-        match request.request_type {
-            RequestType::Standard => {
-                if request.request == Request::GET_DESCRIPTOR {
-                    self.control_in_get_descriptors(transfer);
-                }
-            }
-
-            RequestType::Class => {
-                match HidRequest::from_primitive(request.request) {
-                    Some(HidRequest::GetReport) => {
-                        let mut buffer = self.control_in_report_buffer.borrow_mut();
-                        if buffer.is_empty() {
-                            trace!("Declined GetReport - empty buffer");
-                            transfer.reject().ok();
-                        } else {
-                            match transfer.accept_with(&buffer) {
-                                Err(e) => error!("Failed to send in report - {:?}", e),
-                                Ok(_) => {
-                                    trace!("Sent report, {:X} bytes", buffer.len())
-                                }
-                            }
-                            buffer.clear();
-                        }
-                    }
-                    Some(HidRequest::GetIdle) => {
-                        if request.length != 1 {
-                            warn!(
-                                "Expected GetIdle to have length 1, received {:X}",
-                                request.length
-                            );
-                        }
-
-                        let report_id = (request.value & 0xFF) as u8;
-
-                        let idle = if report_id == 0 {
-                            self.global_idle
-                        } else {
-                            *self
-                                .report_idle
-                                .get(&report_id)
-                                .unwrap_or(&self.global_idle)
-                        };
-
-                        match transfer.accept_with(&[idle]) {
-                            Err(e) => error!("Failed to send idle data - {:?}", e),
-                            Ok(_) => trace!("Sent idle for {:X}: {:X}", report_id, idle),
-                        }
-                    }
-                    Some(HidRequest::GetProtocol) => {
-                        if request.length != 1 {
-                            warn!(
-                                "Expected GetProtocol to have length 1, received {:X}",
-                                request.length
-                            );
-                        }
-
-                        match transfer.accept_with(&[self.current_protocol as u8]) {
-                            Err(e) => error!("Failed to send protocol data - {:?}", e),
-                            Ok(_) => trace!("Sent protocol: {:?}", self.current_protocol),
-                        }
-                    }
-                    _ => {
-                        error!(
-                            "Unsupported control_in request type: {:?}, request: {:X}, value: {:X}",
-                            request.request_type, request.request, request.value
-                        );
-                        transfer.reject().ok(); // Not supported
-                    }
-                }
-            }
-            _ => {}
-        }
+    fn reset(&mut self) {
+        info!("Reset");
+        self.current_protocol = HidProtocol::Report;
+        self.global_idle = self.config.idle_default;
+        self.report_idle.clear();
+        self.control_in_report_buffer.borrow_mut().clear();
+        self.control_out_report_buffer.borrow_mut().clear();
     }
 
     fn control_out(&mut self, transfer: ControlOut<B>) {
@@ -534,12 +456,92 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
         }
     }
 
-    fn reset(&mut self) {
-        info!("Reset");
-        self.current_protocol = HidProtocol::Report;
-        self.global_idle = self.config.idle_default;
-        self.report_idle.clear();
-        self.control_in_report_buffer.borrow_mut().clear();
-        self.control_out_report_buffer.borrow_mut().clear();
+    fn control_in(&mut self, transfer: ControlIn<B>) {
+        let request: &Request = transfer.request();
+        //only respond to requests for this interface
+        if !(request.recipient == Recipient::Interface
+            && request.index == u8::from(self.interface_number) as u16)
+        {
+            return;
+        }
+        trace!(
+            "ctrl_in: request type: {:?}, request: {:X}, value: {:X}",
+            request.request_type,
+            request.request,
+            request.value
+        );
+
+        match request.request_type {
+            RequestType::Standard => {
+                if request.request == Request::GET_DESCRIPTOR {
+                    self.control_in_get_descriptors(transfer);
+                }
+            }
+
+            RequestType::Class => {
+                match HidRequest::from_primitive(request.request) {
+                    Some(HidRequest::GetReport) => {
+                        let mut buffer = self.control_in_report_buffer.borrow_mut();
+                        if buffer.is_empty() {
+                            trace!("Declined GetReport - empty buffer");
+                            transfer.reject().ok();
+                        } else {
+                            match transfer.accept_with(&buffer) {
+                                Err(e) => error!("Failed to send in report - {:?}", e),
+                                Ok(_) => {
+                                    trace!("Sent report, {:X} bytes", buffer.len())
+                                }
+                            }
+                            buffer.clear();
+                        }
+                    }
+                    Some(HidRequest::GetIdle) => {
+                        if request.length != 1 {
+                            warn!(
+                                "Expected GetIdle to have length 1, received {:X}",
+                                request.length
+                            );
+                        }
+
+                        let report_id = (request.value & 0xFF) as u8;
+
+                        let idle = if report_id == 0 {
+                            self.global_idle
+                        } else {
+                            *self
+                                .report_idle
+                                .get(&report_id)
+                                .unwrap_or(&self.global_idle)
+                        };
+
+                        match transfer.accept_with(&[idle]) {
+                            Err(e) => error!("Failed to send idle data - {:?}", e),
+                            Ok(_) => trace!("Sent idle for {:X}: {:X}", report_id, idle),
+                        }
+                    }
+                    Some(HidRequest::GetProtocol) => {
+                        if request.length != 1 {
+                            warn!(
+                                "Expected GetProtocol to have length 1, received {:X}",
+                                request.length
+                            );
+                        }
+
+                        match transfer.accept_with(&[self.current_protocol as u8]) {
+                            Err(e) => error!("Failed to send protocol data - {:?}", e),
+                            Ok(_) => trace!("Sent protocol: {:?}", self.current_protocol),
+                        }
+                    }
+                    _ => {
+                        error!(
+                            "Unsupported control_in request type: {:?}, request: {:X}, value: {:X}",
+                            request.request_type, request.request, request.value
+                        );
+                        transfer.reject().ok(); // Not supported
+                    }
+                }
+            }
+            _ => {}
+        }
     }
 }
