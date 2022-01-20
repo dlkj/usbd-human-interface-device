@@ -1,7 +1,7 @@
 //!HID keyboards
 
 use embedded_time::duration::Milliseconds;
-use log::{error, info, warn};
+use log::{error, warn};
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::Result;
@@ -104,11 +104,7 @@ impl<B: UsbBus> HidKeyboard for UsbHidClass<'_, B> {
                 error!("received zero length report, expected 1 byte",);
                 Err(UsbError::ParseError)
             }
-            Ok(_) => {
-                let unpacked = KeyboardLeds::unpack(&data).unwrap();
-                info!("Led: {:#X} {:?}", data[0], unpacked);
-                Ok(unpacked)
-            }
+            Ok(_) => KeyboardLeds::unpack(&data).map_err(|_| UsbError::ParseError),
             Err(e) => Err(e),
         }
     }
