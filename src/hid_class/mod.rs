@@ -418,11 +418,11 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
                             transfer.accept().ok();
                         }
                         Err(_) => {
-                            error!(
+                            warn!(
                                 "Failed to set idle for report id {:X}, idle map is full",
                                 report_id
                             );
-                            transfer.reject().ok();
+                            transfer.accept().ok();
                         }
                     }
                 }
@@ -483,17 +483,15 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
                     Some(HidRequest::GetReport) => {
                         let mut buffer = self.control_in_report_buffer.borrow_mut();
                         if buffer.is_empty() {
-                            trace!("Declined GetReport - empty buffer");
-                            transfer.reject().ok();
-                        } else {
-                            match transfer.accept_with(&buffer) {
-                                Err(e) => error!("Failed to send in report - {:?}", e),
-                                Ok(_) => {
-                                    trace!("Sent report, {:X} bytes", buffer.len())
-                                }
-                            }
-                            buffer.clear();
+                            trace!("NAK GetReport - empty buffer");
                         }
+                        match transfer.accept_with(&buffer) {
+                            Err(e) => error!("Failed to send in report - {:?}", e),
+                            Ok(_) => {
+                                trace!("Sent report, {:X} bytes", buffer.len())
+                            }
+                        }
+                        buffer.clear();
                     }
                     Some(HidRequest::GetIdle) => {
                         if request.length != 1 {
