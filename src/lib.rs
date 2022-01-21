@@ -58,12 +58,12 @@ where
 {
     display.clear();
     let character_style = MonoTextStyle::new(&FONT_4X6, BinaryColor::On);
-    let textbox_style = TextBoxStyleBuilder::new()
+    let text_box_style = TextBoxStyleBuilder::new()
         .height_mode(HeightMode::FitToText)
         .alignment(HorizontalAlignment::Left)
         .build();
     let bounds = Rectangle::new(Point::zero(), Size::new(128, 0));
-    let text_box = TextBox::with_textbox_style(text, bounds, character_style, textbox_style);
+    let text_box = TextBox::with_textbox_style(text, bounds, character_style, text_box_style);
 
     text_box.draw(display).unwrap();
     display.flush()?;

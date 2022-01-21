@@ -299,6 +299,7 @@ fn main() -> ! {
     }
 }
 
+//noinspection Annotator
 #[allow(non_snake_case)]
 #[interrupt]
 fn USBCTRL_IRQ() {
