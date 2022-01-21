@@ -7,6 +7,8 @@ use core::default::Default;
 use cortex_m::interrupt::Mutex;
 use cortex_m_rt::entry;
 use embedded_hal::digital::v2::*;
+use embedded_hal::prelude::_embedded_hal_timer_CountDown;
+use embedded_time::duration::Extensions;
 use embedded_time::rate::Hertz;
 use hal::pac;
 use hal::Clock;
@@ -63,6 +65,8 @@ fn main() -> ! {
     )
     .ok()
     .unwrap();
+
+    let timer = hal::Timer::new(pac.TIMER, &mut pac.RESETS);
 
     let sio = hal::Sio::new(pac.SIO);
     let pins = hal::gpio::Pins::new(
@@ -152,6 +156,8 @@ fn main() -> ! {
     let in11 = pins.gpio12.into_pull_up_input();
 
     led_pin.set_low().ok();
+
+    let mut count_down = timer.count_down();
 
     // Enable the USB interrupt
     unsafe {
@@ -256,6 +262,9 @@ fn main() -> ! {
         {
             led_pin.set_state(PinState::from(leds.num_lock)).ok();
         }
+
+        count_down.start(10.milliseconds());
+        nb::block!(count_down.wait()).unwrap();
     }
 }
 
