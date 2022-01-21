@@ -87,7 +87,7 @@ fn main() -> ! {
         .serial_number("TEST")
         .device_class(3) // HID - from: https://www.usb.org/defined-class-codes
         .composite_with_iads()
-        .supports_remote_wakeup(true)
+        .supports_remote_wakeup(false)
         .build();
 
     //GPIO pins

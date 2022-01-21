@@ -12,7 +12,7 @@ use log::*;
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_hid_devices::device::keyboard::{BootKeyboardReport, KeyboardLeds};
+use usbd_hid_devices::device::keyboard::KeyboardLeds;
 use usbd_hid_devices::hid_class::prelude::*;
 use usbd_hid_devices::page::Keyboard;
 use usbd_hid_devices_example_rp2040::*;
@@ -79,49 +79,96 @@ fn main() -> ! {
         &mut pac.RESETS,
     ));
 
-    //http://www.usblyzer.com/reports/usb-properties/usb-keyboard.html
+    //25 bytes
+    //byte 0 - modifiers
+    //byte 1 - reserved 0s
+    //byte 2-7 - array of keycodes - used for boot support
+    //byte 9-24 - bit array of pressed keys
     #[rustfmt::skip]
-    pub const LOGITECH_GAMING_KEYBOARD_REPORT_DESCRIPTOR: &[u8] = &[
-        0x05, 0x01, //    Usage Page (Generic Desktop)
-        0x09, 0x06, //    Usage (Keyboard)
-        0xA1, 0x01, //    Collection (Application)
-        0x05, 0x07, //        Usage Page (Keyboard/Keypad)
-        0x19, 0xE0, //        Usage Minimum (Keyboard Left Control)
-        0x29, 0xE7, //        Usage Maximum (Keyboard Right GUI)
-        0x15, 0x00, //        Logical Minimum (0)
-        0x25, 0x01, //        Logical Maximum (1)
-        0x75, 0x01, //        Report Size (1)
-        0x95, 0x08, //        Report Count (8)
-        0x81, 0x02, //        Input (Data,Var,Abs,NWrp,Lin,Pref,NNul,Bit)
-        0x95, 0x01, //        Report Count (1)
-        0x75, 0x08, //        Report Size (8)
-        0x81, 0x01, //        Input (Const,Ary,Abs)
-        0x95, 0x05, //        Report Count (5)
-        0x75, 0x01, //        Report Size (1)
-        0x05, 0x08, //        Usage Page (LEDs)
-        0x19, 0x01, //        Usage Minimum (Num Lock)
-        0x29, 0x05, //        Usage Maximum (Kana)
-        0x91, 0x02, //        Output (Data,Var,Abs,NWrp,Lin,Pref,NNul,NVol,Bit)
-        0x95, 0x01, //        Report Count (1)
-        0x75, 0x03, //        Report Size (3)
-        0x91, 0x01, //        Output (Const,Ary,Abs,NWrp,Lin,Pref,NNul,NVol,Bit)
-        0x95, 0x06, //        Report Count (6)
-        0x75, 0x08, //        Report Size (8)
-        0x15, 0x00, //        Logical Minimum (0)
-        0x26, 0x97, 0x00, //        Logical Maximum (151)
-        0x05, 0x07, //        Usage Page (Keyboard/Keypad)
-        0x19, 0x00, //        Usage Minimum (Undefined)
-        0x29, 0x97, //        Usage Maximum (Keyboard LANG8)
-        0x81, 0x00, //        Input (Data,Ary,Abs)
-        0xC0, //        End Collection
+    pub const NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR: &[u8] = &[
+        0x05, 0x01,                     // Usage Page (Generic Desktop),
+        0x09, 0x06,                     // Usage (Keyboard),
+        0xA1, 0x01,                     // Collection (Application),
+        // bitmap of modifiers
+        0x75, 0x01,                     //   Report Size (1),
+        0x95, 0x08,                     //   Report Count (8),
+        0x05, 0x07,                     //   Usage Page (Key Codes),
+        0x19, 0xE0,                     //   Usage Minimum (224),
+        0x29, 0xE7,                     //   Usage Maximum (231),
+        0x15, 0x00,                     //   Logical Minimum (0),
+        0x25, 0x01,                     //   Logical Maximum (1),
+        0x81, 0x02,                     //   Input (Data, Variable, Absolute), ;Modifier byte
+        // 7 bytes of padding
+        0x75, 0x38,                     //   Report Size (0x38),
+        0x95, 0x01,                     //   Report Count (1),
+        0x81, 0x01,                     //   Input (Constant), ;Reserved byte
+        // LED output report
+        0x95, 0x05,                     //   Report Count (5),
+        0x75, 0x01,                     //   Report Size (1),
+        0x05, 0x08,                     //   Usage Page (LEDs),
+        0x19, 0x01,                     //   Usage Minimum (1),
+        0x29, 0x05,                     //   Usage Maximum (5),
+        0x91, 0x02,                     //   Output (Data, Variable, Absolute),
+        0x95, 0x01,                     //   Report Count (1),
+        0x75, 0x03,                     //   Report Size (3),
+        0x91, 0x03,                     //   Output (Constant),
+        // bitmap of keys
+        0x95, 0x88,                     //   Report Count () - (REPORT_BYTES-1)*8
+        0x75, 0x01,                     //   Report Size (1),
+        0x15, 0x00,                     //   Logical Minimum (0),
+        0x25, 0x01,                     //   Logical Maximum(1),
+        0x05, 0x07,                     //   Usage Page (Key Codes),
+        0x19, 0x00,                     //   Usage Minimum (0),
+        0x29, 0x87,                     //   Usage Maximum (), - (REPORT_BYTES-1)*8-1
+        0x81, 0x02,                     //   Input (Data, Variable, Absolute),
+        0xc0                            // End Collection
+    ];
+
+    //18 bytes - derived from https://learn.adafruit.com/custom-hid-devices-in-circuitpython/n-key-rollover-nkro-hid-device
+    //First byte modifiers, 17 byte key bit array
+    #[rustfmt::skip]
+    pub const _NKRO_COMPACT_KEYBOARD_REPORT_DESCRIPTOR: &[u8] = &[
+        0x05, 0x01,                     // Usage Page (Generic Desktop),
+        0x09, 0x06,                     // Usage (Keyboard),
+        0xA1, 0x01,                     // Collection (Application),
+        // bitmap of modifiers
+        0x75, 0x01,                     //   Report Size (1),
+        0x95, 0x08,                     //   Report Count (8),
+        0x05, 0x07,                     //   Usage Page (Key Codes),
+        0x19, 0xE0,                     //   Usage Minimum (224),
+        0x29, 0xE7,                     //   Usage Maximum (231),
+        0x15, 0x00,                     //   Logical Minimum (0),
+        0x25, 0x01,                     //   Logical Maximum (1),
+        0x81, 0x02,                     //   Input (Data, Variable, Absolute), ;Modifier byte
+        // LED output report
+        0x95, 0x05,                     //   Report Count (5),
+        0x75, 0x01,                     //   Report Size (1),
+        0x05, 0x08,                     //   Usage Page (LEDs),
+        0x19, 0x01,                     //   Usage Minimum (1),
+        0x29, 0x05,                     //   Usage Maximum (5),
+        0x91, 0x02,                     //   Output (Data, Variable, Absolute),
+        0x95, 0x01,                     //   Report Count (1),
+        0x75, 0x03,                     //   Report Size (3),
+        0x91, 0x03,                     //   Output (Constant),
+        // bitmap of keys
+        0x95, 0x88,                     //   Report Count () - (REPORT_BYTES-1)*8
+        0x75, 0x01,                     //   Report Size (1),
+        0x15, 0x00,                     //   Logical Minimum (0),
+        0x25, 0x01,                     //   Logical Maximum(1),
+        0x05, 0x07,                     //   Usage Page (Key Codes),
+        0x19, 0x00,                     //   Usage Minimum (0),
+        0x29, 0x87,                     //   Usage Maximum (), - (REPORT_BYTES-1)*8-1
+        0x81, 0x02,                     //   Input (Data, Variable, Absolute),
+        0xc0                            // End Collection
     ];
 
     let mut keyboard = UsbHidClassBuilder::new(&usb_bus)
-        .new_interface(LOGITECH_GAMING_KEYBOARD_REPORT_DESCRIPTOR)
+        .new_interface(NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR)
         .description("Keyboard")
+        .boot_device(InterfaceProtocol::Keyboard)
         .idle_default(Milliseconds(500))
         .unwrap()
-        .in_endpoint(UsbPacketSize::Size8, Milliseconds(20))
+        .in_endpoint(UsbPacketSize::Size32, Milliseconds(20))
         .unwrap()
         .without_out_endpoint()
         .build_interface()
@@ -137,6 +184,7 @@ fn main() -> ! {
         .device_class(3) // HID - from: https://www.usb.org/defined-class-codes
         .composite_with_iads()
         .supports_remote_wakeup(false)
+        .max_packet_size_0(8)
         .build();
 
     //GPIO pins
@@ -241,11 +289,41 @@ fn main() -> ! {
                 }
             }
 
-            match keyboard
-                .get_interface_mut(0)
-                .unwrap()
-                .write_report(&BootKeyboardReport::new(keys).pack().unwrap())
+            let mut report = [0; 25];
+            let mut error = false;
+            let mut i = 2;
+            let len = 8;
+
+            for k in keys
+                .into_iter()
+                .filter(|&k| k != Keyboard::NoEventIndicated)
             {
+                if (Keyboard::LeftControl..=Keyboard::RightGUI).contains(&k) {
+                    report[0] |= 0x1 << (k as u8 - Keyboard::LeftControl as u8)
+                } else {
+                    let byte = (k as usize) / 8;
+                    let bit = (k as u8) % 8;
+
+                    report[8 + byte] |= 1 << bit;
+
+                    if error {
+                        continue;
+                    }
+
+                    if i < len {
+                        report[i] = k as u8;
+                        i += 1;
+                    } else {
+                        error = true;
+                        i = len;
+                        for i in 2..8 {
+                            report[i] = Keyboard::ErrorRollOver as u8;
+                        }
+                    }
+                }
+            }
+
+            match keyboard.get_interface_mut(0).unwrap().write_report(&report) {
                 Err(UsbError::WouldBlock) => {}
                 Ok(_) => {}
                 Err(e) => {
