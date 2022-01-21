@@ -1,7 +1,6 @@
 //!HID consumer control devices
 
 use embedded_time::duration::Milliseconds;
-use log::warn;
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 
@@ -112,51 +111,14 @@ pub const FIXED_FUNCTION_REPORT_DESCRIPTOR: &[u8] = &[
 pub fn new_consumer_control<B: usb_device::bus::UsbBus>(
     usb_alloc: &'_ UsbBusAllocator<B>,
 ) -> UsbHidClassBuilder<'_, B> {
-    UsbHidClassBuilder::new(usb_alloc, MULTIPLE_CODE_REPORT_DESCRIPTOR)
-        .interface_description("Consumer Control")
+    UsbHidClassBuilder::new(usb_alloc)
+        .new_interface(MULTIPLE_CODE_REPORT_DESCRIPTOR)
+        .description("Consumer Control")
         .idle_default(Milliseconds(0))
         .unwrap()
         .in_endpoint(UsbPacketSize::Size8, Milliseconds(20))
         .unwrap()
         .without_out_endpoint()
-}
-
-/// Provides an interface to send consumer control codes to
-/// the host device
-pub trait HidConsumerControl {
-    /// Writes an input report given representing the update to the mouse state
-    /// to the host system
-    fn write_consumer_control_report<C: IntoIterator<Item = Consumer>>(
-        &self,
-        codes: C,
-    ) -> core::result::Result<(), usb_device::UsbError>;
-}
-
-impl<B: UsbBus> HidConsumerControl for UsbHidClass<'_, B> {
-    fn write_consumer_control_report<C: IntoIterator<Item = Consumer>>(
-        &self,
-        codes: C,
-    ) -> core::result::Result<(), usb_device::UsbError> {
-        let mut report = [0; 8];
-        let mut i = 0;
-        for c in codes
-            .into_iter()
-            .filter(|&c| c != crate::page::Consumer::Unassigned)
-        {
-            if i > report.len() {
-                break;
-            }
-            report[i..i + 2].copy_from_slice(&(c as u16).to_le_bytes());
-            i += 2;
-        }
-
-        match self.write_report(&report) {
-            Ok(8) => Ok(()),
-            Ok(n) => {
-                warn!("Sent {:X} bytes, expected 8 byte", n,);
-                Ok(())
-            }
-            Err(e) => Err(e),
-        }
-    }
+        .build_interface()
+        .unwrap()
 }

@@ -165,6 +165,12 @@ fn descriptor_ordering_satisfies_boot_spec() {
         }
 
         let len = it.next().unwrap();
+        assert_eq!(*(it.next().unwrap()), 0x0B, "Expected IAD descriptor");
+        for _ in 0..(len - 2) {
+            it.next().unwrap();
+        }
+
+        let len = it.next().unwrap();
         assert_eq!(*it.next().unwrap(), 0x04, "Expected Interface descriptor");
         for _ in 0..(len - 2) {
             it.next().unwrap();
@@ -201,7 +207,12 @@ fn descriptor_ordering_satisfies_boot_spec() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClassBuilder::new(&usb_alloc, &[]).build();
+    let mut hid = UsbHidClassBuilder::new(&usb_alloc)
+        .new_interface(&[])
+        .build_interface()
+        .unwrap()
+        .build()
+        .unwrap();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("DLKJ")
@@ -247,7 +258,12 @@ fn get_protocol_default_to_report() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClassBuilder::new(&usb_alloc, &[]).build();
+    let mut hid = UsbHidClassBuilder::new(&usb_alloc)
+        .new_interface(&[])
+        .build_interface()
+        .unwrap()
+        .build()
+        .unwrap();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("DLKJ")
@@ -307,7 +323,12 @@ fn set_protocol() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClassBuilder::new(&usb_alloc, &[]).build();
+    let mut hid = UsbHidClassBuilder::new(&usb_alloc)
+        .new_interface(&[])
+        .build_interface()
+        .unwrap()
+        .build()
+        .unwrap();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("DLKJ")
@@ -367,7 +388,12 @@ fn get_protocol_default_post_reset() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClassBuilder::new(&usb_alloc, &[]).build();
+    let mut hid = UsbHidClassBuilder::new(&usb_alloc)
+        .new_interface(&[])
+        .build_interface()
+        .unwrap()
+        .build()
+        .unwrap();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("DLKJ")
@@ -420,10 +446,14 @@ fn get_global_idle_default() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClassBuilder::new(&usb_alloc, &[])
+    let mut hid = UsbHidClassBuilder::new(&usb_alloc)
+        .new_interface(&[])
         .idle_default(IDLE_DEFAULT)
         .unwrap()
-        .build();
+        .build_interface()
+        .unwrap()
+        .build()
+        .unwrap();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("DLKJ")
@@ -485,10 +515,14 @@ fn set_global_idle() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClassBuilder::new(&usb_alloc, &[])
+    let mut hid = UsbHidClassBuilder::new(&usb_alloc)
+        .new_interface(&[])
         .idle_default(IDLE_DEFAULT)
         .unwrap()
-        .build();
+        .build_interface()
+        .unwrap()
+        .build()
+        .unwrap();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("DLKJ")
@@ -551,10 +585,14 @@ fn get_global_idle_default_post_reset() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClassBuilder::new(&usb_alloc, &[])
+    let mut hid = UsbHidClassBuilder::new(&usb_alloc)
+        .new_interface(&[])
         .idle_default(IDLE_DEFAULT)
         .unwrap()
-        .build();
+        .build_interface()
+        .unwrap()
+        .build()
+        .unwrap();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("DLKJ")
@@ -608,10 +646,14 @@ fn get_report_idle_default() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClassBuilder::new(&usb_alloc, &[])
+    let mut hid = UsbHidClassBuilder::new(&usb_alloc)
+        .new_interface(&[])
         .idle_default(IDLE_DEFAULT)
         .unwrap()
-        .build();
+        .build_interface()
+        .unwrap()
+        .build()
+        .unwrap();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("DLKJ")
@@ -691,10 +733,14 @@ fn set_report_idle() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClassBuilder::new(&usb_alloc, &[])
+    let mut hid = UsbHidClassBuilder::new(&usb_alloc)
+        .new_interface(&[])
         .idle_default(IDLE_DEFAULT)
         .unwrap()
-        .build();
+        .build_interface()
+        .unwrap()
+        .build()
+        .unwrap();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("DLKJ")
@@ -759,10 +805,14 @@ fn get_report_idle_default_post_reset() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClassBuilder::new(&usb_alloc, &[])
+    let mut hid = UsbHidClassBuilder::new(&usb_alloc)
+        .new_interface(&[])
         .idle_default(IDLE_DEFAULT)
         .unwrap()
-        .build();
+        .build_interface()
+        .unwrap()
+        .build()
+        .unwrap();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("DLKJ")
