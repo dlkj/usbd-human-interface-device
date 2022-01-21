@@ -9,9 +9,10 @@ use embedded_time::rate::Hertz;
 use hal::pac;
 use hal::Clock;
 use log::*;
+use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_hid_devices::device::keyboard::HidKeyboard;
+use usbd_hid_devices::device::keyboard::{BootKeyboardReport, KeyboardLeds};
 use usbd_hid_devices::hid_class::prelude::*;
 use usbd_hid_devices::page::Keyboard;
 use usbd_hid_devices_example_rp2040::*;
@@ -115,16 +116,18 @@ fn main() -> ! {
         0xC0, //        End Collection
     ];
 
-    let mut keyboard =
-        UsbHidClassBuilder::new(&usb_bus, LOGITECH_GAMING_KEYBOARD_REPORT_DESCRIPTOR)
-            //UsbHidClassBuilder::new(&usb_bus, usbd_hid_devices::device::keyboard::HID_BOOT_KEYBOARD_REPORT_DESCRIPTOR)
-            .interface_description("Keyboard")
-            .idle_default(Milliseconds(500))
-            .unwrap()
-            .in_endpoint(UsbPacketSize::Size8, Milliseconds(20))
-            .unwrap()
-            .without_out_endpoint()
-            .build();
+    let mut keyboard = UsbHidClassBuilder::new(&usb_bus)
+        .new_interface(LOGITECH_GAMING_KEYBOARD_REPORT_DESCRIPTOR)
+        .description("Keyboard")
+        .idle_default(Milliseconds(500))
+        .unwrap()
+        .in_endpoint(UsbPacketSize::Size8, Milliseconds(20))
+        .unwrap()
+        .without_out_endpoint()
+        .build_interface()
+        .unwrap()
+        .build()
+        .unwrap();
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))
@@ -222,20 +225,27 @@ fn main() -> ! {
                 }, //Enter
             ];
 
-            match keyboard.read_keyboard_report() {
+            let data = &mut [0];
+            match keyboard.get_interface_mut(0).unwrap().read_report(data) {
                 Err(UsbError::WouldBlock) => {
                     //do nothing
                 }
                 Err(e) => {
                     panic!("Failed to read keyboard report: {:?}", e)
                 }
-                Ok(leds) => {
+                Ok(_) => {
                     //send scroll lock to the led
-                    led_pin.set_state(PinState::from(leds.num_lock)).ok();
+                    led_pin
+                        .set_state(PinState::from(KeyboardLeds::unpack(data).unwrap().num_lock))
+                        .ok();
                 }
             }
 
-            match keyboard.write_keyboard_report(keys) {
+            match keyboard
+                .get_interface_mut(0)
+                .unwrap()
+                .write_report(&BootKeyboardReport::new(keys).pack().unwrap())
+            {
                 Err(UsbError::WouldBlock) => {}
                 Ok(_) => {}
                 Err(e) => {

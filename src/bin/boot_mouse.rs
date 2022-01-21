@@ -8,9 +8,10 @@ use embedded_time::rate::Hertz;
 use hal::pac;
 use hal::Clock;
 use log::*;
+use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_hid_devices::device::mouse::HidMouse;
+use usbd_hid_devices::device::mouse::BootMouseReport;
 use usbd_hid_devices_example_rp2040::*;
 
 #[entry]
@@ -75,7 +76,9 @@ fn main() -> ! {
         &mut pac.RESETS,
     ));
 
-    let mut mouse = usbd_hid_devices::device::mouse::new_boot_mouse(&usb_bus).build();
+    let mut mouse = usbd_hid_devices::device::mouse::new_boot_mouse(&usb_bus)
+        .build()
+        .unwrap();
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))
@@ -141,7 +144,11 @@ fn main() -> ! {
             if in10.is_low().unwrap() {}
             if in11.is_low().unwrap() {}
 
-            match mouse.write_mouse_report(buttons, x, y) {
+            match mouse
+                .get_interface_mut(0)
+                .unwrap()
+                .write_report(&BootMouseReport { buttons, x, y }.pack().unwrap())
+            {
                 Err(UsbError::WouldBlock) => {}
                 Ok(_) => {}
                 Err(e) => {

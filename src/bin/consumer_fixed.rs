@@ -76,17 +76,18 @@ fn main() -> ! {
         &mut pac.RESETS,
     ));
 
-    let mut consumer = UsbHidClassBuilder::new(
-        &usb_bus,
-        usbd_hid_devices::device::consumer::FIXED_FUNCTION_REPORT_DESCRIPTOR,
-    )
-    .interface_description("Consumer Control")
-    .idle_default(Milliseconds(0))
-    .unwrap()
-    .in_endpoint(UsbPacketSize::Size8, Milliseconds(10))
-    .unwrap()
-    .without_out_endpoint()
-    .build();
+    let mut consumer = UsbHidClassBuilder::new(&usb_bus)
+        .new_interface(usbd_hid_devices::device::consumer::FIXED_FUNCTION_REPORT_DESCRIPTOR)
+        .description("Consumer Control")
+        .idle_default(Milliseconds(0))
+        .unwrap()
+        .in_endpoint(UsbPacketSize::Size8, Milliseconds(10))
+        .unwrap()
+        .without_out_endpoint()
+        .build_interface()
+        .unwrap()
+        .build()
+        .unwrap();
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))
@@ -129,7 +130,11 @@ fn main() -> ! {
             ];
 
             let mut buff = [0; 64];
-            match consumer.read_report(&mut buff) {
+            match consumer
+                .get_interface_mut(0)
+                .unwrap()
+                .read_report(&mut buff)
+            {
                 Err(UsbError::WouldBlock) => {
                     //do nothing
                 }
@@ -147,22 +152,13 @@ fn main() -> ! {
                 report_code = 0;
             }
 
-            match consumer.write_report(&[report_code]) {
-                Err(UsbError::WouldBlock) => {}
-                Ok(_) => {}
-                Err(e) => {
-                    panic!("Failed to write consumer report: {:?}", e)
-                }
-            };
-
-            let report_code = keys.into_iter().find(|&c| c != 0).unwrap_or(0);
-
-            match consumer.write_report(&[if report_code != last { report_code } else { 0 } as u8])
+            match consumer
+                .get_interface_mut(0)
+                .unwrap()
+                .write_report(&[report_code])
             {
                 Err(UsbError::WouldBlock) => {}
-                Ok(_) => {
-                    last = report_code;
-                }
+                Ok(_) => {}
                 Err(e) => {
                     panic!("Failed to write consumer report: {:?}", e)
                 }

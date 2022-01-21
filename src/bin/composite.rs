@@ -8,7 +8,7 @@ use cortex_m::interrupt::Mutex;
 use cortex_m_rt::entry;
 use embedded_hal::digital::v2::*;
 use embedded_hal::prelude::_embedded_hal_timer_CountDown;
-use embedded_time::duration::Extensions;
+use embedded_time::duration::{Extensions, Milliseconds};
 use embedded_time::rate::Hertz;
 use hal::pac;
 use hal::Clock;
@@ -17,18 +17,18 @@ use pac::interrupt;
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_hid_devices::device::consumer::MultipleConsumerReport;
-use usbd_hid_devices::device::keyboard::{BootKeyboardReport, KeyboardLeds};
-use usbd_hid_devices::device::mouse::BootMouseReport;
-use usbd_hid_devices::hid_class::UsbHidClass;
+use usbd_hid_devices::device::consumer::{MultipleConsumerReport, MULTIPLE_CODE_REPORT_DESCRIPTOR};
+use usbd_hid_devices::device::keyboard::{
+    BootKeyboardReport, KeyboardLeds, BOOT_KEYBOARD_REPORT_DESCRIPTOR,
+};
+use usbd_hid_devices::device::mouse::{BootMouseReport, BOOT_MOUSE_REPORT_DESCRIPTOR};
+use usbd_hid_devices::hid_class::prelude::*;
 use usbd_hid_devices::page::Consumer;
 use usbd_hid_devices::page::Keyboard;
 use usbd_hid_devices_example_rp2040::*;
 
 type UsbDevices = (
     UsbDevice<'static, hal::usb::UsbBus>,
-    UsbHidClass<'static, hal::usb::UsbBus>,
-    UsbHidClass<'static, hal::usb::UsbBus>,
     UsbHidClass<'static, hal::usb::UsbBus>,
 );
 
@@ -119,9 +119,42 @@ fn main() -> ! {
         USB_ALLOC.as_ref().unwrap()
     };
 
-    let keyboard = usbd_hid_devices::device::keyboard::new_boot_keyboard(usb_alloc).build();
-    let mouse = usbd_hid_devices::device::mouse::new_boot_mouse(usb_alloc).build();
-    let consumer = usbd_hid_devices::device::consumer::new_consumer_control(usb_alloc).build();
+    let composite = UsbHidClassBuilder::new(usb_alloc)
+        //Boot Keyboard - interface 0
+        .new_interface(BOOT_KEYBOARD_REPORT_DESCRIPTOR)
+        .boot_device(InterfaceProtocol::Keyboard)
+        .description("Keyboard")
+        .idle_default(Milliseconds(500))
+        .unwrap()
+        .in_endpoint(UsbPacketSize::Size8, Milliseconds(20))
+        .unwrap()
+        .without_out_endpoint()
+        .build_interface()
+        .unwrap()
+        //Boot Mouse - interface 1
+        .new_interface(BOOT_MOUSE_REPORT_DESCRIPTOR)
+        .boot_device(InterfaceProtocol::Mouse)
+        .description("Mouse")
+        .idle_default(Milliseconds(0))
+        .unwrap()
+        .in_endpoint(UsbPacketSize::Size8, Milliseconds(20))
+        .unwrap()
+        .without_out_endpoint()
+        .build_interface()
+        .unwrap()
+        //Consumer control - interface 2
+        .new_interface(MULTIPLE_CODE_REPORT_DESCRIPTOR)
+        .description("Consumer Control")
+        .idle_default(Milliseconds(0))
+        .unwrap()
+        .in_endpoint(UsbPacketSize::Size8, Milliseconds(20))
+        .unwrap()
+        .without_out_endpoint()
+        .build_interface()
+        .unwrap()
+        //Build
+        .build()
+        .unwrap();
 
     //https://pid.codes
     let usb_dev = UsbDeviceBuilder::new(usb_alloc, UsbVidPid(0x1209, 0x0001))
@@ -134,9 +167,7 @@ fn main() -> ! {
         .build();
 
     cortex_m::interrupt::free(|cs| {
-        USB_DEVICES
-            .borrow(cs)
-            .replace(Some((usb_dev, keyboard, mouse, consumer)));
+        USB_DEVICES.borrow(cs).replace(Some((usb_dev, composite)));
     });
 
     //GPIO pins
@@ -279,14 +310,16 @@ fn USBCTRL_IRQ() {
         });
     }
 
-    if let Some((ref mut usb_device, ref mut keyboard, ref mut mouse, ref mut consumer)) =
-        IRQ_USB_DEVICES
-    {
-        if usb_device.poll(&mut [keyboard, mouse, consumer]) {
+    if let Some((ref mut usb_device, ref mut composite)) = IRQ_USB_DEVICES {
+        if usb_device.poll(&mut [composite]) {
             let mut new_data: UsbData = Default::default();
 
             let mut buf = [1];
-            new_data.keyboard_led_report = match keyboard.read_report(&mut buf) {
+            new_data.keyboard_led_report = match composite
+                .get_interface_mut(0)
+                .unwrap()
+                .read_report(&mut buf)
+            {
                 Err(UsbError::WouldBlock) => None,
                 Err(e) => {
                     panic!("Failed to read keyboard report: {:?}", e)
@@ -297,7 +330,7 @@ fn USBCTRL_IRQ() {
             let data = cortex_m::interrupt::free(|cs| USB_DATA.borrow(cs).replace(new_data));
 
             if let Some(k) = data.keyboard_report {
-                match keyboard.write_report(&k) {
+                match composite.get_interface_mut(0).unwrap().write_report(&k) {
                     Err(UsbError::WouldBlock) => {}
                     Ok(_) => {}
                     Err(e) => {
@@ -306,7 +339,7 @@ fn USBCTRL_IRQ() {
                 };
             }
             if let Some(m) = data.mouse_report {
-                match mouse.write_report(&m) {
+                match composite.get_interface_mut(1).unwrap().write_report(&m) {
                     Err(UsbError::WouldBlock) => {}
                     Ok(_) => {}
                     Err(e) => {
@@ -315,7 +348,7 @@ fn USBCTRL_IRQ() {
                 }
             }
             if let Some(c) = data.consumer_report {
-                match consumer.write_report(&c) {
+                match composite.get_interface_mut(2).unwrap().write_report(&c) {
                     Err(UsbError::WouldBlock) => {}
                     Ok(_) => {}
                     Err(e) => {

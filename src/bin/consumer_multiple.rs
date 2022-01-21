@@ -8,9 +8,10 @@ use embedded_time::rate::Hertz;
 use hal::pac;
 use hal::Clock;
 use log::*;
+use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_hid_devices::device::consumer::HidConsumerControl;
+use usbd_hid_devices::device::consumer::MultipleConsumerReport;
 use usbd_hid_devices::page::Consumer;
 use usbd_hid_devices_example_rp2040::*;
 
@@ -76,7 +77,9 @@ fn main() -> ! {
         &mut pac.RESETS,
     ));
 
-    let mut consumer = usbd_hid_devices::device::consumer::new_consumer_control(&usb_bus).build();
+    let mut consumer = usbd_hid_devices::device::consumer::new_consumer_control(&usb_bus)
+        .build()
+        .unwrap();
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))
@@ -125,7 +128,11 @@ fn main() -> ! {
             ];
 
             let mut buff = [0; 64];
-            match consumer.read_report(&mut buff) {
+            match consumer
+                .get_interface_mut(0)
+                .unwrap()
+                .read_report(&mut buff)
+            {
                 Err(UsbError::WouldBlock) => {
                     //do nothing
                 }
@@ -134,11 +141,27 @@ fn main() -> ! {
                 }
                 Ok(_) => {}
             }
-            match consumer.write_consumer_control_report(if keys != last {
-                keys
-            } else {
-                [Consumer::Unassigned; 9]
-            }) {
+
+            let mut report = MultipleConsumerReport {
+                codes: [Consumer::Unassigned; 4],
+            };
+
+            let report = if keys != last {
+                let mut it = keys.iter().filter(|&&c| c != Consumer::Unassigned);
+                for c in report.codes.iter_mut() {
+                    if let Some(&code) = it.next() {
+                        *c = code;
+                    } else {
+                        break;
+                    }
+                }
+            };
+
+            match consumer
+                .get_interface_mut(0)
+                .unwrap()
+                .write_report(&report.pack().unwrap())
+            {
                 Err(UsbError::WouldBlock) => {}
                 Ok(_) => {
                     last = keys;
