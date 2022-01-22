@@ -106,8 +106,6 @@ fn main() -> ! {
 
     led_pin.set_low().ok();
 
-    let mut last = [Consumer::Unassigned; 9];
-
     loop {
         if button.is_low().unwrap() {
             hal::rom_data::reset_to_usb_boot(0x1 << 13, 0x0);
@@ -127,35 +125,18 @@ fn main() -> ! {
                 if in8.is_low().unwrap() { Consumer::ALFileBrowser } else { Consumer::Unassigned },
             ];
 
-            let mut buff = [0; 64];
-            match consumer
-                .get_interface_mut(0)
-                .unwrap()
-                .read_report(&mut buff)
-            {
-                Err(UsbError::WouldBlock) => {
-                    //do nothing
-                }
-                Err(e) => {
-                    panic!("Failed to read consumer report: {:?}", e)
-                }
-                Ok(_) => {}
-            }
-
             let mut report = MultipleConsumerReport {
                 codes: [Consumer::Unassigned; 4],
             };
 
-            let report = if keys != last {
-                let mut it = keys.iter().filter(|&&c| c != Consumer::Unassigned);
-                for c in report.codes.iter_mut() {
-                    if let Some(&code) = it.next() {
-                        *c = code;
-                    } else {
-                        break;
-                    }
+            let mut it = keys.iter().filter(|&&c| c != Consumer::Unassigned);
+            for c in report.codes.iter_mut() {
+                if let Some(&code) = it.next() {
+                    *c = code;
+                } else {
+                    break;
                 }
-            };
+            }
 
             match consumer
                 .get_interface_mut(0)
@@ -163,9 +144,7 @@ fn main() -> ! {
                 .write_report(&report.pack().unwrap())
             {
                 Err(UsbError::WouldBlock) => {}
-                Ok(_) => {
-                    last = keys;
-                }
+                Ok(_) => {}
                 Err(e) => {
                     panic!("Failed to write consumer report: {:?}", e)
                 }

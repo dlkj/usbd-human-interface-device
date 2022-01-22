@@ -112,8 +112,6 @@ fn main() -> ! {
 
     led_pin.set_low().ok();
 
-    let mut last = 0xFF;
-
     loop {
         if button.is_low().unwrap() {
             hal::rom_data::reset_to_usb_boot(0x1 << 13, 0x0);
@@ -129,28 +127,7 @@ fn main() -> ! {
                 if in6.is_low().unwrap() { 0x40 } else { 0x00 }, //vol-
             ];
 
-            let mut buff = [0; 64];
-            match consumer
-                .get_interface_mut(0)
-                .unwrap()
-                .read_report(&mut buff)
-            {
-                Err(UsbError::WouldBlock) => {
-                    //do nothing
-                }
-                Err(e) => {
-                    panic!("Failed to read consumer report: {:?}", e)
-                }
-                Ok(_) => {}
-            }
-
-            let mut report_code = keys.into_iter().reduce(|a, b| (a | b)).unwrap_or(0);
-
-            if report_code != last {
-                last = report_code;
-            } else {
-                report_code = 0;
-            }
+            let report_code = keys.into_iter().reduce(|a, b| (a | b)).unwrap_or(0);
 
             match consumer
                 .get_interface_mut(0)
