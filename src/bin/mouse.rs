@@ -80,7 +80,7 @@ fn main() -> ! {
 
     let mut mouse = UsbHidClassBuilder::new(&usb_bus)
         .new_interface(WHEEL_MOUSE_REPORT_DESCRIPTOR)
-        //.boot_device(InterfaceProtocol::Mouse)
+        .boot_device(InterfaceProtocol::Mouse)
         .description("Mouse")
         .idle_default(Milliseconds(0))
         .unwrap()
