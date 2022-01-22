@@ -4,7 +4,6 @@ use embedded_time::duration::Milliseconds;
 use embedded_time::fixed_point::FixedPoint;
 use heapless::Vec;
 use log::{error, trace, warn};
-use usb_device::control::Request;
 use usb_device::UsbError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -229,49 +228,6 @@ impl<'a, B: UsbBus> Interface<'a, B> {
         }
     }
 
-    //TODO move to class
-    pub fn get_descriptor(&mut self, transfer: ControlIn<B>) {
-        let request: &Request = transfer.request();
-        match DescriptorType::from_primitive((request.value >> 8) as u8) {
-            Some(DescriptorType::Report) => {
-                match transfer.accept_with(self.config.report_descriptor) {
-                    Err(e) => error!("Failed to send report descriptor - {:?}", e),
-                    Ok(_) => {
-                        trace!("Sent report descriptor")
-                    }
-                }
-            }
-            Some(DescriptorType::Hid) => {
-                match hid_descriptor(self.config.report_descriptor.len()) {
-                    Err(e) => {
-                        error!("Failed to generate Hid descriptor - {:?}", e);
-                        transfer.reject().ok();
-                    }
-                    Ok(hid_descriptor) => {
-                        let mut buffer = [0; 9];
-                        buffer[0] = buffer.len() as u8;
-                        buffer[1] = DescriptorType::Hid as u8;
-                        (&mut buffer[2..]).copy_from_slice(&hid_descriptor);
-                        match transfer.accept_with(&buffer) {
-                            Err(e) => {
-                                error!("Failed to send Hid descriptor - {:?}", e);
-                            }
-                            Ok(_) => {
-                                trace!("Sent hid descriptor")
-                            }
-                        }
-                    }
-                }
-            }
-            _ => {
-                warn!(
-                    "Unsupported descriptor type, request type:{:X?}, request:{:X}, value:{:X}",
-                    request.request_type, request.request, request.value
-                );
-            }
-        }
-    }
-
     pub fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()> {
         writer.interface_alt(
             self.id,
@@ -380,7 +336,7 @@ impl<'a, B: UsbBus> Interface<'a, B> {
         }
     }
 
-    pub fn get_idle(&mut self, report_id: u8) -> u8 {
+    pub fn get_idle(&self, report_id: u8) -> u8 {
         if report_id == 0 {
             self.global_idle
         } else {

@@ -1,7 +1,9 @@
 //! Abstract Human Interface Device Class for implementing any HID compliant device
 
 use core::default::Default;
+use descriptor::*;
 use heapless::Vec;
+use interface::{Interface, InterfaceConfig, UsbHidInterfaceBuilder};
 use log::{error, info, trace, warn};
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
@@ -9,9 +11,6 @@ use usb_device::control::Recipient;
 use usb_device::control::Request;
 use usb_device::control::RequestType;
 use usb_device::Result;
-
-use descriptor::*;
-use interface::{Interface, InterfaceConfig, UsbHidInterfaceBuilder};
 
 pub mod descriptor;
 pub mod interface;
@@ -87,7 +86,7 @@ impl<'a, B: UsbBus> UsbHidClassBuilder<'a, B> {
 
 type BuilderResult<B> = core::result::Result<B, UsbHidBuilderError>;
 
-/// Implements the generic Hid Device
+/// USB Human Interface Device class
 pub struct UsbHidClass<'a, B: UsbBus> {
     interfaces: heapless::Vec<Interface<'a, B>, MAX_INTERFACE_COUNT>,
     interface_num_map: heapless::FnvIndexMap<u8, usize, MAX_INTERFACE_COUNT>,
@@ -121,6 +120,44 @@ impl<'a, B: UsbBus> UsbHidClass<'a, B> {
 
     pub fn get_interface_mut(&mut self, index: usize) -> Option<&mut Interface<'a, B>> {
         self.interfaces.get_mut(index)
+    }
+
+    pub fn get_descriptor(&self, transfer: ControlIn<B>, report_descriptor: &[u8]) {
+        let request: &Request = transfer.request();
+        match DescriptorType::from_primitive((request.value >> 8) as u8) {
+            Some(DescriptorType::Report) => match transfer.accept_with(report_descriptor) {
+                Err(e) => error!("Failed to send report descriptor - {:?}", e),
+                Ok(_) => {
+                    trace!("Sent report descriptor")
+                }
+            },
+            Some(DescriptorType::Hid) => match hid_descriptor(report_descriptor.len()) {
+                Err(e) => {
+                    error!("Failed to generate Hid descriptor - {:?}", e);
+                    transfer.reject().ok();
+                }
+                Ok(hid_descriptor) => {
+                    let mut buffer = [0; 9];
+                    buffer[0] = buffer.len() as u8;
+                    buffer[1] = DescriptorType::Hid as u8;
+                    (&mut buffer[2..]).copy_from_slice(&hid_descriptor);
+                    match transfer.accept_with(&buffer) {
+                        Err(e) => {
+                            error!("Failed to send Hid descriptor - {:?}", e);
+                        }
+                        Ok(_) => {
+                            trace!("Sent hid descriptor")
+                        }
+                    }
+                }
+            },
+            _ => {
+                warn!(
+                    "Unsupported descriptor type, request type:{:X?}, request:{:X}, value:{:X}",
+                    request.request_type, request.request, request.value
+                );
+            }
+        }
     }
 }
 
@@ -242,15 +279,15 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
             return;
         }
 
-        let interface = u8::try_from(request.index)
+        let interface_num = u8::try_from(request.index)
             .ok()
             .and_then(|i| self.interface_num_map.get(&i))
-            .map(|&i| &mut self.interfaces[i]);
+            .cloned();
 
-        if interface.is_none() {
+        if interface_num.is_none() {
             return;
         }
-        let interface = interface.unwrap();
+        let interface_num = interface_num.unwrap();
 
         trace!(
             "ctrl_in: request type: {:?}, request: {:X}, value: {:X}",
@@ -261,12 +298,16 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
 
         match request.request_type {
             RequestType::Standard => {
+                let interface = &self.interfaces[interface_num];
+
                 if request.request == Request::GET_DESCRIPTOR {
-                    interface.get_descriptor(transfer);
+                    self.get_descriptor(transfer, interface.config().report_descriptor);
                 }
             }
 
             RequestType::Class => {
+                let interface = &mut self.interfaces[interface_num];
+
                 match HidRequest::from_primitive(request.request) {
                     Some(HidRequest::GetReport) => interface.get_report(transfer),
                     Some(HidRequest::GetIdle) => {

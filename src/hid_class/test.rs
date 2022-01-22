@@ -1,8 +1,9 @@
+use embedded_time::duration::Milliseconds;
+use embedded_time::fixed_point::FixedPoint;
+use env_logger::Env;
 use std::cell::RefCell;
 use std::sync::Mutex;
 use std::vec::Vec;
-
-use env_logger::Env;
 use usb_device::bus::PollResult;
 use usb_device::prelude::*;
 use usb_device::UsbDirection;
