@@ -316,8 +316,8 @@ fn main() -> ! {
                     } else {
                         error = true;
                         i = len;
-                        for i in 2..8 {
-                            report[i] = Keyboard::ErrorRollOver as u8;
+                        for r in &mut report[2..8] {
+                            *r = Keyboard::ErrorRollOver as u8;
                         }
                     }
                 }
