@@ -183,6 +183,7 @@ impl<'a, B: UsbBus> Interface<'a, B> {
     }
 
     pub fn write_report(&mut self, data: &[u8]) -> usb_device::Result<usize> {
+        //Try to write report to the report buffer for the config endpoint
         let control_result = if self.control_in_report_buffer.is_empty() {
             match self.control_in_report_buffer.extend_from_slice(data) {
                 Ok(_) => Ok(data.len()),
@@ -192,11 +193,14 @@ impl<'a, B: UsbBus> Interface<'a, B> {
             Err(UsbError::WouldBlock)
         };
 
+        //Also try to write report to the in endpoint
         let endpoint_result = self.in_endpoint.write(data);
 
         match (control_result, endpoint_result) {
+            //OK if either succeeded
             (_, Ok(n)) => Ok(n),
             (Ok(n), _) => Ok(n),
+            //non-WouldBlock errors take preference
             (Err(UsbError::WouldBlock), Err(e)) => Err(e),
             (Err(e), Err(UsbError::WouldBlock)) => Err(e),
             (_, Err(e)) => Err(e),
@@ -204,15 +208,17 @@ impl<'a, B: UsbBus> Interface<'a, B> {
     }
 
     pub fn read_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize> {
+        //If there is an out endpoint, try to read from it first
         let ep_result = if let Some(ep) = &self.out_endpoint {
             ep.read(data)
         } else {
-            //No endpoint configured
             Err(UsbError::WouldBlock)
         };
 
         match ep_result {
             Err(UsbError::WouldBlock) => {
+                //If there wasn't data available from the in endpoint
+                //try the config endpoint report buffer
                 if self.control_out_report_buffer.is_empty() {
                     Err(UsbError::WouldBlock)
                 } else if data.len() < self.control_out_report_buffer.len() {
@@ -287,31 +293,21 @@ impl<'a, B: UsbBus> Interface<'a, B> {
         }
     }
 
-    //TODO - Should transfer be abstracted away?
-    pub fn get_report(&mut self, transfer: ControlIn<B>) {
+    pub fn get_report<F: FnOnce(&[u8]) -> Result<()>>(&mut self, send_data: F) {
         if self.control_in_report_buffer.is_empty() {
-            trace!("NAK GetReport - empty buffer");
-
-            transfer.reject().ok(); //TODO - read docs, not sure this is correct
+            trace!("GetReport - NAK - empty buffer");
         } else {
-            if self.control_in_report_buffer.len() != transfer.request().length as usize {
-                warn!(
-                    "GetReport expected {:X} bytes, sent {:X}",
-                    transfer.request().length,
-                    self.control_in_report_buffer.len()
-                );
-            }
-            match transfer.accept_with(&self.control_in_report_buffer) {
-                Err(e) => error!("Failed to send in report - {:?}", e),
-                Ok(_) => {
+            match send_data(&self.control_in_report_buffer) {
+                Err(e) => error!("Failed to send report - {:?}", e),
+                Ok(()) => {
                     trace!(
                         "Sent report, {:X} bytes",
                         self.control_in_report_buffer.len()
-                    )
+                    );
+                    self.control_in_report_buffer.clear();
                 }
             }
         }
-        self.control_in_report_buffer.clear();
     }
 
     pub fn set_idle(&mut self, report_id: u8, value: u8) {

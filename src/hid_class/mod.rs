@@ -134,6 +134,7 @@ impl<'a, B: UsbBus> UsbHidClass<'a, B> {
             Some(DescriptorType::Hid) => match hid_descriptor(report_descriptor.len()) {
                 Err(e) => {
                     error!("Failed to generate Hid descriptor - {:?}", e);
+                    //Stall, we can't make further progress without a valid descriptor
                     transfer.reject().ok();
                 }
                 Ok(hid_descriptor) => {
@@ -259,7 +260,6 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
                         "Unable to set protocol, unsupported value:{:X}",
                         request.value
                     );
-                    transfer.reject().ok();
                 }
             }
             _ => {
@@ -267,7 +267,6 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
                     "Unsupported control_out request type: {:?}, request: {:X}, value: {:X}",
                     request.request_type, request.request, request.value
                 );
-                transfer.reject().ok();
             }
         }
     }
@@ -309,7 +308,18 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
                 let interface = &mut self.interfaces[interface_num];
 
                 match HidRequest::from_primitive(request.request) {
-                    Some(HidRequest::GetReport) => interface.get_report(transfer),
+                    Some(HidRequest::GetReport) => {
+                        interface.get_report(|data| {
+                            if data.len() != transfer.request().length as usize {
+                                warn!(
+                                    "GetReport expected {:X} bytes, report length {:X} bytes",
+                                    transfer.request().length,
+                                    data.len()
+                                );
+                            }
+                            transfer.accept_with(data)
+                        });
+                    }
                     Some(HidRequest::GetIdle) => {
                         if request.length != 1 {
                             warn!(
@@ -344,7 +354,6 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
                             "Unsupported control_in request type: {:?}, request: {:X}, value: {:X}",
                             request.request_type, request.request, request.value
                         );
-                        transfer.reject().ok(); // Not supported
                     }
                 }
             }
