@@ -274,21 +274,27 @@ impl<'a, B: UsbBus> Interface<'a, B> {
         self.control_out_report_buffer.clear();
     }
 
-    pub fn set_report(&mut self, data: &[u8]) {
-        self.control_out_report_buffer.clear();
-        match self.control_out_report_buffer.extend_from_slice(data) {
-            Err(_) => {
-                error!(
+    pub fn set_report(&mut self, data: &[u8]) -> Result<()> {
+        if !self.control_out_report_buffer.is_empty() {
+            trace!("Failed to set report, buffer not empty");
+            Err(UsbError::WouldBlock)
+        } else {
+            match self.control_out_report_buffer.extend_from_slice(data) {
+                Err(_) => {
+                    error!(
                     "Failed to set report, too large for buffer. Report size {:X}, expected <={:X}",
                     data.len(),
                     &self.control_out_report_buffer.capacity()
                 );
-            }
-            Ok(_) => {
-                trace!(
-                    "Received report, {:X} bytes",
-                    &self.control_out_report_buffer.len()
-                );
+                    Err(UsbError::BufferOverflow)
+                }
+                Ok(_) => {
+                    trace!(
+                        "Received report, {:X} bytes",
+                        &self.control_out_report_buffer.len()
+                    );
+                    Ok(())
+                }
             }
         }
     }

@@ -231,9 +231,12 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
         );
 
         match HidRequest::from_primitive(request.request) {
-            Some(HidRequest::SetReport) => {
-                interface.set_report(transfer.data());
-            }
+            Some(HidRequest::SetReport) => match interface.set_report(transfer.data()) {
+                Ok(()) => {
+                    transfer.accept().ok();
+                }
+                Err(_) => {}
+            },
             Some(HidRequest::SetIdle) => {
                 if request.length != 0 {
                     warn!(
