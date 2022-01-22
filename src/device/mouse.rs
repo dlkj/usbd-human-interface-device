@@ -70,8 +70,8 @@ pub fn new_boot_mouse<B: usb_device::bus::UsbBus>(
 
 /// Boot compatible mouse with wheel, pan and eight buttons
 ///
-/// Reference: https://docs.microsoft.com/en-us/previous-versions/windows/hardware/design/dn613912(v=vs.85)
-//             https://www.microchip.com/forums/tm.aspx?m=391435
+/// Reference: <https://docs.microsoft.com/en-us/previous-versions/windows/hardware/design/dn613912(v=vs.85)>
+///            <https://www.microchip.com/forums/tm.aspx?m=391435>
 #[rustfmt::skip]
 pub const WHEEL_MOUSE_REPORT_DESCRIPTOR: &[u8] = &[
     0x05, 0x01,        // Usage Page (Generic Desktop),
