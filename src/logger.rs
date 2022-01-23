@@ -27,8 +27,12 @@ impl log::Log for Logger {
             write!(
                 &mut buffer_ref.borrow_mut(),
                 "{} {} {}\r\n",
-                record.level(),
-                record.target(),
+                record.level().as_str().split_at(1).0,
+                record
+                    .target()
+                    .split("::")
+                    .last()
+                    .unwrap_or_else(|| record.target()),
                 record.args()
             )
             .ok();

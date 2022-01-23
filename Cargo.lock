@@ -648,7 +648,7 @@ checksum = "6be90410d4772074ea49525e2e753b65920b94b57eee21a6ef7b6a6fe6296245"
 [[package]]
 name = "usbd-hid-devices"
 version = "0.1.0"
-source = "git+https://github.com/dlkj/usbd-hid-devices#bc5b8505016a42b87ac6f9519cde85f873de56c5"
+source = "git+https://github.com/dlkj/usbd-hid-devices#b6772acac6b0a2dbcd6e193ba18b71b0ae2625ab"
 dependencies = [
  "embedded-time",
  "hash32",
