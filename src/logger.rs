@@ -19,8 +19,8 @@ impl log::Log for Logger {
             //truncate buffer if more than half full
             let buffer_ref = self.buffer.borrow(cs);
             while buffer_ref.borrow().len() > (buffer_ref.borrow().capacity() / 2) {
-                let buffer = buffer_ref.borrow();
-                let s = &buffer.as_str()[..(buffer.capacity() / 2)];
+                let buffer = *buffer_ref.borrow();
+                let s = &buffer.as_str()[(buffer.capacity() / 4)..];
                 buffer_ref.replace(ArrayString::from(s).unwrap());
             }
 

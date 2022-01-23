@@ -4,10 +4,13 @@
 use adafruit_macropad::hal;
 use cortex_m_rt::entry;
 use embedded_hal::digital::v2::*;
+use embedded_hal::prelude::_embedded_hal_timer_CountDown;
+use embedded_time::duration::Milliseconds;
 use embedded_time::rate::Hertz;
 use hal::pac;
 use hal::Clock;
 use log::*;
+use nb::block;
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
@@ -30,6 +33,8 @@ fn main() -> ! {
     )
     .ok()
     .unwrap();
+
+    let timer = hal::timer::Timer::new(pac.TIMER, &mut pac.RESETS);
 
     let sio = hal::Sio::new(pac.SIO);
     let pins = hal::gpio::Pins::new(
@@ -93,68 +98,93 @@ fn main() -> ! {
     //GPIO pins
     let mut led_pin = pins.gpio13.into_push_pull_output();
 
-    let in0 = pins.gpio1.into_pull_up_input();
-    let in1 = pins.gpio2.into_pull_up_input();
-    let in2 = pins.gpio3.into_pull_up_input();
-    let in3 = pins.gpio4.into_pull_up_input();
-    let in4 = pins.gpio5.into_pull_up_input();
-    let in5 = pins.gpio6.into_pull_up_input();
-    let in6 = pins.gpio7.into_pull_up_input();
-    let in7 = pins.gpio8.into_pull_up_input();
-    let in8 = pins.gpio9.into_pull_up_input();
-    let in9 = pins.gpio10.into_pull_up_input();
-    let in10 = pins.gpio11.into_pull_up_input();
-    let in11 = pins.gpio12.into_pull_up_input();
+    let keys: &[&dyn InputPin<Error = core::convert::Infallible>] = &[
+        &pins.gpio1.into_pull_up_input(),
+        &pins.gpio2.into_pull_up_input(),
+        &pins.gpio3.into_pull_up_input(),
+        &pins.gpio4.into_pull_up_input(),
+        &pins.gpio5.into_pull_up_input(),
+        &pins.gpio6.into_pull_up_input(),
+        &pins.gpio7.into_pull_up_input(),
+        &pins.gpio8.into_pull_up_input(),
+        &pins.gpio9.into_pull_up_input(),
+        &pins.gpio10.into_pull_up_input(),
+        &pins.gpio11.into_pull_up_input(),
+        &pins.gpio12.into_pull_up_input(),
+    ];
 
     led_pin.set_low().ok();
+
+    let mut last = BootMouseReport {
+        buttons: 0,
+        x: 0,
+        y: 0,
+    };
 
     loop {
         if button.is_low().unwrap() {
             hal::rom_data::reset_to_usb_boot(0x1 << 13, 0x0);
         }
-        if usb_dev.poll(&mut [&mut mouse]) {
-            let mut buttons = 0;
-            let mut x = 0;
-            let mut y = 0;
 
-            if in0.is_low().unwrap() {
-                buttons |= 0x1; //Left
-            }
-            if in1.is_low().unwrap() {
-                buttons |= 0x4; //Middle
-            }
-            if in2.is_low().unwrap() {
-                buttons |= 0x2; //Right
-            }
-            if in3.is_low().unwrap() {}
-            if in4.is_low().unwrap() {
-                y += -10; //Up
-            }
-            if in5.is_low().unwrap() {}
-            if in6.is_low().unwrap() {
-                x += -10; //Left
-            }
-            if in7.is_low().unwrap() {
-                y += 10; //Down
-            }
-            if in8.is_low().unwrap() {
-                x += 10; //Right
-            }
-            if in9.is_low().unwrap() {}
-            if in10.is_low().unwrap() {}
-            if in11.is_low().unwrap() {}
+        let report = read_keys(keys);
 
+        //Only write a report if the mouse is moving or buttons change
+        if report != last || report.x != 0 || report.y != 0 {
             match mouse
                 .get_interface_mut(0)
                 .unwrap()
-                .write_report(&BootMouseReport { buttons, x, y }.pack().unwrap())
+                .write_report(&report.pack().unwrap())
             {
                 Err(UsbError::WouldBlock) => {}
-                Ok(_) => {}
+                Ok(_) => {
+                    last = report;
+                }
                 Err(e) => {
                     panic!("Failed to write mouse report: {:?}", e)
                 }
             }
         }
+
+        if usb_dev.poll(&mut [&mut mouse]) {}
+
+        //spin for 5 ms
+        let mut cd = timer.count_down();
+        cd.start(Milliseconds(5));
+        block!(cd.wait()).unwrap();
     }
+}
+
+fn read_keys(keys: &[&dyn InputPin<Error = core::convert::Infallible>]) -> BootMouseReport {
+    let mut buttons = 0;
+    let mut x = 0;
+    let mut y = 0;
+
+    if keys[0].is_low().unwrap() {
+        buttons |= 0x1; //Left
+    }
+    if keys[1].is_low().unwrap() {
+        buttons |= 0x4; //Middle
+    }
+    if keys[2].is_low().unwrap() {
+        buttons |= 0x2; //Right
+    }
+    if keys[3].is_low().unwrap() {}
+    if keys[4].is_low().unwrap() {
+        y += -10; //Up
+    }
+    if keys[5].is_low().unwrap() {}
+    if keys[6].is_low().unwrap() {
+        x += -10; //Left
+    }
+    if keys[7].is_low().unwrap() {
+        y += 10; //Down
+    }
+    if keys[8].is_low().unwrap() {
+        x += 10; //Right
+    }
+    if keys[9].is_low().unwrap() {}
+    if keys[10].is_low().unwrap() {}
+    if keys[11].is_low().unwrap() {}
+
+    BootMouseReport { buttons, x, y }
 }
