@@ -3,6 +3,7 @@
 #![no_std]
 
 use adafruit_macropad::hal;
+use arrayvec::ArrayString;
 use core::cell::RefCell;
 use cortex_m::interrupt::Mutex;
 use embedded_graphics::mono_font::ascii::FONT_4X6;
@@ -11,6 +12,8 @@ use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::*;
 use embedded_graphics::primitives::Rectangle;
 use embedded_hal::digital::v2::InputPin;
+use embedded_text::alignment::VerticalAlignment;
+use embedded_text::style::VerticalOverdraw;
 use embedded_text::{
     alignment::HorizontalAlignment,
     style::{HeightMode, TextBoxStyleBuilder},
@@ -24,14 +27,15 @@ use sh1106::prelude::*;
 
 pub mod logger;
 
-pub static LOGGER: logger::Logger = logger::Logger;
+pub const XTAL_FREQ_HZ: u32 = 12_000_000u32;
+pub const MAX_LOG_LEVEL: LevelFilter = LevelFilter::Debug;
 
+pub static LOGGER: logger::Logger = logger::Logger {
+    buffer: Mutex::new(RefCell::new(ArrayString::new_const())),
+};
 type DisplaySpiInt = SpiInterface<Spi<hal::spi::Enabled, pac::SPI1, 8_u8>, DynPin, DynPin>;
-
 static OLED_DISPLAY: Mutex<RefCell<Option<GraphicsMode<DisplaySpiInt>>>> =
     Mutex::new(RefCell::new(None));
-
-pub const XTAL_FREQ_HZ: u32 = 12_000_000u32;
 
 pub fn check_for_persisted_panic(restart: &dyn InputPin<Error = core::convert::Infallible>) {
     if let Some(msg) = panic_persist::get_panic_message_utf8() {
@@ -59,10 +63,11 @@ where
     display.clear();
     let character_style = MonoTextStyle::new(&FONT_4X6, BinaryColor::On);
     let text_box_style = TextBoxStyleBuilder::new()
-        .height_mode(HeightMode::FitToText)
+        .height_mode(HeightMode::Exact(VerticalOverdraw::FullRowsOnly))
         .alignment(HorizontalAlignment::Left)
+        .vertical_alignment(VerticalAlignment::Bottom)
         .build();
-    let bounds = Rectangle::new(Point::zero(), Size::new(128, 0));
+    let bounds = Rectangle::new(Point::zero(), Size::new(128, 64));
     let text_box = TextBox::with_textbox_style(text, bounds, character_style, text_box_style);
 
     text_box.draw(display).unwrap();
@@ -81,7 +86,7 @@ pub fn init_display(spi: Spi<hal::spi::Enabled, pac::SPI1, 8_u8>, dc: DynPin, cs
         OLED_DISPLAY.borrow(cs).replace(Some(display));
         unsafe {
             log::set_logger_racy(&LOGGER)
-                .map(|()| log::set_max_level(LevelFilter::Info))
+                .map(|()| log::set_max_level(MAX_LOG_LEVEL))
                 .unwrap();
         }
     });
