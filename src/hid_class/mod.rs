@@ -183,6 +183,7 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
             i.write_descriptors(writer)?;
         }
 
+        info!("wrote class config descriptor");
         Ok(())
     }
 
@@ -264,7 +265,7 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
                 }
             }
             _ => {
-                error!(
+                warn!(
                     "Unsupported control_out request type: {:?}, request: {:X}, value: {:X}",
                     request.request_type, request.request, request.value
                 );
@@ -301,6 +302,7 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
                 let interface = &self.interfaces[interface_num];
 
                 if request.request == Request::GET_DESCRIPTOR {
+                    info!("Get descriptor");
                     self.get_descriptor(transfer, interface.config().report_descriptor);
                 }
             }
@@ -333,7 +335,7 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
                         let idle = interface.get_idle(report_id);
                         match transfer.accept_with(&[idle]) {
                             Err(e) => error!("Failed to send idle data - {:?}", e),
-                            Ok(_) => trace!("Sent idle for {:X}: {:X}", report_id, idle),
+                            Ok(_) => info!("Get Idle for ID{:X}: {:X}", report_id, idle),
                         }
                     }
                     Some(HidRequest::GetProtocol) => {
@@ -347,11 +349,11 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
                         let protocol = interface.protocol();
                         match transfer.accept_with(&[protocol as u8]) {
                             Err(e) => error!("Failed to send protocol data - {:?}", e),
-                            Ok(_) => trace!("Sent protocol: {:?}", protocol),
+                            Ok(_) => info!("Get protocol: {:?}", protocol),
                         }
                     }
                     _ => {
-                        error!(
+                        warn!(
                             "Unsupported control_in request type: {:?}, request: {:X}, value: {:X}",
                             request.request_type, request.request, request.value
                         );
