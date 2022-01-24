@@ -14,6 +14,7 @@ use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_hid_devices::device::mouse::BootMouseReport;
+
 use usbd_hid_devices_example_rp2040::*;
 
 #[entry]
@@ -115,11 +116,7 @@ fn main() -> ! {
     led_pin.set_low().ok();
 
     let mut last_buttons = 0;
-    let mut report = BootMouseReport {
-        buttons: 0,
-        x: 0,
-        y: 0,
-    };
+    let mut report = BootMouseReport::default();
 
     let mut input_count_down = timer.count_down();
     input_count_down.start(Milliseconds(10));
@@ -143,11 +140,7 @@ fn main() -> ! {
                     Err(UsbError::WouldBlock) => {}
                     Ok(_) => {
                         last_buttons = report.buttons;
-                        report = BootMouseReport {
-                            buttons: 0,
-                            x: 0,
-                            y: 0,
-                        }
+                        report = BootMouseReport::default();
                     }
                     Err(e) => {
                         panic!("Failed to write mouse report: {:?}", e)

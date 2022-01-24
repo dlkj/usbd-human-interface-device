@@ -15,6 +15,7 @@ use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_hid_devices::device::mouse::{WheelMouseReport, WHEEL_MOUSE_REPORT_DESCRIPTOR};
 use usbd_hid_devices::hid_class::prelude::*;
+
 use usbd_hid_devices_example_rp2040::*;
 
 #[entry]
@@ -126,13 +127,7 @@ fn main() -> ! {
     led_pin.set_low().ok();
 
     let mut last_buttons = 0;
-    let mut report = WheelMouseReport {
-        buttons: 0,
-        x: 0,
-        y: 0,
-        vertical_wheel: 0,
-        horizontal_wheel: 0,
-    };
+    let mut report = WheelMouseReport::default();
 
     let mut input_count_down = timer.count_down();
     input_count_down.start(Milliseconds(10));
@@ -161,13 +156,7 @@ fn main() -> ! {
                     Err(UsbError::WouldBlock) => {}
                     Ok(_) => {
                         last_buttons = report.buttons;
-                        report = WheelMouseReport {
-                            buttons: 0,
-                            x: 0,
-                            y: 0,
-                            vertical_wheel: 0,
-                            horizontal_wheel: 0,
-                        }
+                        report = WheelMouseReport::default()
                     }
                     Err(e) => {
                         panic!("Failed to write mouse report: {:?}", e)
