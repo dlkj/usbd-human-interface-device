@@ -4,13 +4,12 @@
 use adafruit_macropad::hal;
 use cortex_m_rt::entry;
 use embedded_hal::digital::v2::*;
-// use embedded_hal::prelude::_embedded_hal_timer_CountDown;
-// use embedded_time::duration::Milliseconds;
+use embedded_hal::prelude::*;
+use embedded_time::duration::Milliseconds;
 use embedded_time::rate::Hertz;
 use hal::pac;
 use hal::Clock;
 use log::*;
-// use nb::block;
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
@@ -34,7 +33,7 @@ fn main() -> ! {
     .ok()
     .unwrap();
 
-    // let timer = hal::timer::Timer::new(pac.TIMER, &mut pac.RESETS);
+    let timer = hal::Timer::new(pac.TIMER, &mut pac.RESETS);
 
     let sio = hal::Sio::new(pac.SIO);
     let pins = hal::gpio::Pins::new(
@@ -115,32 +114,44 @@ fn main() -> ! {
 
     led_pin.set_low().ok();
 
-    let mut last = BootMouseReport {
+    let mut last_buttons = 0;
+    let mut report = BootMouseReport {
         buttons: 0,
         x: 0,
         y: 0,
     };
+
+    let mut input_count_down = timer.count_down();
+    input_count_down.start(Milliseconds(10));
 
     loop {
         if button.is_low().unwrap() {
             hal::rom_data::reset_to_usb_boot(0x1 << 13, 0x0);
         }
 
-        let report = read_keys(keys);
+        //Poll the keys every 10ms
+        if input_count_down.wait().is_ok() {
+            report = update_report(report, keys);
 
-        //Only write a report if the mouse is moving or buttons change
-        if report != last || report.x != 0 || report.y != 0 {
-            match mouse
-                .get_interface_mut(0)
-                .unwrap()
-                .write_report(&report.pack().unwrap())
-            {
-                Err(UsbError::WouldBlock) => {}
-                Ok(_) => {
-                    last = report;
-                }
-                Err(e) => {
-                    panic!("Failed to write mouse report: {:?}", e)
+            //Only write a report if the mouse is moving or buttons change
+            if report.buttons != last_buttons || report.x != 0 || report.y != 0 {
+                match mouse
+                    .get_interface_mut(0)
+                    .unwrap()
+                    .write_report(&report.pack().unwrap())
+                {
+                    Err(UsbError::WouldBlock) => {}
+                    Ok(_) => {
+                        last_buttons = report.buttons;
+                        report = BootMouseReport {
+                            buttons: 0,
+                            x: 0,
+                            y: 0,
+                        }
+                    }
+                    Err(e) => {
+                        panic!("Failed to write mouse report: {:?}", e)
+                    }
                 }
             }
         }
@@ -149,37 +160,36 @@ fn main() -> ! {
     }
 }
 
-fn read_keys(keys: &[&dyn InputPin<Error = core::convert::Infallible>]) -> BootMouseReport {
-    let mut buttons = 0;
-    let mut x = 0;
-    let mut y = 0;
-
+fn update_report(
+    mut report: BootMouseReport,
+    keys: &[&dyn InputPin<Error = core::convert::Infallible>],
+) -> BootMouseReport {
     if keys[0].is_low().unwrap() {
-        buttons |= 0x1; //Left
+        report.buttons |= 0x1; //Left
     }
     if keys[1].is_low().unwrap() {
-        buttons |= 0x4; //Middle
+        report.buttons |= 0x4; //Middle
     }
     if keys[2].is_low().unwrap() {
-        buttons |= 0x2; //Right
+        report.buttons |= 0x2; //Right
     }
     if keys[3].is_low().unwrap() {}
     if keys[4].is_low().unwrap() {
-        y += -10; //Up
+        report.y += -10; //Up
     }
     if keys[5].is_low().unwrap() {}
     if keys[6].is_low().unwrap() {
-        x += -10; //Left
+        report.x += -10; //Left
     }
     if keys[7].is_low().unwrap() {
-        y += 10; //Down
+        report.y += 10; //Down
     }
     if keys[8].is_low().unwrap() {
-        x += 10; //Right
+        report.x += 10; //Right
     }
     if keys[9].is_low().unwrap() {}
     if keys[10].is_low().unwrap() {}
     if keys[11].is_low().unwrap() {}
 
-    BootMouseReport { buttons, x, y }
+    report
 }
