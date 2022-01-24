@@ -19,7 +19,10 @@ pub fn new_boot_keyboard<B: usb_device::bus::UsbBus>(
         .unwrap()
         .in_endpoint(UsbPacketSize::Size8, Milliseconds(20))
         .unwrap()
-        .without_out_endpoint()
+        //.without_out_endpoint()
+        //Shouldn't require a dedicated out endpoint, but leds are flaky without it
+        .with_out_endpoint(UsbPacketSize::Size8, Milliseconds(20))
+        .unwrap()
         .build_interface()
         .unwrap()
 }
