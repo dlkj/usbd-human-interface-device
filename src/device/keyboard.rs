@@ -27,7 +27,7 @@ pub fn new_boot_keyboard<B: usb_device::bus::UsbBus>(
         .unwrap()
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PackedStruct)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, PackedStruct)]
 #[packed_struct(endian = "lsb", bit_numbering = "lsb0", size_bytes = "1")]
 pub struct KeyboardLeds {
     #[packed_field(bits = "0")]

@@ -41,7 +41,7 @@ pub const BOOT_MOUSE_REPORT_DESCRIPTOR: &[u8] = &[
     0xC0, // End Collection
 ];
 
-#[derive(Clone, Copy, Debug, PartialEq, PackedStruct)]
+#[derive(Clone, Copy, Debug, PartialEq, Default, PackedStruct)]
 #[packed_struct(endian = "lsb", size_bytes = "3")]
 pub struct BootMouseReport {
     #[packed_field]
@@ -110,7 +110,7 @@ pub const WHEEL_MOUSE_REPORT_DESCRIPTOR: &[u8] = &[
     0xC0,              // End Collection
 ];
 
-#[derive(Clone, Copy, Debug, PartialEq, PackedStruct)]
+#[derive(Clone, Copy, Debug, PartialEq, Default, PackedStruct)]
 #[packed_struct(endian = "lsb")]
 pub struct WheelMouseReport {
     #[packed_field]

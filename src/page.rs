@@ -489,6 +489,12 @@ pub enum Consumer {
     //0x29D-0xFFFF Reserved
 }
 
+impl Default for Consumer {
+    fn default() -> Self {
+        Consumer::Unassigned
+    }
+}
+
 /// Generic Desktop usage page
 ///
 /// See [Universal Serial Bus (USB) HID Usage Tables Version 1.12](<https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>):
@@ -781,6 +787,12 @@ pub enum Keyboard {
     RightAlt = 0xE6,
     RightGUI = 0xE7,
     //0xE8-0xFFFF Reserved
+}
+
+impl Default for Keyboard {
+    fn default() -> Self {
+        Keyboard::NoEventIndicated
+    }
 }
 
 /// Simulation Controls usage page

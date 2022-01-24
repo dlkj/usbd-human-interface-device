@@ -39,7 +39,7 @@ pub const MULTIPLE_CODE_REPORT_DESCRIPTOR: &[u8] = &[
     0xC0, // End Collection
 ];
 
-#[derive(Clone, Copy, Debug, PartialEq, PackedStruct)]
+#[derive(Clone, Copy, Debug, PartialEq, Default, PackedStruct)]
 #[packed_struct(endian = "lsb", size_bytes = "8")]
 pub struct MultipleConsumerReport {
     #[packed_field(ty = "enum", element_size_bytes = "2")]
@@ -121,4 +121,23 @@ pub fn new_consumer_control<B: usb_device::bus::UsbBus>(
         .without_out_endpoint()
         .build_interface()
         .unwrap()
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, PackedStruct)]
+#[packed_struct(endian = "lsb", bit_numbering = "lsb0", size_bytes = "1")]
+pub struct FixedFunctionReport {
+    #[packed_field(bits = "0")]
+    pub next: bool,
+    #[packed_field(bits = "1")]
+    pub previous: bool,
+    #[packed_field(bits = "2")]
+    pub stop: bool,
+    #[packed_field(bits = "3")]
+    pub play_pause: bool,
+    #[packed_field(bits = "4")]
+    pub mute: bool,
+    #[packed_field(bits = "5")]
+    pub volume_increment: bool,
+    #[packed_field(bits = "6")]
+    pub volume_decrement: bool,
 }
