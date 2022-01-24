@@ -175,17 +175,17 @@ fn update_report(
     }
     if keys[3].is_low().unwrap() {}
     if keys[4].is_low().unwrap() {
-        report.y += -10; //Up
+        report.y = i8::saturating_add(report.y, -10); //Up
     }
     if keys[5].is_low().unwrap() {}
     if keys[6].is_low().unwrap() {
-        report.x += -10; //Left
+        report.x = i8::saturating_add(report.x, -10); //Left
     }
     if keys[7].is_low().unwrap() {
-        report.y += 10; //Down
+        report.y = i8::saturating_add(report.y, 10); //Down
     }
     if keys[8].is_low().unwrap() {
-        report.x += 10; //Right
+        report.x = i8::saturating_add(report.x, 10); //Right
     }
     if keys[9].is_low().unwrap() {}
     if keys[10].is_low().unwrap() {}
