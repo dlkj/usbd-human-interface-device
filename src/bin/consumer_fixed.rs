@@ -4,14 +4,18 @@
 use adafruit_macropad::hal;
 use cortex_m_rt::entry;
 use embedded_hal::digital::v2::*;
+use embedded_hal::prelude::*;
 use embedded_time::duration::Milliseconds;
 use embedded_time::rate::Hertz;
 use hal::pac;
 use hal::Clock;
 use log::*;
+use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
+use usbd_hid_devices::device::consumer::FixedFunctionReport;
 use usbd_hid_devices::hid_class::prelude::*;
+
 use usbd_hid_devices_example_rp2040::*;
 
 #[entry]
@@ -30,6 +34,8 @@ fn main() -> ! {
     )
     .ok()
     .unwrap();
+
+    let timer = hal::Timer::new(pac.TIMER, &mut pac.RESETS);
 
     let sio = hal::Sio::new(pac.SIO);
     let pins = hal::gpio::Pins::new(
@@ -81,7 +87,7 @@ fn main() -> ! {
         .description("Consumer Control")
         .idle_default(Milliseconds(0))
         .unwrap()
-        .in_endpoint(UsbPacketSize::Size8, Milliseconds(10))
+        .in_endpoint(UsbPacketSize::Size8, Milliseconds(50))
         .unwrap()
         .without_out_endpoint()
         .build_interface()
@@ -102,44 +108,64 @@ fn main() -> ! {
     //GPIO pins
     let mut led_pin = pins.gpio13.into_push_pull_output();
 
-    let in0 = pins.gpio1.into_pull_up_input();
-    let in1 = pins.gpio2.into_pull_up_input();
-    let in2 = pins.gpio3.into_pull_up_input();
-    let in3 = pins.gpio4.into_pull_up_input();
-    let in4 = pins.gpio5.into_pull_up_input();
-    let in5 = pins.gpio6.into_pull_up_input();
-    let in6 = pins.gpio7.into_pull_up_input();
+    let keys: &[&dyn InputPin<Error = core::convert::Infallible>] = &[
+        &pins.gpio1.into_pull_up_input(),
+        &pins.gpio2.into_pull_up_input(),
+        &pins.gpio3.into_pull_up_input(),
+        &pins.gpio4.into_pull_up_input(),
+        &pins.gpio5.into_pull_up_input(),
+        &pins.gpio6.into_pull_up_input(),
+        &pins.gpio7.into_pull_up_input(),
+        &pins.gpio8.into_pull_up_input(),
+        &pins.gpio9.into_pull_up_input(),
+        &pins.gpio10.into_pull_up_input(),
+        &pins.gpio11.into_pull_up_input(),
+        &pins.gpio12.into_pull_up_input(),
+    ];
 
     led_pin.set_low().ok();
+
+    let mut input_count_down = timer.count_down();
+    input_count_down.start(Milliseconds(50));
+
+    let mut last = get_report(keys);
 
     loop {
         if button.is_low().unwrap() {
             hal::rom_data::reset_to_usb_boot(0x1 << 13, 0x0);
         }
-        if usb_dev.poll(&mut [&mut consumer]) {
-            let keys = [
-                if in0.is_low().unwrap() { 0x1 } else { 0x00 },  //next
-                if in1.is_low().unwrap() { 0x2 } else { 0x00 },  //previous
-                if in2.is_low().unwrap() { 0x4 } else { 0x00 },  //stop
-                if in3.is_low().unwrap() { 0x8 } else { 0x00 },  //play pause
-                if in4.is_low().unwrap() { 0x10 } else { 0x00 }, //mute
-                if in5.is_low().unwrap() { 0x20 } else { 0x00 }, //vol+
-                if in6.is_low().unwrap() { 0x40 } else { 0x00 }, //vol-
-            ];
-
-            let report_code = keys.into_iter().reduce(|a, b| (a | b)).unwrap_or(0);
-
-            match consumer
-                .get_interface_mut(0)
-                .unwrap()
-                .write_report(&[report_code])
-            {
-                Err(UsbError::WouldBlock) => {}
-                Ok(_) => {}
-                Err(e) => {
-                    panic!("Failed to write consumer report: {:?}", e)
+        //Poll the keys every 10ms
+        if input_count_down.wait().is_ok() {
+            let report = get_report(keys);
+            if report != last {
+                match consumer
+                    .get_interface_mut(0)
+                    .unwrap()
+                    .write_report(&report.pack().unwrap())
+                {
+                    Err(UsbError::WouldBlock) => {}
+                    Ok(_) => {
+                        last = report;
+                    }
+                    Err(e) => {
+                        panic!("Failed to write consumer report: {:?}", e)
+                    }
                 }
-            };
+            }
         }
+
+        if usb_dev.poll(&mut [&mut consumer]) {}
+    }
+}
+
+fn get_report(keys: &[&dyn InputPin<Error = core::convert::Infallible>]) -> FixedFunctionReport {
+    FixedFunctionReport {
+        next: keys[0].is_low().unwrap(),
+        previous: keys[1].is_low().unwrap(),
+        stop: keys[2].is_low().unwrap(),
+        play_pause: keys[3].is_low().unwrap(),
+        mute: keys[4].is_low().unwrap(),
+        volume_increment: keys[5].is_low().unwrap(),
+        volume_decrement: keys[6].is_low().unwrap(),
     }
 }
