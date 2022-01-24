@@ -17,11 +17,11 @@ pub fn new_boot_keyboard<B: usb_device::bus::UsbBus>(
         .description("Keyboard")
         .idle_default(Milliseconds(500))
         .unwrap()
-        .in_endpoint(UsbPacketSize::Size8, Milliseconds(20))
+        .in_endpoint(UsbPacketSize::Size8, Milliseconds(10))
         .unwrap()
         //.without_out_endpoint()
         //Shouldn't require a dedicated out endpoint, but leds are flaky without it
-        .with_out_endpoint(UsbPacketSize::Size8, Milliseconds(20))
+        .with_out_endpoint(UsbPacketSize::Size8, Milliseconds(100))
         .unwrap()
         .build_interface()
         .unwrap()
@@ -175,6 +175,194 @@ pub const BOOT_KEYBOARD_REPORT_DESCRIPTOR: &[u8] = &[
     0x2A, 0xFF, 0x00, //     Usage Maximum (255),
     0x81, 0x00, //     Input (Data, Array),
     0xC0, // End Collection
+];
+
+//25 bytes
+//byte 0 - modifiers
+//byte 1 - reserved 0s
+//byte 2-7 - array of keycodes - used for boot support
+//byte 9-24 - bit array of pressed keys
+#[rustfmt::skip]
+pub const NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR: &[u8] = &[
+    0x05, 0x01,                     // Usage Page (Generic Desktop),
+    0x09, 0x06,                     // Usage (Keyboard),
+    0xA1, 0x01,                     // Collection (Application),
+    // bitmap of modifiers
+    0x75, 0x01,                     //   Report Size (1),
+    0x95, 0x08,                     //   Report Count (8),
+    0x05, 0x07,                     //   Usage Page (Key Codes),
+    0x19, 0xE0,                     //   Usage Minimum (224),
+    0x29, 0xE7,                     //   Usage Maximum (231),
+    0x15, 0x00,                     //   Logical Minimum (0),
+    0x25, 0x01,                     //   Logical Maximum (1),
+    0x81, 0x02,                     //   Input (Data, Variable, Absolute), ;Modifier byte
+    // 7 bytes of padding
+    0x75, 0x38,                     //   Report Size (0x38),
+    0x95, 0x01,                     //   Report Count (1),
+    0x81, 0x01,                     //   Input (Constant), ;Reserved byte
+    // LED output report
+    0x95, 0x05,                     //   Report Count (5),
+    0x75, 0x01,                     //   Report Size (1),
+    0x05, 0x08,                     //   Usage Page (LEDs),
+    0x19, 0x01,                     //   Usage Minimum (1),
+    0x29, 0x05,                     //   Usage Maximum (5),
+    0x91, 0x02,                     //   Output (Data, Variable, Absolute),
+    0x95, 0x01,                     //   Report Count (1),
+    0x75, 0x03,                     //   Report Size (3),
+    0x91, 0x03,                     //   Output (Constant),
+    // bitmap of keys
+    0x95, 0x88,                     //   Report Count () - (REPORT_BYTES-1)*8
+    0x75, 0x01,                     //   Report Size (1),
+    0x15, 0x00,                     //   Logical Minimum (0),
+    0x25, 0x01,                     //   Logical Maximum(1),
+    0x05, 0x07,                     //   Usage Page (Key Codes),
+    0x19, 0x00,                     //   Usage Minimum (0),
+    0x29, 0x87,                     //   Usage Maximum (), - (REPORT_BYTES-1)*8-1
+    0x81, 0x02,                     //   Input (Data, Variable, Absolute),
+    0xc0                            // End Collection
+];
+
+#[derive(Clone, Copy, Debug, PartialEq, PackedStruct)]
+#[packed_struct(endian = "lsb", bit_numbering = "msb0", size_bytes = "25")]
+pub struct NKROBootKeyboardReport {
+    #[packed_field(bits = "0")]
+    pub right_gui: bool,
+    #[packed_field(bits = "1")]
+    pub right_alt: bool,
+    #[packed_field(bits = "2")]
+    pub right_shift: bool,
+    #[packed_field(bits = "3")]
+    pub right_ctrl: bool,
+    #[packed_field(bits = "4")]
+    pub left_gui: bool,
+    #[packed_field(bits = "5")]
+    pub left_alt: bool,
+    #[packed_field(bits = "6")]
+    pub left_shift: bool,
+    #[packed_field(bits = "7")]
+    pub left_ctrl: bool,
+    #[packed_field(bytes = "2..8", ty = "enum", element_size_bytes = "1")]
+    pub boot_keys: [Keyboard; 6],
+    //The usb lsb/lsb0 expected ordering isn't compatible with pact structs
+    #[packed_field(bytes = "8..25", element_size_bits = "8")]
+    pub nkro_keys: [u8; 17],
+}
+
+impl NKROBootKeyboardReport {
+    pub fn new<K: IntoIterator<Item = Keyboard>>(keys: K) -> Self {
+        let mut report = Self {
+            left_ctrl: false,
+            left_shift: false,
+            left_alt: false,
+            left_gui: false,
+            right_ctrl: false,
+            right_shift: false,
+            right_alt: false,
+            right_gui: false,
+            boot_keys: [Keyboard::NoEventIndicated; 6],
+            nkro_keys: [0; 17],
+        };
+
+        let mut boot_keys_error = false;
+        let mut i = 0;
+        for k in keys.into_iter() {
+            match k {
+                Keyboard::LeftControl => {
+                    report.left_ctrl = true;
+                }
+                Keyboard::LeftShift => {
+                    report.left_shift = true;
+                }
+                Keyboard::LeftAlt => {
+                    report.left_alt = true;
+                }
+                Keyboard::LeftGUI => {
+                    report.left_gui = true;
+                }
+                Keyboard::RightControl => {
+                    report.right_ctrl = true;
+                }
+                Keyboard::RightShift => {
+                    report.right_shift = true;
+                }
+                Keyboard::RightAlt => {
+                    report.right_alt = true;
+                }
+                Keyboard::RightGUI => {
+                    report.right_gui = true;
+                }
+                Keyboard::NoEventIndicated => {}
+                Keyboard::ErrorRollOver | Keyboard::POSTFail | Keyboard::ErrorUndefine => {
+                    report.nkro_keys[0] |= 1 << k as u8;
+
+                    if !boot_keys_error {
+                        boot_keys_error = true;
+                        i = report.boot_keys.len();
+                        report.boot_keys.fill(k);
+                    }
+                }
+                _ => {
+                    if (k as usize) < report.nkro_keys.len() * 8 {
+                        let byte = (k as usize) / 8;
+                        let bit = (k as u8) % 8;
+                        report.nkro_keys[byte] |= 1 << bit;
+                    }
+
+                    if boot_keys_error {
+                        continue;
+                    }
+
+                    if i < report.boot_keys.len() {
+                        report.boot_keys[i] = k;
+                        i += 1;
+                    } else {
+                        boot_keys_error = true;
+                        i = report.boot_keys.len();
+                        report.boot_keys.fill(Keyboard::ErrorRollOver);
+                    }
+                }
+            }
+        }
+        report
+    }
+}
+
+//18 bytes - derived from https://learn.adafruit.com/custom-hid-devices-in-circuitpython/n-key-rollover-nkro-hid-device
+//First byte modifiers, 17 byte key bit array
+#[rustfmt::skip]
+pub const NKRO_COMPACT_KEYBOARD_REPORT_DESCRIPTOR: &[u8] = &[
+    0x05, 0x01,                     // Usage Page (Generic Desktop),
+    0x09, 0x06,                     // Usage (Keyboard),
+    0xA1, 0x01,                     // Collection (Application),
+    // bitmap of modifiers
+    0x75, 0x01,                     //   Report Size (1),
+    0x95, 0x08,                     //   Report Count (8),
+    0x05, 0x07,                     //   Usage Page (Key Codes),
+    0x19, 0xE0,                     //   Usage Minimum (224),
+    0x29, 0xE7,                     //   Usage Maximum (231),
+    0x15, 0x00,                     //   Logical Minimum (0),
+    0x25, 0x01,                     //   Logical Maximum (1),
+    0x81, 0x02,                     //   Input (Data, Variable, Absolute), ;Modifier byte
+    // LED output report
+    0x95, 0x05,                     //   Report Count (5),
+    0x75, 0x01,                     //   Report Size (1),
+    0x05, 0x08,                     //   Usage Page (LEDs),
+    0x19, 0x01,                     //   Usage Minimum (1),
+    0x29, 0x05,                     //   Usage Maximum (5),
+    0x91, 0x02,                     //   Output (Data, Variable, Absolute),
+    0x95, 0x01,                     //   Report Count (1),
+    0x75, 0x03,                     //   Report Size (3),
+    0x91, 0x03,                     //   Output (Constant),
+    // bitmap of keys
+    0x95, 0x88,                     //   Report Count () - (REPORT_BYTES-1)*8
+    0x75, 0x01,                     //   Report Size (1),
+    0x15, 0x00,                     //   Logical Minimum (0),
+    0x25, 0x01,                     //   Logical Maximum(1),
+    0x05, 0x07,                     //   Usage Page (Key Codes),
+    0x19, 0x00,                     //   Usage Minimum (0),
+    0x29, 0x87,                     //   Usage Maximum (), - (REPORT_BYTES-1)*8-1
+    0x81, 0x02,                     //   Input (Data, Variable, Absolute),
+    0xc0                            // End Collection
 ];
 
 #[cfg(test)]

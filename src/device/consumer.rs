@@ -116,7 +116,7 @@ pub fn new_consumer_control<B: usb_device::bus::UsbBus>(
         .description("Consumer Control")
         .idle_default(Milliseconds(0))
         .unwrap()
-        .in_endpoint(UsbPacketSize::Size8, Milliseconds(20))
+        .in_endpoint(UsbPacketSize::Size8, Milliseconds(50))
         .unwrap()
         .without_out_endpoint()
         .build_interface()

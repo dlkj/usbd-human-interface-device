@@ -1,11 +1,12 @@
 //!HID mice
-use crate::hid_class::prelude::*;
 use embedded_time::duration::Milliseconds;
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 
+use crate::hid_class::prelude::*;
+
 /// HID Mouse report descriptor conforming to the Boot specification
-/// 
+///
 /// This aims to be compatible with BIOS and other reduced functionality USB hosts
 ///
 /// This is defined in Appendix B.2 & E.10 of [Device Class Definition for Human
@@ -61,7 +62,7 @@ pub fn new_boot_mouse<B: usb_device::bus::UsbBus>(
         .description("Mouse")
         .idle_default(Milliseconds(0))
         .unwrap()
-        .in_endpoint(UsbPacketSize::Size8, Milliseconds(20))
+        .in_endpoint(UsbPacketSize::Size8, Milliseconds(10))
         .unwrap()
         .without_out_endpoint()
         .build_interface()
