@@ -1,9 +1,13 @@
 #![no_std]
 #![no_main]
 
+use core::convert::Infallible;
+
 use adafruit_macropad::hal;
 use cortex_m_rt::entry;
 use embedded_hal::digital::v2::*;
+use embedded_hal::prelude::*;
+use embedded_time::duration::Milliseconds;
 use embedded_time::rate::Hertz;
 use hal::pac;
 use hal::Clock;
@@ -13,6 +17,7 @@ use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_hid_devices::device::keyboard::{new_boot_keyboard, BootKeyboardReport, KeyboardLeds};
 use usbd_hid_devices::page::Keyboard;
+
 use usbd_hid_devices_example_rp2040::*;
 
 #[entry]
@@ -31,6 +36,8 @@ fn main() -> ! {
     )
     .ok()
     .unwrap();
+
+    let timer = hal::Timer::new(pac.TIMER, &mut pac.RESETS);
 
     let sio = hal::Sio::new(pac.SIO);
     let pins = hal::gpio::Pins::new(
@@ -92,89 +99,56 @@ fn main() -> ! {
     //GPIO pins
     let mut led_pin = pins.gpio13.into_push_pull_output();
 
-    let in0 = pins.gpio1.into_pull_up_input();
-    let in1 = pins.gpio2.into_pull_up_input();
-    let in2 = pins.gpio3.into_pull_up_input();
-    let in3 = pins.gpio4.into_pull_up_input();
-    let in4 = pins.gpio5.into_pull_up_input();
-    let in5 = pins.gpio6.into_pull_up_input();
-    let in6 = pins.gpio7.into_pull_up_input();
-    let in7 = pins.gpio8.into_pull_up_input();
-    let in8 = pins.gpio9.into_pull_up_input();
-    let in9 = pins.gpio10.into_pull_up_input();
-    let in10 = pins.gpio11.into_pull_up_input();
-    let in11 = pins.gpio12.into_pull_up_input();
+    let keys: &[&dyn InputPin<Error = core::convert::Infallible>] = &[
+        &pins.gpio1.into_pull_up_input(),
+        &pins.gpio2.into_pull_up_input(),
+        &pins.gpio3.into_pull_up_input(),
+        &pins.gpio4.into_pull_up_input(),
+        &pins.gpio5.into_pull_up_input(),
+        &pins.gpio6.into_pull_up_input(),
+        &pins.gpio7.into_pull_up_input(),
+        &pins.gpio8.into_pull_up_input(),
+        &pins.gpio9.into_pull_up_input(),
+        &pins.gpio10.into_pull_up_input(),
+        &pins.gpio11.into_pull_up_input(),
+        &pins.gpio12.into_pull_up_input(),
+    ];
 
     led_pin.set_low().ok();
+
+    let mut last_keys = [Keyboard::NoEventIndicated; 12];
+
+    let mut input_count_down = timer.count_down();
+    input_count_down.start(Milliseconds(10));
 
     loop {
         if button.is_low().unwrap() {
             hal::rom_data::reset_to_usb_boot(0x1 << 13, 0x0);
         }
-        if usb_dev.poll(&mut [&mut keyboard]) {
-            let keys = [
-                if in0.is_low().unwrap() {
-                    Keyboard::KeypadNumLockAndClear
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //Numlock
-                if in1.is_low().unwrap() {
-                    Keyboard::UpArrow
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //Up
-                if in2.is_low().unwrap() {
-                    Keyboard::F12
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //F12
-                if in3.is_low().unwrap() {
-                    Keyboard::LeftArrow
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //Left
-                if in4.is_low().unwrap() {
-                    Keyboard::DownArrow
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //Down
-                if in5.is_low().unwrap() {
-                    Keyboard::RightArrow
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //Right
-                if in6.is_low().unwrap() {
-                    Keyboard::A
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //A
-                if in7.is_low().unwrap() {
-                    Keyboard::B
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //B
-                if in8.is_low().unwrap() {
-                    Keyboard::C
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //C
-                if in9.is_low().unwrap() {
-                    Keyboard::LeftControl
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //LCtrl
-                if in10.is_low().unwrap() {
-                    Keyboard::LeftShift
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //LShift
-                if in11.is_low().unwrap() {
-                    Keyboard::ReturnEnter
-                } else {
-                    Keyboard::NoEventIndicated
-                }, //Enter
-            ];
 
+        //Poll the keys every 10ms
+        if input_count_down.wait().is_ok() {
+            let keys = get_keys(keys);
+
+            //todo support idle
+            if keys != last_keys {
+                match keyboard
+                    .get_interface_mut(0)
+                    .unwrap()
+                    .write_report(&BootKeyboardReport::new(keys).pack().unwrap())
+                {
+                    Err(UsbError::WouldBlock) => {}
+                    Ok(_) => {
+                        last_keys = keys;
+                    }
+                    Err(e) => {
+                        panic!("Failed to write keyboard report: {:?}", e)
+                    }
+                };
+            }
+        }
+
+        if usb_dev.poll(&mut [&mut keyboard]) {
             let data = &mut [0];
             match keyboard.get_interface_mut(0).unwrap().read_report(data) {
                 Err(UsbError::WouldBlock) => {
@@ -190,18 +164,71 @@ fn main() -> ! {
                         .ok();
                 }
             }
-
-            match keyboard
-                .get_interface_mut(0)
-                .unwrap()
-                .write_report(&BootKeyboardReport::new(keys).pack().unwrap())
-            {
-                Err(UsbError::WouldBlock) => {}
-                Ok(_) => {}
-                Err(e) => {
-                    panic!("Failed to write keyboard report: {:?}", e)
-                }
-            };
         }
     }
+}
+
+fn get_keys(keys: &[&dyn InputPin<Error = Infallible>]) -> [Keyboard; 12] {
+    [
+        if keys[0].is_low().unwrap() {
+            Keyboard::KeypadNumLockAndClear
+        } else {
+            Keyboard::NoEventIndicated
+        }, //Numlock
+        if keys[1].is_low().unwrap() {
+            Keyboard::UpArrow
+        } else {
+            Keyboard::NoEventIndicated
+        }, //Up
+        if keys[2].is_low().unwrap() {
+            Keyboard::F12
+        } else {
+            Keyboard::NoEventIndicated
+        }, //F12
+        if keys[3].is_low().unwrap() {
+            Keyboard::LeftArrow
+        } else {
+            Keyboard::NoEventIndicated
+        }, //Left
+        if keys[4].is_low().unwrap() {
+            Keyboard::DownArrow
+        } else {
+            Keyboard::NoEventIndicated
+        }, //Down
+        if keys[5].is_low().unwrap() {
+            Keyboard::RightArrow
+        } else {
+            Keyboard::NoEventIndicated
+        }, //Right
+        if keys[6].is_low().unwrap() {
+            Keyboard::A
+        } else {
+            Keyboard::NoEventIndicated
+        }, //A
+        if keys[7].is_low().unwrap() {
+            Keyboard::B
+        } else {
+            Keyboard::NoEventIndicated
+        }, //B
+        if keys[8].is_low().unwrap() {
+            Keyboard::C
+        } else {
+            Keyboard::NoEventIndicated
+        }, //C
+        if keys[9].is_low().unwrap() {
+            Keyboard::LeftControl
+        } else {
+            Keyboard::NoEventIndicated
+        }, //LCtrl
+        if keys[10].is_low().unwrap() {
+            Keyboard::LeftShift
+        } else {
+            Keyboard::NoEventIndicated
+        }, //LShift
+        if keys[11].is_low().unwrap() {
+            Keyboard::ReturnEnter
+        } else {
+            Keyboard::NoEventIndicated
+        }, //Enter
+    ]
 }
