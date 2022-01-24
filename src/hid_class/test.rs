@@ -1,9 +1,10 @@
-use embedded_time::duration::Milliseconds;
-use embedded_time::fixed_point::FixedPoint;
-use env_logger::Env;
 use std::cell::RefCell;
 use std::sync::Mutex;
 use std::vec::Vec;
+
+use embedded_time::duration::Milliseconds;
+use embedded_time::fixed_point::FixedPoint;
+use env_logger::Env;
 use usb_device::bus::PollResult;
 use usb_device::prelude::*;
 use usb_device::UsbDirection;
@@ -216,7 +217,7 @@ fn descriptor_ordering_satisfies_boot_spec() {
         .unwrap();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("DLKJ")
+        .manufacturer("usbd-hid-devices")
         .product("Test Hid Device")
         .serial_number("TEST")
         .device_class(USB_CLASS_HID)
@@ -267,7 +268,7 @@ fn get_protocol_default_to_report() {
         .unwrap();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("DLKJ")
+        .manufacturer("usbd-hid-devices")
         .product("Test Hid Device")
         .serial_number("TEST")
         .device_class(USB_CLASS_HID)
@@ -332,7 +333,7 @@ fn set_protocol() {
         .unwrap();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("DLKJ")
+        .manufacturer("usbd-hid-devices")
         .product("Test Hid Device")
         .serial_number("TEST")
         .device_class(USB_CLASS_HID)
@@ -397,7 +398,7 @@ fn get_protocol_default_post_reset() {
         .unwrap();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("DLKJ")
+        .manufacturer("usbd-hid-devices")
         .product("Test Hid Device")
         .serial_number("TEST")
         .device_class(USB_CLASS_HID)
@@ -457,7 +458,7 @@ fn get_global_idle_default() {
         .unwrap();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("DLKJ")
+        .manufacturer("usbd-hid-devices")
         .product("Test Hid Device")
         .serial_number("TEST")
         .device_class(USB_CLASS_HID)
@@ -526,7 +527,7 @@ fn set_global_idle() {
         .unwrap();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("DLKJ")
+        .manufacturer("usbd-hid-devices")
         .product("Test Hid Device")
         .serial_number("TEST")
         .device_class(USB_CLASS_HID)
@@ -596,7 +597,7 @@ fn get_global_idle_default_post_reset() {
         .unwrap();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("DLKJ")
+        .manufacturer("usbd-hid-devices")
         .product("Test Hid Device")
         .serial_number("TEST")
         .device_class(USB_CLASS_HID)
@@ -657,7 +658,7 @@ fn get_report_idle_default() {
         .unwrap();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("DLKJ")
+        .manufacturer("usbd-hid-devices")
         .product("Test Hid Device")
         .serial_number("TEST")
         .device_class(USB_CLASS_HID)
@@ -744,7 +745,7 @@ fn set_report_idle() {
         .unwrap();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("DLKJ")
+        .manufacturer("usbd-hid-devices")
         .product("Test Hid Device")
         .serial_number("TEST")
         .device_class(USB_CLASS_HID)
@@ -816,7 +817,7 @@ fn get_report_idle_default_post_reset() {
         .unwrap();
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("DLKJ")
+        .manufacturer("usbd-hid-devices")
         .product("Test Hid Device")
         .serial_number("TEST")
         .device_class(USB_CLASS_HID)
