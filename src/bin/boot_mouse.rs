@@ -4,13 +4,13 @@
 use adafruit_macropad::hal;
 use cortex_m_rt::entry;
 use embedded_hal::digital::v2::*;
-use embedded_hal::prelude::_embedded_hal_timer_CountDown;
-use embedded_time::duration::Milliseconds;
+// use embedded_hal::prelude::_embedded_hal_timer_CountDown;
+// use embedded_time::duration::Milliseconds;
 use embedded_time::rate::Hertz;
 use hal::pac;
 use hal::Clock;
 use log::*;
-use nb::block;
+// use nb::block;
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
@@ -34,7 +34,7 @@ fn main() -> ! {
     .ok()
     .unwrap();
 
-    let timer = hal::timer::Timer::new(pac.TIMER, &mut pac.RESETS);
+    // let timer = hal::timer::Timer::new(pac.TIMER, &mut pac.RESETS);
 
     let sio = hal::Sio::new(pac.SIO);
     let pins = hal::gpio::Pins::new(
@@ -146,11 +146,6 @@ fn main() -> ! {
         }
 
         if usb_dev.poll(&mut [&mut mouse]) {}
-
-        //spin for 5 ms
-        let mut cd = timer.count_down();
-        cd.start(Milliseconds(5));
-        block!(cd.wait()).unwrap();
     }
 }
 
