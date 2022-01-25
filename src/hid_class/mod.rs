@@ -1,9 +1,8 @@
 //! Abstract Human Interface Device Class for implementing any HID compliant device
 
 use core::default::Default;
-use descriptor::*;
+
 use heapless::Vec;
-use interface::{Interface, InterfaceConfig, UsbHidInterfaceBuilder};
 use log::{error, info, trace, warn};
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
@@ -11,6 +10,9 @@ use usb_device::control::Recipient;
 use usb_device::control::Request;
 use usb_device::control::RequestType;
 use usb_device::Result;
+
+use descriptor::*;
+use interface::{Interface, InterfaceConfig, UsbHidInterfaceBuilder};
 
 pub mod descriptor;
 pub mod interface;
@@ -164,20 +166,6 @@ impl<'a, B: UsbBus> UsbHidClass<'a, B> {
 
 impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
     fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
-        let base_protocol = self
-            .interfaces
-            .iter()
-            .map(|i| i.config().protocol)
-            .reduce(|a, b| a.min(b))
-            .unwrap_or(InterfaceProtocol::None);
-
-        writer.iad(
-            self.interfaces[0].id(),
-            self.interfaces.len() as u8,
-            USB_CLASS_HID,
-            InterfaceSubClass::from(base_protocol) as u8,
-            base_protocol as u8,
-        )?;
 
         for i in &self.interfaces {
             i.write_descriptors(writer)?;

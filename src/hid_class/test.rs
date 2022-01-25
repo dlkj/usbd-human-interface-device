@@ -167,12 +167,6 @@ fn descriptor_ordering_satisfies_boot_spec() {
         }
 
         let len = it.next().unwrap();
-        assert_eq!(*(it.next().unwrap()), 0x0B, "Expected IAD descriptor");
-        for _ in 0..(len - 2) {
-            it.next().unwrap();
-        }
-
-        let len = it.next().unwrap();
         assert_eq!(*it.next().unwrap(), 0x04, "Expected Interface descriptor");
         for _ in 0..(len - 2) {
             it.next().unwrap();
