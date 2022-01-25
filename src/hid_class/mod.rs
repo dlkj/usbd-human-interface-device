@@ -166,7 +166,6 @@ impl<'a, B: UsbBus> UsbHidClass<'a, B> {
 
 impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
     fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
-
         for i in &self.interfaces {
             i.write_descriptors(writer)?;
         }
