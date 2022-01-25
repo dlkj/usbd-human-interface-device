@@ -9,14 +9,14 @@ use embedded_hal::digital::v2::*;
 use embedded_hal::prelude::*;
 use embedded_time::duration::Milliseconds;
 use embedded_time::rate::Hertz;
+use hal::Clock;
 use hal::pac;
 use hal::timer::CountDown;
-use hal::Clock;
 use log::*;
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_hid_devices::device::keyboard::{new_boot_keyboard, BootKeyboardReport, KeyboardLeds};
+use usbd_hid_devices::device::keyboard::{BootKeyboardReport, KeyboardLeds, new_boot_keyboard};
 use usbd_hid_devices::page::Keyboard;
 
 use usbd_hid_devices_example_rp2040::*;
@@ -92,8 +92,6 @@ fn main() -> ! {
         .manufacturer("usbd-hid-devices")
         .product("Boot Keyboard")
         .serial_number("TEST")
-        .device_class(3) // HID - from: https://www.usb.org/defined-class-codes
-        .composite_with_iads()
         .supports_remote_wakeup(false)
         .build();
 

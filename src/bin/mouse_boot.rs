@@ -7,8 +7,8 @@ use embedded_hal::digital::v2::*;
 use embedded_hal::prelude::*;
 use embedded_time::duration::Milliseconds;
 use embedded_time::rate::Hertz;
-use hal::pac;
 use hal::Clock;
+use hal::pac;
 use log::*;
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
@@ -90,8 +90,6 @@ fn main() -> ! {
         .manufacturer("usbd-hid-devices")
         .product("Boot Mouse")
         .serial_number("TEST")
-        .device_class(3) // HID - from: https://www.usb.org/defined-class-codes
-        .composite_with_iads()
         .supports_remote_wakeup(false)
         .build();
 
@@ -165,13 +163,13 @@ fn update_report(
     keys: &[&dyn InputPin<Error = core::convert::Infallible>],
 ) -> BootMouseReport {
     if keys[0].is_low().unwrap() {
-        report.buttons |= 0x1; //Left
+        report.buttons = 0x1; //Left
     }
     if keys[1].is_low().unwrap() {
-        report.buttons |= 0x4; //Middle
+        report.buttons = 0x4; //Middle
     }
     if keys[2].is_low().unwrap() {
-        report.buttons |= 0x2; //Right
+        report.buttons = 0x2; //Right
     }
     if keys[3].is_low().unwrap() {}
     if keys[4].is_low().unwrap() {

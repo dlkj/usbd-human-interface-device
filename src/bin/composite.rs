@@ -1,29 +1,31 @@
 #![no_std]
 #![no_main]
 
-use adafruit_macropad::hal;
 use core::convert::Infallible;
 use core::default::Default;
+
+use adafruit_macropad::hal;
 use cortex_m_rt::entry;
 use embedded_hal::digital::v2::*;
 use embedded_hal::prelude::_embedded_hal_timer_CountDown;
 use embedded_time::duration::Milliseconds;
 use embedded_time::rate::Hertz;
+use hal::Clock;
 use hal::pac;
 use hal::timer::CountDown;
-use hal::Clock;
 use log::*;
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_hid_devices::device::consumer::{MultipleConsumerReport, MULTIPLE_CODE_REPORT_DESCRIPTOR};
+use usbd_hid_devices::device::consumer::{MULTIPLE_CODE_REPORT_DESCRIPTOR, MultipleConsumerReport};
 use usbd_hid_devices::device::keyboard::{
-    BootKeyboardReport, KeyboardLeds, BOOT_KEYBOARD_REPORT_DESCRIPTOR,
+    BOOT_KEYBOARD_REPORT_DESCRIPTOR, BootKeyboardReport, KeyboardLeds,
 };
-use usbd_hid_devices::device::mouse::{BootMouseReport, BOOT_MOUSE_REPORT_DESCRIPTOR};
+use usbd_hid_devices::device::mouse::{BOOT_MOUSE_REPORT_DESCRIPTOR, BootMouseReport};
 use usbd_hid_devices::hid_class::prelude::*;
 use usbd_hid_devices::page::Consumer;
 use usbd_hid_devices::page::Keyboard;
+
 use usbd_hid_devices_example_rp2040::*;
 
 const DEFAULT_KEYBOARD_IDLE: Milliseconds = Milliseconds(500);
@@ -145,8 +147,6 @@ fn main() -> ! {
         .manufacturer("usbd-hid-devices")
         .product("Keyboard, Mouse & Consumer")
         .serial_number("TEST")
-        .device_class(3) // HID - from: https://www.usb.org/defined-class-codes
-        .composite_with_iads()
         .supports_remote_wakeup(false)
         .build();
 
@@ -336,13 +336,13 @@ fn update_mouse_report(
     keys: &[&dyn InputPin<Error = core::convert::Infallible>],
 ) -> BootMouseReport {
     if keys[0].is_low().unwrap() {
-        report.buttons |= 0x1; //Left
+        report.buttons = 0x1; //Left
     }
     if keys[1].is_low().unwrap() {
-        report.buttons |= 0x4; //Middle
+        report.buttons = 0x4; //Middle
     }
     if keys[2].is_low().unwrap() {
-        report.buttons |= 0x2; //Right
+        report.buttons = 0x2; //Right
     }
     if keys[4].is_low().unwrap() {
         report.y = i8::saturating_add(report.y, -10); //Up

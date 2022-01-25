@@ -9,15 +9,15 @@ use embedded_hal::digital::v2::*;
 use embedded_hal::prelude::*;
 use embedded_time::duration::Milliseconds;
 use embedded_time::rate::Hertz;
+use hal::Clock;
 use hal::pac;
 use hal::timer::CountDown;
-use hal::Clock;
 use log::*;
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_hid_devices::device::keyboard::{
-    KeyboardLeds, NKROBootKeyboardReport, NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR,
+    KeyboardLeds, NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR, NKROBootKeyboardReport,
 };
 use usbd_hid_devices::hid_class::prelude::*;
 use usbd_hid_devices::page::Keyboard;
@@ -108,8 +108,6 @@ fn main() -> ! {
         .manufacturer("usbd-hid-devices")
         .product("NKRO Keyboard")
         .serial_number("TEST")
-        .device_class(3) // HID - from: https://www.usb.org/defined-class-codes
-        .composite_with_iads()
         .supports_remote_wakeup(false)
         .max_packet_size_0(8)
         .build();

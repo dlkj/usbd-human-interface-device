@@ -7,8 +7,8 @@ use embedded_hal::digital::v2::*;
 use embedded_hal::prelude::*;
 use embedded_time::duration::Milliseconds;
 use embedded_time::rate::Hertz;
-use hal::pac;
 use hal::Clock;
+use hal::pac;
 use log::*;
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
@@ -100,8 +100,6 @@ fn main() -> ! {
         .manufacturer("usbd-hid-devices")
         .product("Consumer Control")
         .serial_number("TEST")
-        .device_class(3) // HID - from: https://www.usb.org/defined-class-codes
-        .composite_with_iads()
         .supports_remote_wakeup(false)
         .build();
 
