@@ -18,6 +18,7 @@ use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_hid_devices::device::keyboard::{new_boot_keyboard, BootKeyboardReport, KeyboardLeds};
 use usbd_hid_devices::page::Keyboard;
+
 use usbd_hid_devices_example_rp2040::*;
 
 #[entry]
@@ -124,6 +125,9 @@ fn main() -> ! {
     let mut idle_count_down =
         reset_idle(&timer, keyboard.get_interface_mut(0).unwrap().global_idle());
 
+    let mut display_poll = timer.count_down();
+    display_poll.start(DISPLAY_POLL);
+
     loop {
         if button.is_low().unwrap() {
             hal::rom_data::reset_to_usb_boot(0x1 << 13, 0x0);
@@ -179,6 +183,10 @@ fn main() -> ! {
                         .ok();
                 }
             }
+        }
+
+        if display_poll.wait().is_ok() {
+            log::logger().flush();
         }
     }
 }

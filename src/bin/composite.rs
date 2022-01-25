@@ -181,9 +181,8 @@ fn main() -> ! {
     cortex_m::interrupt::free(|cs| {
         USB_DEVICES.borrow(cs).replace(Some((usb_dev, composite)));
     });
-
-    //GPIO pins
     let mut led_pin = pins.gpio13.into_push_pull_output();
+    led_pin.set_low().ok();
 
     let keys: &[&dyn InputPin<Error = core::convert::Infallible>] = &[
         &pins.gpio1.into_pull_up_input(),
@@ -200,8 +199,6 @@ fn main() -> ! {
         &pins.gpio12.into_pull_up_input(),
     ];
 
-    led_pin.set_low().ok();
-
     let mut keyboard_mouse_poll = timer.count_down();
     keyboard_mouse_poll.start(KEYBOARD_MOUSE_POLL);
     let mut last_keyboard_report = None;
@@ -215,6 +212,9 @@ fn main() -> ! {
 
     let mut write_pending_poll = timer.count_down();
     write_pending_poll.start(WRITE_PENDING_POLL);
+
+    let mut display_poll = timer.count_down();
+    display_poll.start(DISPLAY_POLL);
 
     let mut state = UsbDeviceState::Default;
 
@@ -312,10 +312,8 @@ fn main() -> ! {
             }
         }
 
-        let mut cd = timer.count_down();
-        cd.start(Milliseconds(5));
-        while cd.wait().is_err() {
-            cortex_m::asm::nop();
+        if display_poll.wait().is_ok() {
+            log::logger().flush();
         }
     }
 }

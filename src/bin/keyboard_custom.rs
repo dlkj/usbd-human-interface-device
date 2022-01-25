@@ -1,8 +1,9 @@
 #![no_std]
 #![no_main]
 
-use adafruit_macropad::hal;
 use core::convert::Infallible;
+
+use adafruit_macropad::hal;
 use cortex_m_rt::entry;
 use embedded_hal::digital::v2::*;
 use embedded_hal::prelude::*;
@@ -18,6 +19,7 @@ use usb_device::prelude::*;
 use usbd_hid_devices::device::keyboard::{BootKeyboardReport, KeyboardLeds};
 use usbd_hid_devices::hid_class::prelude::*;
 use usbd_hid_devices::page::Keyboard;
+
 use usbd_hid_devices_example_rp2040::*;
 
 #[entry]
@@ -174,6 +176,9 @@ fn main() -> ! {
     let mut idle_count_down =
         reset_idle(&timer, keyboard.get_interface_mut(0).unwrap().global_idle());
 
+    let mut display_poll = timer.count_down();
+    display_poll.start(DISPLAY_POLL);
+
     loop {
         if button.is_low().unwrap() {
             hal::rom_data::reset_to_usb_boot(0x1 << 13, 0x0);
@@ -229,6 +234,10 @@ fn main() -> ! {
                         .ok();
                 }
             }
+        }
+
+        if display_poll.wait().is_ok() {
+            log::logger().flush();
         }
     }
 }

@@ -121,6 +121,9 @@ fn main() -> ! {
     let mut input_count_down = timer.count_down();
     input_count_down.start(Milliseconds(10));
 
+    let mut display_poll = timer.count_down();
+    display_poll.start(DISPLAY_POLL);
+
     loop {
         if button.is_low().unwrap() {
             hal::rom_data::reset_to_usb_boot(0x1 << 13, 0x0);
@@ -150,6 +153,10 @@ fn main() -> ! {
         }
 
         if usb_dev.poll(&mut [&mut mouse]) {}
+
+        if display_poll.wait().is_ok() {
+            log::logger().flush();
+        }
     }
 }
 

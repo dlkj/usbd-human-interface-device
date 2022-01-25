@@ -2,9 +2,10 @@
 
 #![no_std]
 
+use core::cell::{Cell, RefCell};
+
 use adafruit_macropad::hal;
 use arrayvec::ArrayString;
-use core::cell::RefCell;
 use cortex_m::interrupt::Mutex;
 use embedded_graphics::mono_font::ascii::FONT_4X6;
 use embedded_graphics::mono_font::MonoTextStyle;
@@ -19,6 +20,7 @@ use embedded_text::{
     style::{HeightMode, TextBoxStyleBuilder},
     TextBox,
 };
+use embedded_time::duration::Milliseconds;
 use hal::gpio::DynPin;
 use hal::pac;
 use hal::Spi;
@@ -29,9 +31,11 @@ pub mod logger;
 
 pub const XTAL_FREQ_HZ: u32 = 12_000_000u32;
 pub const MAX_LOG_LEVEL: LevelFilter = LevelFilter::Debug;
+pub const DISPLAY_POLL: Milliseconds = Milliseconds(200);
 
 pub static LOGGER: logger::Logger = logger::Logger {
     buffer: Mutex::new(RefCell::new(ArrayString::new_const())),
+    updated: Mutex::new(Cell::new(false)),
 };
 type DisplaySpiInt = SpiInterface<Spi<hal::spi::Enabled, pac::SPI1, 8_u8>, DynPin, DynPin>;
 static OLED_DISPLAY: Mutex<RefCell<Option<GraphicsMode<DisplaySpiInt>>>> =
