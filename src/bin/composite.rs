@@ -41,22 +41,24 @@ static KEYBOARD_REPORT: Mutex<RefCell<Option<BootKeyboardReport>>> = Mutex::new(
 static MOUSE_REPORT: Mutex<RefCell<Option<BootMouseReport>>> = Mutex::new(RefCell::new(None));
 static CONSUMER_REPORT: Mutex<RefCell<Option<MultipleConsumerReport>>> =
     Mutex::new(RefCell::new(None));
-static KEYBOARD_STATUS: Mutex<RefCell<(KeyboardLeds, Milliseconds)>> = Mutex::new(RefCell::new((
-    KeyboardLeds {
-        num_lock: false,
-        caps_lock: false,
-        scroll_lock: false,
-        compose: false,
-        kana: false,
-    },
-    Milliseconds(500),
-)));
+static KEYBOARD_STATUS: Mutex<RefCell<(KeyboardLeds, Milliseconds, UsbDeviceState)>> =
+    Mutex::new(RefCell::new((
+        KeyboardLeds {
+            num_lock: false,
+            caps_lock: false,
+            scroll_lock: false,
+            compose: false,
+            kana: false,
+        },
+        Milliseconds(500),
+        UsbDeviceState::Default,
+    )));
 
 const DEFAULT_KEYBOARD_IDLE: Milliseconds = Milliseconds(500);
 const KEYBOARD_MOUSE_POLL: Milliseconds = Milliseconds(10);
 const KEYBOARD_LED_POLL: Milliseconds = Milliseconds(100);
 const CONSUMER_POLL: Milliseconds = Milliseconds(50);
-const WRITE_PENDING_POLL: Milliseconds = Milliseconds(1);
+const WRITE_PENDING_POLL: Milliseconds = Milliseconds(10);
 
 #[entry]
 fn main() -> ! {
@@ -214,6 +216,8 @@ fn main() -> ! {
     let mut write_pending_poll = timer.count_down();
     write_pending_poll.start(WRITE_PENDING_POLL);
 
+    let mut state = UsbDeviceState::Default;
+
     // Enable the USB interrupt
     unsafe {
         pac::NVIC::unmask(hal::pac::Interrupt::USBCTRL_IRQ);
@@ -234,41 +238,45 @@ fn main() -> ! {
                 last_keyboard_report = None;
             }
 
-            let (leds, idle) = cortex_m::interrupt::free(|cs| *KEYBOARD_STATUS.borrow(cs).borrow());
+            let (leds, idle, usb_state) =
+                cortex_m::interrupt::free(|cs| *KEYBOARD_STATUS.borrow(cs).borrow());
             led_pin.set_state(PinState::from(leds.num_lock)).ok();
+            state = usb_state;
 
-            let keyboard_report = BootKeyboardReport::new(get_keyboard_keys(keys));
-            if last_keyboard_report
-                .map(|r| r != keyboard_report)
-                .unwrap_or(true)
-            {
-                cortex_m::interrupt::free(|cs| {
-                    let mut kr = KEYBOARD_REPORT.borrow(cs).borrow_mut();
-                    if kr.is_none() {
-                        kr.replace(keyboard_report);
-                        last_keyboard_report = Some(keyboard_report);
-                        keyboard_idle = reset_idle(&timer, idle);
-                    }
-                });
-            }
+            if usb_state == UsbDeviceState::Configured {
+                let keyboard_report = BootKeyboardReport::new(get_keyboard_keys(keys));
+                if last_keyboard_report
+                    .map(|r| r != keyboard_report)
+                    .unwrap_or(true)
+                {
+                    cortex_m::interrupt::free(|cs| {
+                        let mut kr = KEYBOARD_REPORT.borrow(cs).borrow_mut();
+                        if kr.is_none() {
+                            kr.replace(keyboard_report);
+                            last_keyboard_report = Some(keyboard_report);
+                            keyboard_idle = reset_idle(&timer, idle);
+                        }
+                    });
+                }
 
-            mouse_report = update_mouse_report(mouse_report, keys);
-            if mouse_report.buttons != last_mouse_buttons
-                || mouse_report.x != 0
-                || mouse_report.y != 0
-            {
-                cortex_m::interrupt::free(|cs| {
-                    let mut mr = MOUSE_REPORT.borrow(cs).borrow_mut();
-                    if mr.is_none() {
-                        mr.replace(mouse_report);
-                        last_mouse_buttons = mouse_report.buttons;
-                        mouse_report = Default::default();
-                    }
-                });
+                mouse_report = update_mouse_report(mouse_report, keys);
+                if mouse_report.buttons != last_mouse_buttons
+                    || mouse_report.x != 0
+                    || mouse_report.y != 0
+                {
+                    cortex_m::interrupt::free(|cs| {
+                        let mut mr = MOUSE_REPORT.borrow(cs).borrow_mut();
+                        if mr.is_none() {
+                            mr.replace(mouse_report);
+                            last_mouse_buttons = mouse_report.buttons;
+                            mouse_report = Default::default();
+                        }
+                    });
+                }
             }
         }
 
-        if consumer_poll.wait().is_ok() {
+        if state == UsbDeviceState::Configured && consumer_poll.wait().is_ok() {
             let codes = get_consumer_codes(keys);
             let consumer_report = MultipleConsumerReport {
                 codes: [
@@ -300,7 +308,14 @@ fn main() -> ! {
 
             if write_pending {
                 pac::NVIC::pend(pac::interrupt::USBCTRL_IRQ);
+                cortex_m::asm::isb();
             }
+        }
+
+        let mut cd = timer.count_down();
+        cd.start(Milliseconds(5));
+        while cd.wait().is_err() {
+            cortex_m::asm::nop();
         }
     }
 }
@@ -334,65 +349,69 @@ fn USBCTRL_IRQ() {
                     let idle = composite.get_interface_mut(0).unwrap().global_idle();
 
                     cortex_m::interrupt::free(|cs| {
-                        KEYBOARD_STATUS.borrow(cs).replace((leds, idle))
+                        KEYBOARD_STATUS
+                            .borrow(cs)
+                            .replace((leds, idle, usb_device.state()))
                     });
                 }
             }
         }
 
-        cortex_m::interrupt::free(|cs| {
-            let keyboard_report = *KEYBOARD_REPORT.borrow(cs).borrow();
-            let report = keyboard_report;
-            if let Some(r) = report {
-                match composite
-                    .get_interface_mut(0)
-                    .unwrap()
-                    .write_report(&r.pack().expect("Failed to pack keyboard report"))
-                {
-                    Err(UsbError::WouldBlock) => {}
-                    Ok(_) => {
-                        KEYBOARD_REPORT.borrow(cs).replace(None);
-                    }
-                    Err(e) => {
-                        panic!("Failed to write keyboard report: {:?}", e)
-                    }
-                };
-            }
+        if usb_device.state() == UsbDeviceState::Configured {
+            cortex_m::interrupt::free(|cs| {
+                let keyboard_report = *KEYBOARD_REPORT.borrow(cs).borrow();
+                let report = keyboard_report;
+                if let Some(r) = report {
+                    match composite
+                        .get_interface_mut(0)
+                        .unwrap()
+                        .write_report(&r.pack().expect("Failed to pack keyboard report"))
+                    {
+                        Err(UsbError::WouldBlock) => {}
+                        Ok(_) => {
+                            KEYBOARD_REPORT.borrow(cs).replace(None);
+                        }
+                        Err(e) => {
+                            panic!("Failed to write keyboard report: {:?}", e)
+                        }
+                    };
+                }
 
-            let mouse_report_ref = *MOUSE_REPORT.borrow(cs).borrow();
-            if let Some(r) = mouse_report_ref {
-                match composite
-                    .get_interface_mut(1)
-                    .unwrap()
-                    .write_report(&r.pack().expect("Failed to pack mouse report"))
-                {
-                    Err(UsbError::WouldBlock) => {}
-                    Ok(_) => {
-                        MOUSE_REPORT.borrow(cs).replace(None);
-                    }
-                    Err(e) => {
-                        panic!("Failed to write mouse report: {:?}", e)
-                    }
-                };
-            }
+                let mouse_report_ref = *MOUSE_REPORT.borrow(cs).borrow();
+                if let Some(r) = mouse_report_ref {
+                    match composite
+                        .get_interface_mut(1)
+                        .unwrap()
+                        .write_report(&r.pack().expect("Failed to pack mouse report"))
+                    {
+                        Err(UsbError::WouldBlock) => {}
+                        Ok(_) => {
+                            MOUSE_REPORT.borrow(cs).replace(None);
+                        }
+                        Err(e) => {
+                            panic!("Failed to write mouse report: {:?}", e)
+                        }
+                    };
+                }
 
-            let consumer_report = *CONSUMER_REPORT.borrow(cs).borrow();
-            if let Some(r) = consumer_report {
-                match composite
-                    .get_interface_mut(2)
-                    .unwrap()
-                    .write_report(&r.pack().expect("Failed to pack consumer report"))
-                {
-                    Err(UsbError::WouldBlock) => {}
-                    Ok(_) => {
-                        CONSUMER_REPORT.borrow(cs).replace(None);
-                    }
-                    Err(e) => {
-                        panic!("Failed to write consumer report: {:?}", e)
-                    }
-                };
-            }
-        });
+                let consumer_report = *CONSUMER_REPORT.borrow(cs).borrow();
+                if let Some(r) = consumer_report {
+                    match composite
+                        .get_interface_mut(2)
+                        .unwrap()
+                        .write_report(&r.pack().expect("Failed to pack consumer report"))
+                    {
+                        Err(UsbError::WouldBlock) => {}
+                        Ok(_) => {
+                            CONSUMER_REPORT.borrow(cs).replace(None);
+                        }
+                        Err(e) => {
+                            panic!("Failed to write consumer report: {:?}", e)
+                        }
+                    };
+                }
+            });
+        }
     }
 
     cortex_m::asm::sev();
