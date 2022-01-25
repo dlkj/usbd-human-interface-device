@@ -9,15 +9,15 @@ use embedded_hal::digital::v2::*;
 use embedded_hal::prelude::*;
 use embedded_time::duration::Milliseconds;
 use embedded_time::rate::Hertz;
-use hal::Clock;
 use hal::pac;
 use hal::timer::CountDown;
+use hal::Clock;
 use log::*;
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_hid_devices::device::keyboard::{
-    KeyboardLeds, NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR, NKROBootKeyboardReport,
+    KeyboardLeds, NKROBootKeyboardReport, NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR,
 };
 use usbd_hid_devices::hid_class::prelude::*;
 use usbd_hid_devices::page::Keyboard;

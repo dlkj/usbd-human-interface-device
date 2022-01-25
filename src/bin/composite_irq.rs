@@ -12,19 +12,19 @@ use embedded_hal::digital::v2::*;
 use embedded_hal::prelude::_embedded_hal_timer_CountDown;
 use embedded_time::duration::Milliseconds;
 use embedded_time::rate::Hertz;
-use hal::Clock;
 use hal::pac;
 use hal::timer::CountDown;
+use hal::Clock;
 use log::*;
 use pac::interrupt;
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_hid_devices::device::consumer::{MULTIPLE_CODE_REPORT_DESCRIPTOR, MultipleConsumerReport};
+use usbd_hid_devices::device::consumer::{MultipleConsumerReport, MULTIPLE_CODE_REPORT_DESCRIPTOR};
 use usbd_hid_devices::device::keyboard::{
-    BOOT_KEYBOARD_REPORT_DESCRIPTOR, BootKeyboardReport, KeyboardLeds,
+    BootKeyboardReport, KeyboardLeds, BOOT_KEYBOARD_REPORT_DESCRIPTOR,
 };
-use usbd_hid_devices::device::mouse::{BOOT_MOUSE_REPORT_DESCRIPTOR, BootMouseReport};
+use usbd_hid_devices::device::mouse::{BootMouseReport, BOOT_MOUSE_REPORT_DESCRIPTOR};
 use usbd_hid_devices::hid_class::prelude::*;
 use usbd_hid_devices::page::Consumer;
 use usbd_hid_devices::page::Keyboard;

@@ -7,13 +7,13 @@ use embedded_hal::digital::v2::*;
 use embedded_hal::prelude::*;
 use embedded_time::duration::Milliseconds;
 use embedded_time::rate::Hertz;
-use hal::Clock;
 use hal::pac;
+use hal::Clock;
 use log::*;
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_hid_devices::device::mouse::{WHEEL_MOUSE_REPORT_DESCRIPTOR, WheelMouseReport};
+use usbd_hid_devices::device::mouse::{WheelMouseReport, WHEEL_MOUSE_REPORT_DESCRIPTOR};
 use usbd_hid_devices::hid_class::prelude::*;
 
 use usbd_hid_devices_example_rp2040::*;
