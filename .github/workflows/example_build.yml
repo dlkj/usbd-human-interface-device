@@ -28,14 +28,14 @@ jobs:
           args: flip-link
       #build and lint
       - name: Run cargo check - examples
-        working-directory: /examples/
+        working-directory: ./examples/
         run: cargo check
       - name: Run cargo fmt - examples
-        working-directory: /examples/
+        working-directory: ./examples/
         run: cargo fmt --all -- --check
       - name: Run cargo clippy - examples
-        working-directory: /examples/
+        working-directory: ./examples/
         run: cargo clippy -- -D warnings
       - name: Run cargo build - examples
-        working-directory: /examples/
+        working-directory: ./examples/
         run: cargo build
