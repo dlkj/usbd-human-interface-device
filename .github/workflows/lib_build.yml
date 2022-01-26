@@ -31,11 +31,6 @@ jobs:
         with:
           command: fmt
           args: --all -- --check
-      - name: Check for no_std by doing an arm build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --target thumbv6m-none-eabi
       - name: Run cargo clippy
         uses: actions-rs/cargo@v1
         with:
