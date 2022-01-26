@@ -1,0 +1,41 @@
+# Based on https://github.com/actions-rs/meta/blob/master/recipes/quickstart.md
+
+on: [push, pull_request]
+
+name: Example build
+
+jobs:
+  check_format_build:
+    name: Lib - Check, Format, Build
+    runs-on: ubuntu-latest
+    steps:
+      #Checkout source
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      #toolchain and tools
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          target: thumbv6m-none-eabi
+          override: true
+          components: rustfmt, clippy
+      - name: Install flip-link linker
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: flip-link
+      #build and lint
+      - name: Run cargo check - examples
+        working-directory: /exampes/
+        run: cargo check
+      - name: Run cargo fmt - examples
+        working-directory: /exampes/
+        run: cargo fmt --all -- --check
+      - name: Run cargo clippy - examples
+        working-directory: /exampes/
+        run: cargo clippy -- -D warnings
+      - name: Run cargo build - examples
+        working-directory: /exampes/
+        run: cargo build
