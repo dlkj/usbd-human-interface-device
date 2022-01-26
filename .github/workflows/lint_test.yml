@@ -5,7 +5,7 @@ on: [push, pull_request]
 name: Lint and Test
 
 jobs:
-  lib:
+  check_format_build:
     name: Lib - Check, Format, Build
     runs-on: ubuntu-latest
     steps:
@@ -21,6 +21,11 @@ jobs:
           target: thumbv6m-none-eabi
           override: true
           components: rustfmt, clippy
+      - name: Install flip-link linker
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: flip-link
       #build and lint
       - name: Run cargo check
         uses: actions-rs/cargo@v1
@@ -56,41 +61,26 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
            command: test
-  examples:
-    name: Examples - Check, Format, Build
-    runs-on: ubuntu-latest
-    working-directory: /examples
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v2
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          target: thumbv6m-none-eabi
-          override: true
-          components: rustfmt, clippy
-      - name: Install flip-link linker
-        uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: flip-link
-      - name: Run cargo check
+      #Examples
+      - name: Run cargo check - examples
+        working-directory: /examples
         uses: actions-rs/cargo@v1
         with:
           command: check
-      - name: Run cargo fmt
+      - name: Run cargo fmt - examples
+        working-directory: /examples
         uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --all -- --check
-      - name: Run cargo clippy
+      - name: Run cargo clippy - examples
+        working-directory: /examples
         uses: actions-rs/cargo@v1
         with:
           command: clippy
           args: -- -D warnings
-      - name: Run cargo build
+      - name: Run cargo build - examples
+        working-directory: /examples
         uses: actions-rs/cargo@v1
         with:
           command: build
