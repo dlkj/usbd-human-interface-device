@@ -8,7 +8,10 @@ repository = "https://github.com/dlkj/usbd-hid-devices-example-rp2040"
 description = "Example using the rust usbd-hid-devices library on the Raspberry Pi RP2040/Pico"
 license = "MIT"
 
+[workspace]
+
 [dependencies]
+usbd-hid-devices = { path = "../lib" }
 cortex-m = "0.7.4"
 cortex-m-rt = "0.7.0"
 usb-device= "0.2.8"
@@ -22,12 +25,8 @@ embedded-text = {version = "0.5.0", default-features = false }
 arrayvec = { version = "0.7.2", default-features = false }
 log = "0.4.14"
 nb = "1.0"
-usbd-hid-devices = { git = "https://github.com/dlkj/usbd-hid-devices"}
 panic-persist = { version = "0.3", features = ["utf8"] }
 packed_struct = { version = "0.10", default-features = false }
-
-#[patch."https://github.com/dlkj/usbd-hid-devices"]
-#usbd-hid-devices = { path = "../usbd-hid-devices" }
 
 # cargo build/run
 [profile.dev]
