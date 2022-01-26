@@ -12,18 +12,20 @@ pub fn new_boot_keyboard<B: usb_device::bus::UsbBus>(
     usb_alloc: &'_ UsbBusAllocator<B>,
 ) -> UsbHidClassBuilder<'_, B> {
     UsbHidClassBuilder::new(usb_alloc)
-        .new_interface(BOOT_KEYBOARD_REPORT_DESCRIPTOR)
-        .boot_device(InterfaceProtocol::Keyboard)
-        .description("Keyboard")
-        .idle_default(Milliseconds(500))
-        .unwrap()
-        .in_endpoint(UsbPacketSize::Size8, Milliseconds(10))
-        .unwrap()
-        //.without_out_endpoint()
-        //Shouldn't require a dedicated out endpoint, but leds are flaky without it
-        .with_out_endpoint(UsbPacketSize::Size8, Milliseconds(100))
-        .unwrap()
-        .build_interface()
+        .new_interface(
+            UsbHidInterfaceBuilder::new(BOOT_KEYBOARD_REPORT_DESCRIPTOR)
+                .boot_device(InterfaceProtocol::Keyboard)
+                .description("Keyboard")
+                .idle_default(Milliseconds(500))
+                .unwrap()
+                .in_endpoint(UsbPacketSize::Size8, Milliseconds(10))
+                .unwrap()
+                //.without_out_endpoint()
+                //Shouldn't require a dedicated out endpoint, but leds are flaky without it
+                .with_out_endpoint(UsbPacketSize::Size8, Milliseconds(100))
+                .unwrap()
+                .build_interface(),
+        )
         .unwrap()
 }
 

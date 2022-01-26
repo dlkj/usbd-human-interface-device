@@ -25,18 +25,13 @@ pub struct InterfaceConfig<'a> {
 
 #[must_use = "this `UsbHidInterfaceBuilder` must be assigned or consumed by `::build_interface()`"]
 #[derive(Clone, Debug)]
-pub struct UsbHidInterfaceBuilder<'a, B: UsbBus> {
-    class_builder: UsbHidClassBuilder<'a, B>,
+pub struct UsbHidInterfaceBuilder<'a> {
     config: InterfaceConfig<'a>,
 }
 
-impl<'a, B: UsbBus> UsbHidInterfaceBuilder<'a, B> {
-    pub(super) fn new(
-        class_builder: UsbHidClassBuilder<'a, B>,
-        report_descriptor: &'a [u8],
-    ) -> Self {
+impl<'a> UsbHidInterfaceBuilder<'a> {
+    pub fn new(report_descriptor: &'a [u8]) -> Self {
         UsbHidInterfaceBuilder {
-            class_builder,
             config: InterfaceConfig {
                 report_descriptor,
                 description: None,
@@ -111,12 +106,8 @@ impl<'a, B: UsbBus> UsbHidInterfaceBuilder<'a, B> {
         Ok(self)
     }
 
-    pub fn build_interface(mut self) -> BuilderResult<UsbHidClassBuilder<'a, B>> {
-        self.class_builder
-            .interfaces
-            .push(self.config)
-            .map_err(|_| UsbHidBuilderError::TooManyInterfaces)?;
-        Ok(self.class_builder)
+    pub fn build_interface(self) -> InterfaceConfig<'a> {
+        self.config
     }
 }
 
@@ -140,7 +131,7 @@ impl<'a, B: UsbBus> Interface<'a, B> {
 }
 
 impl<'a, B: UsbBus> Interface<'a, B> {
-    pub(super) fn new(config: InterfaceConfig<'a>, usb_alloc: &'a UsbBusAllocator<B>) -> Self {
+    pub fn new(config: InterfaceConfig<'a>, usb_alloc: &'a UsbBusAllocator<B>) -> Self {
         Interface {
             config,
             id: usb_alloc.interface(),

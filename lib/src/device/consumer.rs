@@ -112,14 +112,16 @@ pub fn new_consumer_control<B: usb_device::bus::UsbBus>(
     usb_alloc: &'_ UsbBusAllocator<B>,
 ) -> UsbHidClassBuilder<'_, B> {
     UsbHidClassBuilder::new(usb_alloc)
-        .new_interface(MULTIPLE_CODE_REPORT_DESCRIPTOR)
-        .description("Consumer Control")
-        .idle_default(Milliseconds(0))
-        .unwrap()
-        .in_endpoint(UsbPacketSize::Size8, Milliseconds(50))
-        .unwrap()
-        .without_out_endpoint()
-        .build_interface()
+        .new_interface(
+            UsbHidInterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
+                .description("Consumer Control")
+                .idle_default(Milliseconds(0))
+                .unwrap()
+                .in_endpoint(UsbPacketSize::Size8, Milliseconds(50))
+                .unwrap()
+                .without_out_endpoint()
+                .build_interface(),
+        )
         .unwrap()
 }
 

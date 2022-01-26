@@ -88,16 +88,18 @@ fn main() -> ! {
     ));
 
     let mut keyboard = UsbHidClassBuilder::new(&usb_bus)
-        .new_interface(NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR)
-        .description("NKRO Keyboard")
-        .boot_device(InterfaceProtocol::Keyboard)
-        .idle_default(Milliseconds(500))
-        .unwrap()
-        .in_endpoint(UsbPacketSize::Size32, Milliseconds(10))
-        .unwrap()
-        .with_out_endpoint(UsbPacketSize::Size8, Milliseconds(100))
-        .unwrap()
-        .build_interface()
+        .new_interface(
+            UsbHidInterfaceBuilder::new(NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR)
+                .description("NKRO Keyboard")
+                .boot_device(InterfaceProtocol::Keyboard)
+                .idle_default(Milliseconds(500))
+                .unwrap()
+                .in_endpoint(UsbPacketSize::Size32, Milliseconds(10))
+                .unwrap()
+                .with_out_endpoint(UsbPacketSize::Size8, Milliseconds(100))
+                .unwrap()
+                .build_interface(),
+        )
         .unwrap()
         .build()
         .unwrap();

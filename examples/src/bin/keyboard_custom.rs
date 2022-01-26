@@ -124,15 +124,17 @@ fn main() -> ! {
     ];
 
     let mut keyboard = UsbHidClassBuilder::new(&usb_bus)
-        .new_interface(LOGITECH_GAMING_KEYBOARD_REPORT_DESCRIPTOR)
-        .description("Custom Keyboard")
-        .idle_default(Milliseconds(500))
-        .unwrap()
-        .in_endpoint(UsbPacketSize::Size8, Milliseconds(10))
-        .unwrap()
-        .with_out_endpoint(UsbPacketSize::Size8, Milliseconds(100))
-        .unwrap()
-        .build_interface()
+        .new_interface(
+            UsbHidInterfaceBuilder::new(LOGITECH_GAMING_KEYBOARD_REPORT_DESCRIPTOR)
+                .description("Custom Keyboard")
+                .idle_default(Milliseconds(500))
+                .unwrap()
+                .in_endpoint(UsbPacketSize::Size8, Milliseconds(10))
+                .unwrap()
+                .with_out_endpoint(UsbPacketSize::Size8, Milliseconds(100))
+                .unwrap()
+                .build_interface(),
+        )
         .unwrap()
         .build()
         .unwrap();

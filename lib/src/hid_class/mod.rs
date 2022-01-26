@@ -12,7 +12,7 @@ use usb_device::control::RequestType;
 use usb_device::Result;
 
 use descriptor::*;
-use interface::{Interface, InterfaceConfig, UsbHidInterfaceBuilder};
+use interface::{Interface, InterfaceConfig};
 
 pub mod descriptor;
 pub mod interface;
@@ -73,8 +73,11 @@ impl<'a, B: UsbBus> UsbHidClassBuilder<'a, B> {
         }
     }
 
-    pub fn new_interface(self, report_descriptor: &'a [u8]) -> UsbHidInterfaceBuilder<'a, B> {
-        UsbHidInterfaceBuilder::new(self, report_descriptor)
+    pub fn new_interface(mut self, interface_config: InterfaceConfig<'a>) -> BuilderResult<Self> {
+        self.interfaces
+            .push(interface_config)
+            .map_err(|_| UsbHidBuilderError::TooManyInterfaces)?;
+        Ok(self)
     }
 
     pub fn build(self) -> BuilderResult<UsbHidClass<'a, B>> {

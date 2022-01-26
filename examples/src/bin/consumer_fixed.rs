@@ -82,14 +82,18 @@ fn main() -> ! {
     ));
 
     let mut consumer = UsbHidClassBuilder::new(&usb_bus)
-        .new_interface(usbd_hid_devices::device::consumer::FIXED_FUNCTION_REPORT_DESCRIPTOR)
-        .description("Consumer Control")
-        .idle_default(Milliseconds(0))
-        .unwrap()
-        .in_endpoint(UsbPacketSize::Size8, Milliseconds(50))
-        .unwrap()
-        .without_out_endpoint()
-        .build_interface()
+        .new_interface(
+            UsbHidInterfaceBuilder::new(
+                usbd_hid_devices::device::consumer::FIXED_FUNCTION_REPORT_DESCRIPTOR,
+            )
+            .description("Consumer Control")
+            .idle_default(Milliseconds(0))
+            .unwrap()
+            .in_endpoint(UsbPacketSize::Size8, Milliseconds(50))
+            .unwrap()
+            .without_out_endpoint()
+            .build_interface(),
+        )
         .unwrap()
         .build()
         .unwrap();
