@@ -1,5 +1,6 @@
 use crate::hid_class::descriptor::*;
 use crate::hid_class::*;
+use core::cell::RefCell;
 use embedded_time::duration::Milliseconds;
 use embedded_time::fixed_point::FixedPoint;
 use heapless::Vec;
@@ -128,8 +129,8 @@ pub struct Interface<'a, B: UsbBus> {
     protocol: HidProtocol,
     report_idle: heapless::FnvIndexMap<u8, u8, 32>,
     global_idle: u8,
-    control_in_report_buffer: Vec<u8, 64>,
-    control_out_report_buffer: Vec<u8, 64>,
+    control_in_report_buffer: RefCell<Vec<u8, 64>>,
+    control_out_report_buffer: RefCell<Vec<u8, 64>>,
 }
 
 impl<'a, B: UsbBus> Interface<'a, B> {
@@ -155,8 +156,8 @@ impl<'a, B: UsbBus> Interface<'a, B> {
             protocol: HidProtocol::Report,
             report_idle: Default::default(),
             global_idle: config.idle_default,
-            control_in_report_buffer: Default::default(),
-            control_out_report_buffer: Default::default(),
+            control_in_report_buffer: RefCell::new(Default::default()),
+            control_out_report_buffer: RefCell::new(Default::default()),
         }
     }
 
@@ -182,10 +183,11 @@ impl<'a, B: UsbBus> Interface<'a, B> {
         }
     }
 
-    pub fn write_report(&mut self, data: &[u8]) -> usb_device::Result<usize> {
+    pub fn write_report(&self, data: &[u8]) -> usb_device::Result<usize> {
         //Try to write report to the report buffer for the config endpoint
-        let control_result = if self.control_in_report_buffer.is_empty() {
-            match self.control_in_report_buffer.extend_from_slice(data) {
+        let mut in_buffer = self.control_in_report_buffer.borrow_mut();
+        let control_result = if in_buffer.is_empty() {
+            match in_buffer.extend_from_slice(data) {
                 Ok(_) => Ok(data.len()),
                 Err(_) => Err(UsbError::BufferOverflow),
             }
@@ -207,7 +209,7 @@ impl<'a, B: UsbBus> Interface<'a, B> {
         }
     }
 
-    pub fn read_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize> {
+    pub fn read_report(&self, data: &mut [u8]) -> usb_device::Result<usize> {
         //If there is an out endpoint, try to read from it first
         let ep_result = if let Some(ep) = &self.out_endpoint {
             ep.read(data)
@@ -219,14 +221,15 @@ impl<'a, B: UsbBus> Interface<'a, B> {
             Err(UsbError::WouldBlock) => {
                 //If there wasn't data available from the in endpoint
                 //try the config endpoint report buffer
-                if self.control_out_report_buffer.is_empty() {
+                let mut out_buffer = self.control_out_report_buffer.borrow_mut();
+                if out_buffer.is_empty() {
                     Err(UsbError::WouldBlock)
-                } else if data.len() < self.control_out_report_buffer.len() {
+                } else if data.len() < out_buffer.len() {
                     Err(UsbError::BufferOverflow)
                 } else {
-                    let n = self.control_out_report_buffer.len();
-                    data[..n].copy_from_slice(&self.control_out_report_buffer);
-                    self.control_out_report_buffer.clear();
+                    let n = out_buffer.len();
+                    data[..n].copy_from_slice(&out_buffer);
+                    out_buffer.clear();
                     Ok(n)
                 }
             }
@@ -270,29 +273,27 @@ impl<'a, B: UsbBus> Interface<'a, B> {
         self.protocol = HidProtocol::Report;
         self.global_idle = self.config.idle_default;
         self.report_idle.clear();
-        self.control_in_report_buffer.clear();
-        self.control_out_report_buffer.clear();
+        self.control_in_report_buffer.borrow_mut().clear();
+        self.control_out_report_buffer.borrow_mut().clear();
     }
 
     pub fn set_report(&mut self, data: &[u8]) -> Result<()> {
-        if !self.control_out_report_buffer.is_empty() {
+        let mut out_buffer = self.control_out_report_buffer.borrow_mut();
+        if !out_buffer.is_empty() {
             trace!("Failed to set report, buffer not empty");
             Err(UsbError::WouldBlock)
         } else {
-            match self.control_out_report_buffer.extend_from_slice(data) {
+            match out_buffer.extend_from_slice(data) {
                 Err(_) => {
                     error!(
                     "Failed to set report, too large for buffer. Report size {:X}, expected <={:X}",
                     data.len(),
-                    &self.control_out_report_buffer.capacity()
+                    &out_buffer.capacity()
                 );
                     Err(UsbError::BufferOverflow)
                 }
                 Ok(_) => {
-                    trace!(
-                        "Set report, {:X} bytes",
-                        &self.control_out_report_buffer.len()
-                    );
+                    trace!("Set report, {:X} bytes", &out_buffer.len());
                     Ok(())
                 }
             }
@@ -300,17 +301,15 @@ impl<'a, B: UsbBus> Interface<'a, B> {
     }
 
     pub fn get_report<F: FnOnce(&[u8]) -> Result<()>>(&mut self, send_data: F) {
-        if self.control_in_report_buffer.is_empty() {
+        let mut in_buffer = self.control_in_report_buffer.borrow_mut();
+        if in_buffer.is_empty() {
             trace!("GetReport - NAK - empty buffer");
         } else {
-            match send_data(&self.control_in_report_buffer) {
+            match send_data(&in_buffer) {
                 Err(e) => error!("Failed to send report - {:?}", e),
                 Ok(()) => {
-                    trace!(
-                        "Sent report, {:X} bytes",
-                        self.control_in_report_buffer.len()
-                    );
-                    self.control_in_report_buffer.clear();
+                    trace!("Sent report, {:X} bytes", in_buffer.len());
+                    in_buffer.clear();
                 }
             }
         }
