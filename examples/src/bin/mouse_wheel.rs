@@ -150,7 +150,7 @@ fn main() -> ! {
                 || report.horizontal_wheel != 0
             {
                 match mouse
-                    .get_interface_mut(0)
+                    .get_interface(0)
                     .unwrap()
                     .write_report(&report.pack().unwrap())
                 {

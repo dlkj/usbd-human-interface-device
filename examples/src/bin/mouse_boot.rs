@@ -133,7 +133,7 @@ fn main() -> ! {
             //Only write a report if the mouse is moving or buttons change
             if report.buttons != last_buttons || report.x != 0 || report.y != 0 {
                 match mouse
-                    .get_interface_mut(0)
+                    .get_interface(0)
                     .unwrap()
                     .write_report(&report.pack().unwrap())
                 {

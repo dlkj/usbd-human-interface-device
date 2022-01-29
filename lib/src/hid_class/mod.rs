@@ -11,6 +11,7 @@ use usb_device::control::Request;
 use usb_device::control::RequestType;
 use usb_device::Result;
 
+use crate::hid_class::interface::RawInterface;
 use descriptor::*;
 use interface::{Interface, InterfaceConfig};
 
@@ -119,12 +120,11 @@ impl<'a, B: UsbBus> UsbHidClass<'a, B> {
         }
     }
 
-    pub fn get_interface(&self, index: usize) -> Option<&Interface<'a, B>> {
-        self.interfaces.get(index)
-    }
-
-    pub fn get_interface_mut(&mut self, index: usize) -> Option<&mut Interface<'a, B>> {
-        self.interfaces.get_mut(index)
+    pub fn get_interface(&self, index: usize) -> Option<&dyn RawInterface> {
+        self.interfaces.get(index).map(|i| {
+            let d: &dyn RawInterface = i;
+            d
+        })
     }
 
     pub fn get_descriptor(&self, transfer: ControlIn<B>, report_descriptor: &[u8]) {

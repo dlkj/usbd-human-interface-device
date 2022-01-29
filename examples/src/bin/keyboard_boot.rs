@@ -119,8 +119,7 @@ fn main() -> ! {
     let mut input_count_down = timer.count_down();
     input_count_down.start(Milliseconds(10));
 
-    let mut idle_count_down =
-        reset_idle(&timer, keyboard.get_interface_mut(0).unwrap().global_idle());
+    let mut idle_count_down = reset_idle(&timer, keyboard.get_interface(0).unwrap().global_idle());
 
     let mut display_poll = timer.count_down();
     display_poll.start(DISPLAY_POLL);
@@ -145,17 +144,15 @@ fn main() -> ! {
 
             if last_keys.map(|k| k != keys).unwrap_or(true) {
                 match keyboard
-                    .get_interface_mut(0)
+                    .get_interface(0)
                     .unwrap()
                     .write_report(&BootKeyboardReport::new(keys).pack().unwrap())
                 {
                     Err(UsbError::WouldBlock) => {}
                     Ok(_) => {
                         last_keys = Some(keys);
-                        idle_count_down = reset_idle(
-                            &timer,
-                            keyboard.get_interface_mut(0).unwrap().global_idle(),
-                        );
+                        idle_count_down =
+                            reset_idle(&timer, keyboard.get_interface(0).unwrap().global_idle());
                     }
                     Err(e) => {
                         panic!("Failed to write keyboard report: {:?}", e)
@@ -166,7 +163,7 @@ fn main() -> ! {
 
         if usb_dev.poll(&mut [&mut keyboard]) {
             let data = &mut [0];
-            match keyboard.get_interface_mut(0).unwrap().read_report(data) {
+            match keyboard.get_interface(0).unwrap().read_report(data) {
                 Err(UsbError::WouldBlock) => {
                     //do nothing
                 }

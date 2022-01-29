@@ -130,7 +130,7 @@ fn main() -> ! {
             let report = get_report(keys);
             if report != last {
                 match consumer
-                    .get_interface_mut(0)
+                    .get_interface(0)
                     .unwrap()
                     .write_report(&report.pack().unwrap())
                 {

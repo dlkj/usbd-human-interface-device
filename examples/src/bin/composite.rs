@@ -210,7 +210,7 @@ fn main() -> ! {
                 .map(|r| r != keyboard_report)
                 .unwrap_or(true)
             {
-                match composite.get_interface_mut(0).unwrap().write_report(
+                match composite.get_interface(0).unwrap().write_report(
                     &keyboard_report
                         .pack()
                         .expect("Failed to pack keyboard report"),
@@ -233,7 +233,7 @@ fn main() -> ! {
                 || mouse_report.y != 0
             {
                 match composite
-                    .get_interface_mut(1)
+                    .get_interface(1)
                     .unwrap()
                     .write_report(&mouse_report.pack().expect("Failed to pack mouse report"))
                 {
@@ -261,7 +261,7 @@ fn main() -> ! {
             };
 
             if last_consumer_report != consumer_report {
-                match composite.get_interface_mut(2).unwrap().write_report(
+                match composite.get_interface(2).unwrap().write_report(
                     &consumer_report
                         .pack()
                         .expect("Failed to pack consumer report"),
@@ -279,11 +279,7 @@ fn main() -> ! {
 
         if usb_dev.poll(&mut [&mut composite]) {
             let mut buf = [1];
-            match composite
-                .get_interface_mut(0)
-                .unwrap()
-                .read_report(&mut buf)
-            {
+            match composite.get_interface(0).unwrap().read_report(&mut buf) {
                 Err(UsbError::WouldBlock) => {}
                 Err(e) => {
                     panic!("Failed to read keyboard report: {:?}", e)

@@ -336,18 +336,14 @@ fn USBCTRL_IRQ() {
     if let Some((ref mut usb_device, ref mut composite)) = IRQ_USB_DEVICES {
         if usb_device.poll(&mut [composite]) {
             let mut buf = [1];
-            match composite
-                .get_interface_mut(0)
-                .unwrap()
-                .read_report(&mut buf)
-            {
+            match composite.get_interface(0).unwrap().read_report(&mut buf) {
                 Err(UsbError::WouldBlock) => {}
                 Err(e) => {
                     panic!("Failed to read keyboard report: {:?}", e)
                 }
                 Ok(_) => {
                     let leds = KeyboardLeds::unpack(&buf).expect("Failed to unpack Keyboard Leds");
-                    let idle = composite.get_interface_mut(0).unwrap().global_idle();
+                    let idle = composite.get_interface(0).unwrap().global_idle();
 
                     cortex_m::interrupt::free(|cs| {
                         KEYBOARD_STATUS
@@ -364,7 +360,7 @@ fn USBCTRL_IRQ() {
                 let report = keyboard_report;
                 if let Some(r) = report {
                     match composite
-                        .get_interface_mut(0)
+                        .get_interface(0)
                         .unwrap()
                         .write_report(&r.pack().expect("Failed to pack keyboard report"))
                     {
@@ -381,7 +377,7 @@ fn USBCTRL_IRQ() {
                 let mouse_report_ref = *MOUSE_REPORT.borrow(cs).borrow();
                 if let Some(r) = mouse_report_ref {
                     match composite
-                        .get_interface_mut(1)
+                        .get_interface(1)
                         .unwrap()
                         .write_report(&r.pack().expect("Failed to pack mouse report"))
                     {
@@ -398,7 +394,7 @@ fn USBCTRL_IRQ() {
                 let consumer_report = *CONSUMER_REPORT.borrow(cs).borrow();
                 if let Some(r) = consumer_report {
                     match composite
-                        .get_interface_mut(2)
+                        .get_interface(2)
                         .unwrap()
                         .write_report(&r.pack().expect("Failed to pack consumer report"))
                     {

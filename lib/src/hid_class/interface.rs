@@ -128,9 +128,7 @@ impl<'a, B: UsbBus> Interface<'a, B> {
     pub fn config(&self) -> &InterfaceConfig {
         &self.config
     }
-}
 
-impl<'a, B: UsbBus> Interface<'a, B> {
     pub fn new(config: InterfaceConfig<'a>, usb_alloc: &'a UsbBusAllocator<B>) -> Self {
         Interface {
             config,
@@ -152,80 +150,8 @@ impl<'a, B: UsbBus> Interface<'a, B> {
         }
     }
 
-    pub fn protocol(&self) -> HidProtocol {
-        self.protocol
-    }
-
     pub fn id(&self) -> InterfaceNumber {
         self.id
-    }
-
-    pub fn global_idle(&self) -> Milliseconds {
-        Milliseconds((self.global_idle as u32) * 4)
-    }
-
-    pub fn report_idle(&self, report_id: u8) -> Option<Milliseconds> {
-        if report_id == 0 {
-            None
-        } else {
-            self.report_idle
-                .get(&report_id)
-                .map(|&i| Milliseconds((i as u32) * 4))
-        }
-    }
-
-    pub fn write_report(&self, data: &[u8]) -> usb_device::Result<usize> {
-        //Try to write report to the report buffer for the config endpoint
-        let mut in_buffer = self.control_in_report_buffer.borrow_mut();
-        let control_result = if in_buffer.is_empty() {
-            match in_buffer.extend_from_slice(data) {
-                Ok(_) => Ok(data.len()),
-                Err(_) => Err(UsbError::BufferOverflow),
-            }
-        } else {
-            Err(UsbError::WouldBlock)
-        };
-
-        //Also try to write report to the in endpoint
-        let endpoint_result = self.in_endpoint.write(data);
-
-        match (control_result, endpoint_result) {
-            //OK if either succeeded
-            (_, Ok(n)) => Ok(n),
-            (Ok(n), _) => Ok(n),
-            //non-WouldBlock errors take preference
-            (Err(UsbError::WouldBlock), Err(e)) => Err(e),
-            (Err(e), Err(UsbError::WouldBlock)) => Err(e),
-            (_, Err(e)) => Err(e),
-        }
-    }
-
-    pub fn read_report(&self, data: &mut [u8]) -> usb_device::Result<usize> {
-        //If there is an out endpoint, try to read from it first
-        let ep_result = if let Some(ep) = &self.out_endpoint {
-            ep.read(data)
-        } else {
-            Err(UsbError::WouldBlock)
-        };
-
-        match ep_result {
-            Err(UsbError::WouldBlock) => {
-                //If there wasn't data available from the in endpoint
-                //try the config endpoint report buffer
-                let mut out_buffer = self.control_out_report_buffer.borrow_mut();
-                if out_buffer.is_empty() {
-                    Err(UsbError::WouldBlock)
-                } else if data.len() < out_buffer.len() {
-                    Err(UsbError::BufferOverflow)
-                } else {
-                    let n = out_buffer.len();
-                    data[..n].copy_from_slice(&out_buffer);
-                    out_buffer.clear();
-                    Ok(n)
-                }
-            }
-            _ => ep_result,
-        }
     }
 
     pub fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()> {
@@ -343,4 +269,82 @@ impl<'a, B: UsbBus> Interface<'a, B> {
         self.protocol = protocol;
         info!("Set protocol to {:?}", protocol);
     }
+}
+
+impl<'a, B: UsbBus> RawInterface for Interface<'a, B> {
+    fn protocol(&self) -> HidProtocol {
+        self.protocol
+    }
+    fn global_idle(&self) -> Milliseconds {
+        Milliseconds((self.global_idle as u32) * 4)
+    }
+    fn report_idle(&self, report_id: u8) -> Option<Milliseconds> {
+        if report_id == 0 {
+            None
+        } else {
+            self.report_idle
+                .get(&report_id)
+                .map(|&i| Milliseconds((i as u32) * 4))
+        }
+    }
+    fn write_report(&self, data: &[u8]) -> usb_device::Result<usize> {
+        //Try to write report to the report buffer for the config endpoint
+        let mut in_buffer = self.control_in_report_buffer.borrow_mut();
+        let control_result = if in_buffer.is_empty() {
+            match in_buffer.extend_from_slice(data) {
+                Ok(_) => Ok(data.len()),
+                Err(_) => Err(UsbError::BufferOverflow),
+            }
+        } else {
+            Err(UsbError::WouldBlock)
+        };
+
+        //Also try to write report to the in endpoint
+        let endpoint_result = self.in_endpoint.write(data);
+
+        match (control_result, endpoint_result) {
+            //OK if either succeeded
+            (_, Ok(n)) => Ok(n),
+            (Ok(n), _) => Ok(n),
+            //non-WouldBlock errors take preference
+            (Err(UsbError::WouldBlock), Err(e)) => Err(e),
+            (Err(e), Err(UsbError::WouldBlock)) => Err(e),
+            (_, Err(e)) => Err(e),
+        }
+    }
+    fn read_report(&self, data: &mut [u8]) -> usb_device::Result<usize> {
+        //If there is an out endpoint, try to read from it first
+        let ep_result = if let Some(ep) = &self.out_endpoint {
+            ep.read(data)
+        } else {
+            Err(UsbError::WouldBlock)
+        };
+
+        match ep_result {
+            Err(UsbError::WouldBlock) => {
+                //If there wasn't data available from the in endpoint
+                //try the config endpoint report buffer
+                let mut out_buffer = self.control_out_report_buffer.borrow_mut();
+                if out_buffer.is_empty() {
+                    Err(UsbError::WouldBlock)
+                } else if data.len() < out_buffer.len() {
+                    Err(UsbError::BufferOverflow)
+                } else {
+                    let n = out_buffer.len();
+                    data[..n].copy_from_slice(&out_buffer);
+                    out_buffer.clear();
+                    Ok(n)
+                }
+            }
+            _ => ep_result,
+        }
+    }
+}
+
+pub trait RawInterface {
+    fn protocol(&self) -> HidProtocol;
+    fn global_idle(&self) -> Milliseconds;
+    fn report_idle(&self, report_id: u8) -> Option<Milliseconds>;
+    fn write_report(&self, data: &[u8]) -> usb_device::Result<usize>;
+    fn read_report(&self, data: &mut [u8]) -> usb_device::Result<usize>;
 }
