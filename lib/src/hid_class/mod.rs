@@ -4,6 +4,7 @@ use crate::hid_class::interface::InterfaceClass;
 use crate::hid_class::interface::RawInterface;
 use crate::hid_class::interface::UsbAllocatable;
 use core::default::Default;
+use core::marker::PhantomData;
 use descriptor::*;
 use heapless::Vec;
 use interface::{Interface, InterfaceConfig};
@@ -52,25 +53,28 @@ const MAX_INTERFACE_COUNT: usize = 8;
 
 #[must_use = "this `UsbHidClassBuilder` must be assigned or consumed by `::build()`"]
 #[derive(Clone)]
-pub struct UsbHidClassBuilder<'a, B: UsbBus> {
+pub struct UsbHidClassBuilder<'a, B: UsbBus, I> {
     usb_alloc: &'a UsbBusAllocator<B>,
     interfaces: Vec<InterfaceConfig<'a>, MAX_INTERFACE_COUNT>,
+    _interface_marker: PhantomData<I>,
 }
 
-impl<'a, B: UsbBus> core::fmt::Debug for UsbHidClassBuilder<'_, B> {
+impl<'a, B: UsbBus, I> core::fmt::Debug for UsbHidClassBuilder<'_, B, I> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        //todo
         f.debug_struct("UsbHidClassBuilder")
             .field("bus_alloc", &"UsbBusAllocator{...}")
-            .field("interfaces", &self.interfaces)
+            .field("interfaces", &"Interfaces{...}")
             .finish()
     }
 }
 
-impl<'a, B: UsbBus> UsbHidClassBuilder<'a, B> {
+impl<'a, B: UsbBus, I> UsbHidClassBuilder<'a, B, I> {
     pub fn new(usb_alloc: &'a UsbBusAllocator<B>) -> Self {
         Self {
             usb_alloc,
             interfaces: Default::default(),
+            _interface_marker: Default::default(),
         }
     }
 
@@ -295,7 +299,7 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
 
                 if request.request == Request::GET_DESCRIPTOR {
                     info!("Get descriptor");
-                    self.get_descriptor(transfer, interface.config().report_descriptor);
+                    self.get_descriptor(transfer, interface.report_descriptor());
                 }
             }
 

@@ -1,6 +1,7 @@
 use crate::hid_class::descriptor::*;
 use crate::hid_class::*;
 use core::cell::RefCell;
+use core::default::Default;
 use embedded_time::duration::Milliseconds;
 use embedded_time::fixed_point::FixedPoint;
 use heapless::Vec;
@@ -106,7 +107,7 @@ impl<'a> UsbHidInterfaceBuilder<'a> {
         Ok(self)
     }
 
-    pub fn build_interface(self) -> InterfaceConfig<'a> {
+    pub fn build(self) -> InterfaceConfig<'a> {
         self.config
     }
 }
@@ -152,8 +153,8 @@ pub trait UsbAllocatable<'a, B: UsbBus, C> {
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a, B> for Interface<'a, B> {
-    fn config(&self) -> &InterfaceConfig {
-        &self.config
+    fn report_descriptor(&self) -> &'a [u8] {
+        self.config.report_descriptor
     }
 
     fn id(&self) -> InterfaceNumber {
@@ -286,7 +287,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a, B> for Interface<'a, B> {
 }
 
 pub trait InterfaceClass<'a, B: UsbBus> {
-    fn config(&self) -> &InterfaceConfig;
+    fn report_descriptor(&self) -> &'a [u8];
     fn id(&self) -> InterfaceNumber;
     fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
     fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&str>;
