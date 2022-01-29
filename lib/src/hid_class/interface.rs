@@ -124,8 +124,8 @@ pub struct Interface<'a, B: UsbBus> {
     control_out_report_buffer: RefCell<Vec<u8, 64>>,
 }
 
-impl<'a, B: UsbBus> Interface<'a, B> {
-    pub fn new(config: InterfaceConfig<'a>, usb_alloc: &'a UsbBusAllocator<B>) -> Self {
+impl<'a, B: UsbBus> UsbAllocatable<'a, B, InterfaceConfig<'a>> for Interface<'a, B> {
+    fn allocate(usb_alloc: &'a UsbBusAllocator<B>, config: InterfaceConfig<'a>) -> Self {
         Interface {
             config,
             id: usb_alloc.interface(),
@@ -145,6 +145,10 @@ impl<'a, B: UsbBus> Interface<'a, B> {
             control_out_report_buffer: RefCell::new(Default::default()),
         }
     }
+}
+
+pub trait UsbAllocatable<'a, B: UsbBus, C> {
+    fn allocate(usb_alloc: &'a UsbBusAllocator<B>, config: C) -> Self;
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a, B> for Interface<'a, B> {

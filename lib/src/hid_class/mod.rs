@@ -2,6 +2,7 @@
 
 use crate::hid_class::interface::InterfaceClass;
 use crate::hid_class::interface::RawInterface;
+use crate::hid_class::interface::UsbAllocatable;
 use core::default::Default;
 use descriptor::*;
 use heapless::Vec;
@@ -84,7 +85,7 @@ impl<'a, B: UsbBus> UsbHidClassBuilder<'a, B> {
         if self.interfaces.is_empty() {
             Err(UsbHidBuilderError::NoInterfacesDefined)
         } else {
-            Ok(UsbHidClass::new(self.usb_alloc, self.interfaces))
+            Ok(UsbHidClass::allocate(self.usb_alloc, self.interfaces))
         }
     }
 }
@@ -97,14 +98,15 @@ pub struct UsbHidClass<'a, B: UsbBus> {
     interface_num_map: heapless::FnvIndexMap<u8, usize, MAX_INTERFACE_COUNT>,
 }
 
-impl<'a, B: UsbBus> UsbHidClass<'a, B> {
-    pub fn new<I: IntoIterator<Item = InterfaceConfig<'a>>>(
-        usb_alloc: &'a UsbBusAllocator<B>,
-        interface_configs: I,
-    ) -> Self {
+impl<'a, B, I> UsbAllocatable<'a, B, I> for UsbHidClass<'a, B>
+where
+    B: UsbBus,
+    I: IntoIterator<Item = InterfaceConfig<'a>>,
+{
+    fn allocate(usb_alloc: &'a UsbBusAllocator<B>, interface_configs: I) -> Self {
         let interfaces: heapless::Vec<Interface<'a, B>, MAX_INTERFACE_COUNT> = interface_configs
             .into_iter()
-            .map(|inter| Interface::new(inter, usb_alloc))
+            .map(|inter| Interface::allocate(usb_alloc, inter))
             .collect();
 
         let interface_num_map = interfaces
@@ -118,7 +120,9 @@ impl<'a, B: UsbBus> UsbHidClass<'a, B> {
             interface_num_map,
         }
     }
+}
 
+impl<'a, B: UsbBus> UsbHidClass<'a, B> {
     pub fn get_interface(&self, index: usize) -> Option<&dyn RawInterface> {
         self.interfaces
             .get(index)
