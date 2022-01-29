@@ -1,8 +1,11 @@
 //! Abstract Human Interface Device Class for implementing any HID compliant device
 
+use crate::hid_class::interface::InterfaceClass;
+use crate::hid_class::interface::RawInterface;
 use core::default::Default;
-
+use descriptor::*;
 use heapless::Vec;
+use interface::{Interface, InterfaceConfig};
 use log::{error, info, trace, warn};
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
@@ -10,10 +13,6 @@ use usb_device::control::Recipient;
 use usb_device::control::Request;
 use usb_device::control::RequestType;
 use usb_device::Result;
-
-use crate::hid_class::interface::RawInterface;
-use descriptor::*;
-use interface::{Interface, InterfaceConfig};
 
 pub mod descriptor;
 pub mod interface;
@@ -121,10 +120,9 @@ impl<'a, B: UsbBus> UsbHidClass<'a, B> {
     }
 
     pub fn get_interface(&self, index: usize) -> Option<&dyn RawInterface> {
-        self.interfaces.get(index).map(|i| {
-            let d: &dyn RawInterface = i;
-            d
-        })
+        self.interfaces
+            .get(index)
+            .map::<&dyn RawInterface, _>(|i| i)
     }
 
     pub fn get_descriptor(&self, transfer: ControlIn<B>, report_descriptor: &[u8]) {
@@ -206,7 +204,7 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
         let interface = u8::try_from(request.index)
             .ok()
             .and_then(|i| self.interface_num_map.get(&i))
-            .map(|&i| &mut self.interfaces[i]);
+            .map::<&mut dyn InterfaceClass<'_, B>, _>(|&i| &mut self.interfaces[i]);
 
         if interface.is_none() {
             return;
@@ -289,7 +287,7 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
 
         match request.request_type {
             RequestType::Standard => {
-                let interface = &self.interfaces[interface_num];
+                let interface: &dyn InterfaceClass<'_, B> = &self.interfaces[interface_num];
 
                 if request.request == Request::GET_DESCRIPTOR {
                     info!("Get descriptor");
@@ -298,20 +296,27 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
             }
 
             RequestType::Class => {
-                let interface = &mut self.interfaces[interface_num];
+                let interface: &mut dyn InterfaceClass<'_, B> = &mut self.interfaces[interface_num];
 
                 match HidRequest::from_primitive(request.request) {
                     Some(HidRequest::GetReport) => {
-                        interface.get_report(|data| {
-                            if data.len() != transfer.request().length as usize {
+                        let mut data = [0_u8; 64];
+                        if let Ok(n) = interface.get_report(&mut data) {
+                            if n != transfer.request().length as usize {
                                 warn!(
-                                    "GetReport expected {:X} bytes, report length {:X} bytes",
+                                    "GetReport expected {:X} bytes, got {:X} bytes",
                                     transfer.request().length,
                                     data.len()
                                 );
                             }
-                            transfer.accept_with(data)
-                        });
+                            match transfer.accept_with(&data[..n]) {
+                                Err(e) => error!("Failed to send report - {:?}", e),
+                                Ok(()) => {
+                                    trace!("Sent report, {:X} bytes", n);
+                                    interface.get_report_ack().unwrap();
+                                }
+                            }
+                        }
                     }
                     Some(HidRequest::GetIdle) => {
                         if request.length != 1 {
@@ -336,7 +341,7 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
                             );
                         }
 
-                        let protocol = interface.protocol();
+                        let protocol = interface.get_protocol();
                         match transfer.accept_with(&[protocol as u8]) {
                             Err(e) => error!("Failed to send protocol data - {:?}", e),
                             Ok(_) => info!("Get protocol: {:?}", protocol),

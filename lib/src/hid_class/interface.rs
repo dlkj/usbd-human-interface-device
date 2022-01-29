@@ -125,10 +125,6 @@ pub struct Interface<'a, B: UsbBus> {
 }
 
 impl<'a, B: UsbBus> Interface<'a, B> {
-    pub fn config(&self) -> &InterfaceConfig {
-        &self.config
-    }
-
     pub fn new(config: InterfaceConfig<'a>, usb_alloc: &'a UsbBusAllocator<B>) -> Self {
         Interface {
             config,
@@ -149,12 +145,17 @@ impl<'a, B: UsbBus> Interface<'a, B> {
             control_out_report_buffer: RefCell::new(Default::default()),
         }
     }
+}
 
-    pub fn id(&self) -> InterfaceNumber {
-        self.id
+impl<'a, B: UsbBus> InterfaceClass<'a, B> for Interface<'a, B> {
+    fn config(&self) -> &InterfaceConfig {
+        &self.config
     }
 
-    pub fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()> {
+    fn id(&self) -> InterfaceNumber {
+        self.id
+    }
+    fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()> {
         writer.interface_alt(
             self.id,
             usb_device::device::DEFAULT_ALTERNATE_SETTING,
@@ -178,23 +179,20 @@ impl<'a, B: UsbBus> Interface<'a, B> {
 
         Ok(())
     }
-
-    pub fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&str> {
+    fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&str> {
         self.description_index
             .filter(|&i| i == index)
             .map(|_| self.config.description)
             .flatten()
     }
-
-    pub fn reset(&mut self) {
+    fn reset(&mut self) {
         self.protocol = HidProtocol::Report;
         self.global_idle = self.config.idle_default;
         self.report_idle.clear();
         self.control_in_report_buffer.borrow_mut().clear();
         self.control_out_report_buffer.borrow_mut().clear();
     }
-
-    pub fn set_report(&mut self, data: &[u8]) -> Result<()> {
+    fn set_report(&mut self, data: &[u8]) -> Result<()> {
         let mut out_buffer = self.control_out_report_buffer.borrow_mut();
         if !out_buffer.is_empty() {
             trace!("Failed to set report, buffer not empty");
@@ -217,22 +215,32 @@ impl<'a, B: UsbBus> Interface<'a, B> {
         }
     }
 
-    pub fn get_report<F: FnOnce(&[u8]) -> Result<()>>(&mut self, send_data: F) {
-        let mut in_buffer = self.control_in_report_buffer.borrow_mut();
+    fn get_report(&mut self, data: &mut [u8]) -> Result<usize> {
+        let in_buffer = self.control_in_report_buffer.borrow();
         if in_buffer.is_empty() {
-            trace!("GetReport - NAK - empty buffer");
+            trace!("GetReport would block, empty buffer");
+            Err(UsbError::WouldBlock)
+        } else if data.len() < in_buffer.len() {
+            error!("GetReport failed, buffer too short");
+            Err(UsbError::BufferOverflow)
         } else {
-            match send_data(&in_buffer) {
-                Err(e) => error!("Failed to send report - {:?}", e),
-                Ok(()) => {
-                    trace!("Sent report, {:X} bytes", in_buffer.len());
-                    in_buffer.clear();
-                }
-            }
+            data[..in_buffer.len()].copy_from_slice(&in_buffer[..]);
+            Ok(in_buffer.len())
         }
     }
 
-    pub fn set_idle(&mut self, report_id: u8, value: u8) {
+    fn get_report_ack(&mut self) -> Result<()> {
+        let mut in_buffer = self.control_in_report_buffer.borrow_mut();
+        if in_buffer.is_empty() {
+            error!("GetReport ACK failed, empty buffer");
+            Err(UsbError::WouldBlock)
+        } else {
+            in_buffer.clear();
+            Ok(())
+        }
+    }
+
+    fn set_idle(&mut self, report_id: u8, value: u8) {
         if report_id == 0 {
             self.global_idle = value;
             //"If the lower byte of value is zero, then the idle rate applies to all
@@ -253,8 +261,7 @@ impl<'a, B: UsbBus> Interface<'a, B> {
             }
         }
     }
-
-    pub fn get_idle(&self, report_id: u8) -> u8 {
+    fn get_idle(&self, report_id: u8) -> u8 {
         if report_id == 0 {
             self.global_idle
         } else {
@@ -264,11 +271,29 @@ impl<'a, B: UsbBus> Interface<'a, B> {
                 .unwrap_or(&self.global_idle)
         }
     }
-
-    pub fn set_protocol(&mut self, protocol: HidProtocol) {
+    fn set_protocol(&mut self, protocol: HidProtocol) {
         self.protocol = protocol;
         info!("Set protocol to {:?}", protocol);
     }
+
+    fn get_protocol(&self) -> HidProtocol {
+        self.protocol
+    }
+}
+
+pub trait InterfaceClass<'a, B: UsbBus> {
+    fn config(&self) -> &InterfaceConfig;
+    fn id(&self) -> InterfaceNumber;
+    fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
+    fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&str>;
+    fn reset(&mut self);
+    fn set_report(&mut self, data: &[u8]) -> Result<()>;
+    fn get_report(&mut self, data: &mut [u8]) -> Result<usize>;
+    fn get_report_ack(&mut self) -> Result<()>;
+    fn set_idle(&mut self, report_id: u8, value: u8);
+    fn get_idle(&self, report_id: u8) -> u8;
+    fn set_protocol(&mut self, protocol: HidProtocol);
+    fn get_protocol(&self) -> HidProtocol;
 }
 
 impl<'a, B: UsbBus> RawInterface for Interface<'a, B> {
