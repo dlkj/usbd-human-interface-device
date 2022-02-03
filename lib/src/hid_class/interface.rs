@@ -184,7 +184,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a, B> for Interface<'a, B> {
 
         Ok(())
     }
-    fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&str> {
+    fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'a str> {
         self.description_index
             .filter(|&i| i == index)
             .map(|_| self.config.description)
@@ -290,7 +290,7 @@ pub trait InterfaceClass<'a, B: UsbBus> {
     fn report_descriptor(&self) -> &'a [u8];
     fn id(&self) -> InterfaceNumber;
     fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-    fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&str>;
+    fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'a str>;
     fn reset(&mut self);
     fn set_report(&mut self, data: &[u8]) -> Result<()>;
     fn get_report(&mut self, data: &mut [u8]) -> Result<usize>;

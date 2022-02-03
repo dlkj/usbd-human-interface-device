@@ -1,6 +1,7 @@
 //!HID mice
 use crate::hid_class::interface::Interface;
 use embedded_time::duration::Milliseconds;
+use frunk::{HCons, HNil};
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 
@@ -56,7 +57,7 @@ pub struct BootMouseReport {
 /// Create a pre-configured [`crate::hid_class::UsbHidClassBuilder`] for a boot mouse
 pub fn new_boot_mouse<B: usb_device::bus::UsbBus>(
     usb_alloc: &'_ UsbBusAllocator<B>,
-) -> UsbHidClassBuilder<'_, B, Interface<'_, B>> {
+) -> UsbHidClassBuilder<'_, B, HCons<Interface<'_, B>, HNil>> {
     UsbHidClassBuilder::new(usb_alloc)
         .new_interface(
             UsbHidInterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR)

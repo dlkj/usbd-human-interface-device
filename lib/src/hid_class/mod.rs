@@ -1,11 +1,12 @@
 //! Abstract Human Interface Device Class for implementing any HID compliant device
 
 use crate::hid_class::interface::InterfaceClass;
-use crate::hid_class::interface::RawInterface;
 use crate::hid_class::interface::UsbAllocatable;
 use core::default::Default;
 use core::marker::PhantomData;
 use descriptor::*;
+use frunk::hlist::Selector;
+use frunk::{hlist, HCons, HNil};
 use heapless::Vec;
 use interface::{Interface, InterfaceConfig};
 use log::{error, info, trace, warn};
@@ -69,7 +70,7 @@ impl<'a, B: UsbBus, I> core::fmt::Debug for UsbHidClassBuilder<'_, B, I> {
     }
 }
 
-impl<'a, B: UsbBus, I> UsbHidClassBuilder<'a, B, I> {
+impl<'a, B: UsbBus> UsbHidClassBuilder<'a, B, HCons<Interface<'a, B>, HNil>> {
     pub fn new(usb_alloc: &'a UsbBusAllocator<B>) -> Self {
         Self {
             usb_alloc,
@@ -85,7 +86,7 @@ impl<'a, B: UsbBus, I> UsbHidClassBuilder<'a, B, I> {
         Ok(self)
     }
 
-    pub fn build(self) -> BuilderResult<UsbHidClass<'a, B>> {
+    pub fn build(self) -> BuilderResult<UsbHidClass<'a, B, HCons<Interface<'a, B>, HNil>>> {
         if self.interfaces.is_empty() {
             Err(UsbHidBuilderError::NoInterfacesDefined)
         } else {
@@ -96,43 +97,85 @@ impl<'a, B: UsbBus, I> UsbHidClassBuilder<'a, B, I> {
 
 type BuilderResult<B> = core::result::Result<B, UsbHidBuilderError>;
 
-/// USB Human Interface Device class
-pub struct UsbHidClass<'a, B: UsbBus> {
-    interfaces: heapless::Vec<Interface<'a, B>, MAX_INTERFACE_COUNT>,
-    interface_num_map: heapless::FnvIndexMap<u8, usize, MAX_INTERFACE_COUNT>,
+trait InterfaceHList<'a, B: UsbBus + 'a> {
+    fn dyn_foldl<A, F: FnMut(A, &dyn InterfaceClass<'a, B>) -> A>(&self, acc: A, folder: F) -> A;
+    fn dyn_foldl_mut<A, F>(&mut self, acc: A, folder: F) -> A
+    where
+        F: FnMut(A, &mut dyn InterfaceClass<'a, B>) -> A;
 }
 
-impl<'a, B, I> UsbAllocatable<'a, B, I> for UsbHidClass<'a, B>
+impl<'a, B: UsbBus + 'a> InterfaceHList<'a, B> for HNil {
+    #[inline(always)]
+    fn dyn_foldl<A, F: FnMut(A, &'a dyn InterfaceClass<'a, B>) -> A>(&self, acc: A, _: F) -> A {
+        acc
+    }
+    #[inline(always)]
+    fn dyn_foldl_mut<A, F>(&mut self, acc: A, _: F) -> A
+    where
+        F: FnMut(A, &mut dyn InterfaceClass<'a, B>) -> A,
+    {
+        acc
+    }
+}
+
+impl<'a, B: UsbBus + 'a, Head: InterfaceClass<'a, B>, Tail: InterfaceHList<'a, B>>
+    InterfaceHList<'a, B> for HCons<Head, Tail>
+{
+    #[inline(always)]
+    fn dyn_foldl<A, F: FnMut(A, &dyn InterfaceClass<'a, B>) -> A>(
+        &self,
+        acc: A,
+        mut folder: F,
+    ) -> A {
+        let HCons { head, tail } = self;
+        let acc = folder(acc, head);
+        tail.dyn_foldl(acc, folder)
+    }
+
+    fn dyn_foldl_mut<A, F>(&mut self, acc: A, mut folder: F) -> A
+    where
+        F: FnMut(A, &mut dyn InterfaceClass<'a, B>) -> A,
+    {
+        let HCons { head, tail } = self;
+        let acc = folder(acc, head);
+        tail.dyn_foldl_mut(acc, folder)
+    }
+}
+
+/// USB Human Interface Device class
+pub struct UsbHidClass<'a, B: UsbBus, I> {
+    interfaces: I,
+    _interfaces_vec: heapless::Vec<Interface<'a, B>, MAX_INTERFACE_COUNT>,
+    _interface_num_map: heapless::FnvIndexMap<u8, usize, MAX_INTERFACE_COUNT>,
+}
+
+impl<'a, B, I> UsbAllocatable<'a, B, I> for UsbHidClass<'a, B, HCons<Interface<'a, B>, HNil>>
 where
     B: UsbBus,
     I: IntoIterator<Item = InterfaceConfig<'a>>,
 {
     fn allocate(usb_alloc: &'a UsbBusAllocator<B>, interface_configs: I) -> Self {
-        let interfaces: heapless::Vec<Interface<'a, B>, MAX_INTERFACE_COUNT> = interface_configs
-            .into_iter()
-            .map(|inter| Interface::allocate(usb_alloc, inter))
-            .collect();
-
-        let interface_num_map = interfaces
-            .iter()
-            .enumerate()
-            .map(|(i, inter)| (u8::from(inter.id()), i))
-            .collect();
+        let ic = interface_configs.into_iter().next().unwrap();
+        let i = Interface::allocate(usb_alloc, ic);
 
         UsbHidClass {
-            interfaces,
-            interface_num_map,
+            interfaces: hlist![i],
+            _interfaces_vec: Default::default(),
+            _interface_num_map: Default::default(),
         }
     }
 }
 
-impl<'a, B: UsbBus> UsbHidClass<'a, B> {
-    pub fn get_interface(&self, index: usize) -> Option<&dyn RawInterface> {
-        self.interfaces
-            .get(index)
-            .map::<&dyn RawInterface, _>(|i| i)
+impl<'a, B: UsbBus, Head, Tail> UsbHidClass<'a, B, HCons<Head, Tail>> {
+    pub fn interface<T, Index>(&self) -> &T
+    where
+        HCons<Head, Tail>: Selector<T, Index>,
+    {
+        self.interfaces.get::<T, Index>()
     }
+}
 
+impl<'a, B: UsbBus, I> UsbHidClass<'a, B, I> {
     pub fn get_descriptor(&self, transfer: ControlIn<B>, report_descriptor: &[u8]) {
         let request: &Request = transfer.request();
         match DescriptorType::from_primitive((request.value >> 8) as u8) {
@@ -173,30 +216,35 @@ impl<'a, B: UsbBus> UsbHidClass<'a, B> {
     }
 }
 
-impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
+impl<'a, B: UsbBus, I: InterfaceHList<'a, B>> UsbClass<B> for UsbHidClass<'a, B, I> {
     fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
-        for i in &self.interfaces {
-            i.write_descriptors(writer)?;
-        }
+        self.interfaces.dyn_foldl(Ok(()), |acc, i| {
+            if acc.is_err() {
+                acc
+            } else {
+                i.write_descriptors(writer)
+            }
+        })?;
 
         info!("wrote class config descriptor");
         Ok(())
     }
 
     fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&str> {
-        for i in &self.interfaces {
-            if let Some(s) = i.get_string(index, lang_id) {
-                return Some(s);
+        self.interfaces.dyn_foldl(None, |acc: Option<&'a str>, i| {
+            if acc.is_some() {
+                acc
+            } else {
+                i.get_string(index, lang_id)
             }
-        }
-        None
+        })
     }
 
     fn reset(&mut self) {
         info!("Reset");
-        for i in &mut self.interfaces {
+        self.interfaces.dyn_foldl_mut((), |_, i| {
             i.reset();
-        }
+        });
     }
 
     fn control_out(&mut self, transfer: ControlOut<B>) {
@@ -209,10 +257,17 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
             return;
         }
 
-        let interface = u8::try_from(request.index)
-            .ok()
-            .and_then(|i| self.interface_num_map.get(&i))
-            .map::<&mut dyn InterfaceClass<'_, B>, _>(|&i| &mut self.interfaces[i]);
+        let interface = u8::try_from(request.index).ok().and_then(|id| {
+            self.interfaces.dyn_foldl_mut(None, |acc, i| {
+                if acc.is_some() {
+                    acc
+                } else if u8::from(i.id()) == id {
+                    Some(i)
+                } else {
+                    acc
+                }
+            })
+        });
 
         if interface.is_none() {
             return;
@@ -276,15 +331,12 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
             return;
         }
 
-        let interface_num = u8::try_from(request.index)
-            .ok()
-            .and_then(|i| self.interface_num_map.get(&i))
-            .cloned();
+        let interface_id = u8::try_from(request.index).ok();
 
-        if interface_num.is_none() {
+        if interface_id.is_none() {
             return;
         }
-        let interface_num = interface_num.unwrap();
+        let interface_id = interface_id.unwrap();
 
         trace!(
             "ctrl_in: request type: {:?}, request: {:X}, value: {:X}",
@@ -295,7 +347,19 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
 
         match request.request_type {
             RequestType::Standard => {
-                let interface: &dyn InterfaceClass<'_, B> = &self.interfaces[interface_num];
+                let interface = self.interfaces.dyn_foldl(None, |acc, i| {
+                    if acc.is_some() {
+                        acc
+                    } else if u8::from(i.id()) == interface_id {
+                        Some(i)
+                    } else {
+                        acc
+                    }
+                });
+                if interface.is_none() {
+                    return;
+                }
+                let interface = interface.unwrap();
 
                 if request.request == Request::GET_DESCRIPTOR {
                     info!("Get descriptor");
@@ -304,7 +368,19 @@ impl<B: UsbBus> UsbClass<B> for UsbHidClass<'_, B> {
             }
 
             RequestType::Class => {
-                let interface: &mut dyn InterfaceClass<'_, B> = &mut self.interfaces[interface_num];
+                let interface = self.interfaces.dyn_foldl_mut(None, |acc, i| {
+                    if acc.is_some() {
+                        acc
+                    } else if u8::from(i.id()) == interface_id {
+                        Some(i)
+                    } else {
+                        acc
+                    }
+                });
+                if interface.is_none() {
+                    return;
+                }
+                let interface = interface.unwrap();
 
                 match HidRequest::from_primitive(request.request) {
                     Some(HidRequest::GetReport) => {

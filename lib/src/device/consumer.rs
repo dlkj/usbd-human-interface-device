@@ -2,6 +2,7 @@
 
 use crate::hid_class::interface::Interface;
 use embedded_time::duration::Milliseconds;
+use frunk::{HCons, HNil};
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 
@@ -111,7 +112,7 @@ pub const FIXED_FUNCTION_REPORT_DESCRIPTOR: &[u8] = &[
 /// Create a pre-configured [`crate::hid_class::UsbHidClassBuilder`] for a consumer control
 pub fn new_consumer_control<B: usb_device::bus::UsbBus>(
     usb_alloc: &'_ UsbBusAllocator<B>,
-) -> UsbHidClassBuilder<'_, B, Interface<'_, B>> {
+) -> UsbHidClassBuilder<'_, B, HCons<Interface<'_, B>, HNil>> {
     UsbHidClassBuilder::new(usb_alloc)
         .new_interface(
             UsbHidInterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
