@@ -97,48 +97,76 @@ impl<'a, B: UsbBus> UsbHidClassBuilder<'a, B, HCons<Interface<'a, B>, HNil>> {
 
 type BuilderResult<B> = core::result::Result<B, UsbHidBuilderError>;
 
-trait InterfaceHList<'a, B: UsbBus + 'a> {
-    fn dyn_foldl<A, F: FnMut(A, &dyn InterfaceClass<'a, B>) -> A>(&self, acc: A, folder: F) -> A;
-    fn dyn_foldl_mut<A, F>(&mut self, acc: A, folder: F) -> A
+pub trait InterfaceHList<'a, B: UsbBus + 'a> {
+    fn dyn_foldl<A, F>(&self, acc: A, folder: F) -> A
     where
-        F: FnMut(A, &mut dyn InterfaceClass<'a, B>) -> A;
+        F: FnMut(A, &dyn InterfaceClass<'a, B>) -> A;
+    fn get_id_mut(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a, B>>;
+    fn get_id(&self, id: u8) -> Option<&dyn InterfaceClass<'a, B>>;
+    fn reset(&mut self);
+    fn write_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()>;
 }
 
 impl<'a, B: UsbBus + 'a> InterfaceHList<'a, B> for HNil {
     #[inline(always)]
-    fn dyn_foldl<A, F: FnMut(A, &'a dyn InterfaceClass<'a, B>) -> A>(&self, acc: A, _: F) -> A {
+    fn dyn_foldl<A, F>(&self, acc: A, _: F) -> A
+    where
+        F: FnMut(A, &dyn InterfaceClass<'a, B>) -> A,
+    {
         acc
     }
     #[inline(always)]
-    fn dyn_foldl_mut<A, F>(&mut self, acc: A, _: F) -> A
-    where
-        F: FnMut(A, &mut dyn InterfaceClass<'a, B>) -> A,
-    {
-        acc
+    fn get_id_mut(&mut self, _: u8) -> Option<&mut dyn InterfaceClass<'a, B>> {
+        None
+    }
+    #[inline(always)]
+    fn get_id(&self, _: u8) -> Option<&dyn InterfaceClass<'a, B>> {
+        None
+    }
+    #[inline(always)]
+    fn reset(&mut self) {}
+    #[inline(always)]
+    fn write_descriptors(&self, _: &mut DescriptorWriter) -> Result<()> {
+        Ok(())
     }
 }
 
-impl<'a, B: UsbBus + 'a, Head: InterfaceClass<'a, B>, Tail: InterfaceHList<'a, B>>
+impl<'a, B: UsbBus + 'a, Head: InterfaceClass<'a, B> + 'a, Tail: InterfaceHList<'a, B>>
     InterfaceHList<'a, B> for HCons<Head, Tail>
 {
     #[inline(always)]
-    fn dyn_foldl<A, F: FnMut(A, &dyn InterfaceClass<'a, B>) -> A>(
-        &self,
-        acc: A,
-        mut folder: F,
-    ) -> A {
-        let HCons { head, tail } = self;
-        let acc = folder(acc, head);
-        tail.dyn_foldl(acc, folder)
+    fn dyn_foldl<A, F>(&self, acc: A, mut folder: F) -> A
+    where
+        F: FnMut(A, &dyn InterfaceClass<'a, B>) -> A,
+    {
+        let acc = folder(acc, &self.head);
+        self.tail.dyn_foldl(acc, folder)
+    }
+    #[inline(always)]
+    fn get_id_mut(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a, B>> {
+        if id == u8::from(self.head.id()) {
+            Some(&mut self.head)
+        } else {
+            self.tail.get_id_mut(id)
+        }
+    }
+    #[inline(always)]
+    fn get_id(&self, id: u8) -> Option<&dyn InterfaceClass<'a, B>> {
+        if id == u8::from(self.head.id()) {
+            Some(&self.head)
+        } else {
+            self.tail.get_id(id)
+        }
+    }
+    #[inline(always)]
+    fn reset(&mut self) {
+        self.head.reset();
+        self.tail.reset();
     }
 
-    fn dyn_foldl_mut<A, F>(&mut self, acc: A, mut folder: F) -> A
-    where
-        F: FnMut(A, &mut dyn InterfaceClass<'a, B>) -> A,
-    {
-        let HCons { head, tail } = self;
-        let acc = folder(acc, head);
-        tail.dyn_foldl_mut(acc, folder)
+    fn write_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
+        self.head.write_descriptors(writer)?;
+        self.tail.write_descriptors(writer)
     }
 }
 
@@ -216,16 +244,14 @@ impl<'a, B: UsbBus, I> UsbHidClass<'a, B, I> {
     }
 }
 
-impl<'a, B: UsbBus, I: InterfaceHList<'a, B>> UsbClass<B> for UsbHidClass<'a, B, I> {
+// impl<'a, B, I, Tail> UsbClass<B> for UsbHidClass<'a, B, HCons<I, Tail>>
+impl<'a, B, I> UsbClass<B> for UsbHidClass<'a, B, I>
+where
+    B: UsbBus,
+    I: InterfaceHList<'a, B> + 'a,
+{
     fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
-        self.interfaces.dyn_foldl(Ok(()), |acc, i| {
-            if acc.is_err() {
-                acc
-            } else {
-                i.write_descriptors(writer)
-            }
-        })?;
-
+        self.interfaces.write_descriptors(writer)?;
         info!("wrote class config descriptor");
         Ok(())
     }
@@ -242,9 +268,7 @@ impl<'a, B: UsbBus, I: InterfaceHList<'a, B>> UsbClass<B> for UsbHidClass<'a, B,
 
     fn reset(&mut self) {
         info!("Reset");
-        self.interfaces.dyn_foldl_mut((), |_, i| {
-            i.reset();
-        });
+        self.interfaces.reset();
     }
 
     fn control_out(&mut self, transfer: ControlOut<B>) {
@@ -257,17 +281,9 @@ impl<'a, B: UsbBus, I: InterfaceHList<'a, B>> UsbClass<B> for UsbHidClass<'a, B,
             return;
         }
 
-        let interface = u8::try_from(request.index).ok().and_then(|id| {
-            self.interfaces.dyn_foldl_mut(None, |acc, i| {
-                if acc.is_some() {
-                    acc
-                } else if u8::from(i.id()) == id {
-                    Some(i)
-                } else {
-                    acc
-                }
-            })
-        });
+        let interface = u8::try_from(request.index)
+            .ok()
+            .and_then(|id| self.interfaces.get_id_mut(id));
 
         if interface.is_none() {
             return;
@@ -347,15 +363,8 @@ impl<'a, B: UsbBus, I: InterfaceHList<'a, B>> UsbClass<B> for UsbHidClass<'a, B,
 
         match request.request_type {
             RequestType::Standard => {
-                let interface = self.interfaces.dyn_foldl(None, |acc, i| {
-                    if acc.is_some() {
-                        acc
-                    } else if u8::from(i.id()) == interface_id {
-                        Some(i)
-                    } else {
-                        acc
-                    }
-                });
+                let interface = self.interfaces.get_id(interface_id);
+
                 if interface.is_none() {
                     return;
                 }
@@ -368,15 +377,8 @@ impl<'a, B: UsbBus, I: InterfaceHList<'a, B>> UsbClass<B> for UsbHidClass<'a, B,
             }
 
             RequestType::Class => {
-                let interface = self.interfaces.dyn_foldl_mut(None, |acc, i| {
-                    if acc.is_some() {
-                        acc
-                    } else if u8::from(i.id()) == interface_id {
-                        Some(i)
-                    } else {
-                        acc
-                    }
-                });
+                let interface = self.interfaces.get_id_mut(interface_id);
+
                 if interface.is_none() {
                     return;
                 }
