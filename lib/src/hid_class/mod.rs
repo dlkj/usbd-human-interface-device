@@ -86,7 +86,7 @@ impl<'a, B: UsbBus> UsbHidClassBuilder<'a, B, HCons<Interface<'a, B>, HNil>> {
         Ok(self)
     }
 
-    pub fn build(self) -> BuilderResult<UsbHidClass<'a, B, HCons<Interface<'a, B>, HNil>>> {
+    pub fn build(self) -> BuilderResult<UsbHidClass<HCons<Interface<'a, B>, HNil>>> {
         if self.interfaces.is_empty() {
             Err(UsbHidBuilderError::NoInterfacesDefined)
         } else {
@@ -98,23 +98,14 @@ impl<'a, B: UsbBus> UsbHidClassBuilder<'a, B, HCons<Interface<'a, B>, HNil>> {
 type BuilderResult<B> = core::result::Result<B, UsbHidBuilderError>;
 
 pub trait InterfaceHList<'a, B: UsbBus + 'a> {
-    fn dyn_foldl<A, F>(&self, acc: A, folder: F) -> A
-    where
-        F: FnMut(A, &dyn InterfaceClass<'a, B>) -> A;
     fn get_id_mut(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a, B>>;
     fn get_id(&self, id: u8) -> Option<&dyn InterfaceClass<'a, B>>;
     fn reset(&mut self);
     fn write_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()>;
+    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'static str>;
 }
 
 impl<'a, B: UsbBus + 'a> InterfaceHList<'a, B> for HNil {
-    #[inline(always)]
-    fn dyn_foldl<A, F>(&self, acc: A, _: F) -> A
-    where
-        F: FnMut(A, &dyn InterfaceClass<'a, B>) -> A,
-    {
-        acc
-    }
     #[inline(always)]
     fn get_id_mut(&mut self, _: u8) -> Option<&mut dyn InterfaceClass<'a, B>> {
         None
@@ -129,19 +120,15 @@ impl<'a, B: UsbBus + 'a> InterfaceHList<'a, B> for HNil {
     fn write_descriptors(&self, _: &mut DescriptorWriter) -> Result<()> {
         Ok(())
     }
+    #[inline(always)]
+    fn get_string(&self, _: StringIndex, _: u16) -> Option<&'static str> {
+        None
+    }
 }
 
 impl<'a, B: UsbBus + 'a, Head: InterfaceClass<'a, B> + 'a, Tail: InterfaceHList<'a, B>>
     InterfaceHList<'a, B> for HCons<Head, Tail>
 {
-    #[inline(always)]
-    fn dyn_foldl<A, F>(&self, acc: A, mut folder: F) -> A
-    where
-        F: FnMut(A, &dyn InterfaceClass<'a, B>) -> A,
-    {
-        let acc = folder(acc, &self.head);
-        self.tail.dyn_foldl(acc, folder)
-    }
     #[inline(always)]
     fn get_id_mut(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a, B>> {
         if id == u8::from(self.head.id()) {
@@ -163,21 +150,28 @@ impl<'a, B: UsbBus + 'a, Head: InterfaceClass<'a, B> + 'a, Tail: InterfaceHList<
         self.head.reset();
         self.tail.reset();
     }
-
+    #[inline(always)]
     fn write_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
         self.head.write_descriptors(writer)?;
         self.tail.write_descriptors(writer)
     }
+    #[inline(always)]
+    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'static str> {
+        let s = self.head.get_string(index, lang_id);
+        if s.is_some() {
+            s
+        } else {
+            self.tail.get_string(index, lang_id)
+        }
+    }
 }
 
 /// USB Human Interface Device class
-pub struct UsbHidClass<'a, B: UsbBus, I> {
+pub struct UsbHidClass<I> {
     interfaces: I,
-    _interfaces_vec: heapless::Vec<Interface<'a, B>, MAX_INTERFACE_COUNT>,
-    _interface_num_map: heapless::FnvIndexMap<u8, usize, MAX_INTERFACE_COUNT>,
 }
 
-impl<'a, B, I> UsbAllocatable<'a, B, I> for UsbHidClass<'a, B, HCons<Interface<'a, B>, HNil>>
+impl<'a, B, I> UsbAllocatable<'a, B, I> for UsbHidClass<HCons<Interface<'a, B>, HNil>>
 where
     B: UsbBus,
     I: IntoIterator<Item = InterfaceConfig<'a>>,
@@ -188,13 +182,11 @@ where
 
         UsbHidClass {
             interfaces: hlist![i],
-            _interfaces_vec: Default::default(),
-            _interface_num_map: Default::default(),
         }
     }
 }
 
-impl<'a, B: UsbBus, Head, Tail> UsbHidClass<'a, B, HCons<Head, Tail>> {
+impl<Head, Tail> UsbHidClass<HCons<Head, Tail>> {
     pub fn interface<T, Index>(&self) -> &T
     where
         HCons<Head, Tail>: Selector<T, Index>,
@@ -203,8 +195,8 @@ impl<'a, B: UsbBus, Head, Tail> UsbHidClass<'a, B, HCons<Head, Tail>> {
     }
 }
 
-impl<'a, B: UsbBus, I> UsbHidClass<'a, B, I> {
-    pub fn get_descriptor(&self, transfer: ControlIn<B>, report_descriptor: &[u8]) {
+impl<I> UsbHidClass<I> {
+    pub fn get_descriptor<B: UsbBus>(&self, transfer: ControlIn<B>, report_descriptor: &[u8]) {
         let request: &Request = transfer.request();
         match DescriptorType::from_primitive((request.value >> 8) as u8) {
             Some(DescriptorType::Report) => match transfer.accept_with(report_descriptor) {
@@ -244,11 +236,11 @@ impl<'a, B: UsbBus, I> UsbHidClass<'a, B, I> {
     }
 }
 
-// impl<'a, B, I, Tail> UsbClass<B> for UsbHidClass<'a, B, HCons<I, Tail>>
-impl<'a, B, I> UsbClass<B> for UsbHidClass<'a, B, I>
+impl<'a, B, I> UsbClass<B> for UsbHidClass<I>
 where
-    B: UsbBus,
+    B: UsbBus + 'a,
     I: InterfaceHList<'a, B> + 'a,
+    Self: 'a,
 {
     fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
         self.interfaces.write_descriptors(writer)?;
@@ -257,13 +249,8 @@ where
     }
 
     fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&str> {
-        self.interfaces.dyn_foldl(None, |acc: Option<&'a str>, i| {
-            if acc.is_some() {
-                acc
-            } else {
-                i.get_string(index, lang_id)
-            }
-        })
+        //todo - work this backward to allow strings with an 'a lifetime
+        self.interfaces.get_string(index, lang_id)
     }
 
     fn reset(&mut self) {

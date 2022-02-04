@@ -14,6 +14,8 @@ use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_hid_devices::device::consumer::MultipleConsumerReport;
+use usbd_hid_devices::hid_class::interface::RawInterface;
+
 use usbd_hid_devices::page::Consumer;
 
 use usbd_hid_devices_example_rp2040::*;
@@ -129,11 +131,7 @@ fn main() -> ! {
         if input_count_down.wait().is_ok() {
             let report = get_report(keys);
             if report != last {
-                match consumer
-                    .get_interface(0)
-                    .unwrap()
-                    .write_report(&report.pack().unwrap())
-                {
+                match consumer.interface().write_report(&report.pack().unwrap()) {
                     Err(UsbError::WouldBlock) => {}
                     Ok(_) => {
                         last = report;

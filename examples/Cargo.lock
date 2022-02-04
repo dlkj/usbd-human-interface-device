@@ -709,6 +709,7 @@ dependencies = [
  "embedded-hal",
  "embedded-text",
  "embedded-time",
+ "frunk",
  "log",
  "nb 1.0.0",
  "packed_struct",

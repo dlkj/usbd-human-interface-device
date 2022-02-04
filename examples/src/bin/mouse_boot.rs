@@ -14,6 +14,7 @@ use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_hid_devices::device::mouse::BootMouseReport;
+use usbd_hid_devices::hid_class::interface::RawInterface;
 
 use usbd_hid_devices_example_rp2040::*;
 
@@ -132,11 +133,7 @@ fn main() -> ! {
 
             //Only write a report if the mouse is moving or buttons change
             if report.buttons != last_buttons || report.x != 0 || report.y != 0 {
-                match mouse
-                    .get_interface(0)
-                    .unwrap()
-                    .write_report(&report.pack().unwrap())
-                {
+                match mouse.interface().write_report(&report.pack().unwrap()) {
                     Err(UsbError::WouldBlock) => {}
                     Ok(_) => {
                         last_buttons = report.buttons;

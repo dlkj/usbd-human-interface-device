@@ -17,7 +17,7 @@ pub struct EndpointConfig {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct InterfaceConfig<'a> {
     pub report_descriptor: &'a [u8],
-    pub description: Option<&'a str>,
+    pub description: Option<&'static str>,
     pub protocol: InterfaceProtocol,
     pub idle_default: u8,
     pub out_endpoint: Option<EndpointConfig>,
@@ -71,7 +71,7 @@ impl<'a> UsbHidInterfaceBuilder<'a> {
         Ok(self)
     }
 
-    pub fn description(mut self, s: &'a str) -> Self {
+    pub fn description(mut self, s: &'static str) -> Self {
         self.config.description = Some(s);
         self
     }
@@ -184,7 +184,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a, B> for Interface<'a, B> {
 
         Ok(())
     }
-    fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'a str> {
+    fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'static str> {
         self.description_index
             .filter(|&i| i == index)
             .map(|_| self.config.description)
@@ -290,7 +290,7 @@ pub trait InterfaceClass<'a, B: UsbBus> {
     fn report_descriptor(&self) -> &'a [u8];
     fn id(&self) -> InterfaceNumber;
     fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-    fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'a str>;
+    fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'static str>;
     fn reset(&mut self);
     fn set_report(&mut self, data: &[u8]) -> Result<()>;
     fn get_report(&mut self, data: &mut [u8]) -> Result<usize>;

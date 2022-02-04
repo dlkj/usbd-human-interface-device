@@ -8,5 +8,5 @@
 //! use usbd_hid_devices::hid_class::prelude::*;
 //! ```
 
-pub use super::interface::UsbHidInterfaceBuilder;
+pub use super::interface::{RawInterface, UsbHidInterfaceBuilder};
 pub use super::{descriptor::InterfaceProtocol, UsbHidClass, UsbHidClassBuilder, UsbPacketSize};

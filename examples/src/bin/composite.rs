@@ -22,10 +22,10 @@ use usbd_hid_devices::device::keyboard::{
     BootKeyboardReport, KeyboardLeds, BOOT_KEYBOARD_REPORT_DESCRIPTOR,
 };
 use usbd_hid_devices::device::mouse::{BootMouseReport, BOOT_MOUSE_REPORT_DESCRIPTOR};
+
 use usbd_hid_devices::hid_class::prelude::*;
 use usbd_hid_devices::page::Consumer;
 use usbd_hid_devices::page::Keyboard;
-
 use usbd_hid_devices_example_rp2040::*;
 
 const DEFAULT_KEYBOARD_IDLE: Milliseconds = Milliseconds(500);
@@ -115,7 +115,7 @@ fn main() -> ! {
                 .unwrap()
                 .with_out_endpoint(UsbPacketSize::Size8, KEYBOARD_LED_POLL)
                 .unwrap()
-                .build_interface(),
+                .build(),
         )
         .unwrap()
         //Boot Mouse - interface 1
@@ -128,7 +128,7 @@ fn main() -> ! {
                 .in_endpoint(UsbPacketSize::Size8, KEYBOARD_MOUSE_POLL)
                 .unwrap()
                 .without_out_endpoint()
-                .build_interface(),
+                .build(),
         )
         .unwrap()
         //Consumer control - interface 2
@@ -140,7 +140,7 @@ fn main() -> ! {
                 .in_endpoint(UsbPacketSize::Size8, CONSUMER_POLL)
                 .unwrap()
                 .without_out_endpoint()
-                .build_interface(),
+                .build(),
         )
         .unwrap()
         //Build
@@ -210,7 +210,7 @@ fn main() -> ! {
                 .map(|r| r != keyboard_report)
                 .unwrap_or(true)
             {
-                match composite.get_interface(0).unwrap().write_report(
+                match composite.interface().write_report(
                     &keyboard_report
                         .pack()
                         .expect("Failed to pack keyboard report"),
@@ -218,8 +218,7 @@ fn main() -> ! {
                     Err(UsbError::WouldBlock) => {}
                     Ok(_) => {
                         last_keyboard_report = Some(keyboard_report);
-                        keyboard_idle =
-                            reset_idle(&timer, composite.get_interface(0).unwrap().global_idle());
+                        keyboard_idle = reset_idle(&timer, composite.interface().global_idle());
                     }
                     Err(e) => {
                         panic!("Failed to write keyboard report: {:?}", e)
@@ -233,8 +232,7 @@ fn main() -> ! {
                 || mouse_report.y != 0
             {
                 match composite
-                    .get_interface(1)
-                    .unwrap()
+                    .interface()
                     .write_report(&mouse_report.pack().expect("Failed to pack mouse report"))
                 {
                     Err(UsbError::WouldBlock) => {}
@@ -261,7 +259,7 @@ fn main() -> ! {
             };
 
             if last_consumer_report != consumer_report {
-                match composite.get_interface(2).unwrap().write_report(
+                match composite.interface().write_report(
                     &consumer_report
                         .pack()
                         .expect("Failed to pack consumer report"),
@@ -279,7 +277,7 @@ fn main() -> ! {
 
         if usb_dev.poll(&mut [&mut composite]) {
             let mut buf = [1];
-            match composite.get_interface(0).unwrap().read_report(&mut buf) {
+            match composite.interface().read_report(&mut buf) {
                 Err(UsbError::WouldBlock) => {}
                 Err(e) => {
                     panic!("Failed to read keyboard report: {:?}", e)

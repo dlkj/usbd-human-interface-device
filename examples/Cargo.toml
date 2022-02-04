@@ -27,6 +27,7 @@ log = "0.4.14"
 nb = "1.0"
 panic-persist = { version = "0.3", features = ["utf8"] }
 packed_struct = { version = "0.10", default-features = false }
+frunk = { version = "0.4", default-features = false }
 
 # cargo build/run
 [profile.dev]

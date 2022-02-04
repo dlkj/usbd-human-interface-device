@@ -90,7 +90,7 @@ fn main() -> ! {
                 .in_endpoint(UsbPacketSize::Size8, Milliseconds(10))
                 .unwrap()
                 .without_out_endpoint()
-                .build_interface(),
+                .build(),
         )
         .unwrap()
         .build()
@@ -149,11 +149,7 @@ fn main() -> ! {
                 || report.vertical_wheel != 0
                 || report.horizontal_wheel != 0
             {
-                match mouse
-                    .get_interface(0)
-                    .unwrap()
-                    .write_report(&report.pack().unwrap())
-                {
+                match mouse.interface().write_report(&report.pack().unwrap()) {
                     Err(UsbError::WouldBlock) => {}
                     Ok(_) => {
                         last_buttons = report.buttons;
