@@ -1,8 +1,15 @@
 //!HID mice
-use crate::hid_class::interface::InterfaceConfig;
+use crate::hid_class::descriptor::HidProtocol;
+use crate::hid_class::interface::{Interface, InterfaceClass, InterfaceConfig};
+use delegate::delegate;
 use embedded_time::duration::Milliseconds;
 use frunk::{HCons, HNil};
+use log::error;
 use packed_struct::prelude::*;
+use usb_device::bus::{InterfaceNumber, StringIndex, UsbBus};
+use usb_device::class_prelude::DescriptorWriter;
+use usb_device::Result;
+use usb_device::UsbError;
 
 use crate::hid_class::prelude::*;
 
@@ -122,4 +129,41 @@ pub struct WheelMouseReport {
     pub vertical_wheel: i8,
     #[packed_field]
     pub horizontal_wheel: i8,
+}
+
+pub struct BootMouseInterface<'a, B: UsbBus> {
+    inner: Interface<'a, B>,
+}
+
+impl<'a, B: UsbBus> BootMouseInterface<'a, B> {
+    pub fn new(interface: Interface<'a, B>) -> Self {
+        Self { inner: interface }
+    }
+
+    pub fn write_mouse_report(&self, report: BootMouseReport) -> usb_device::Result<usize> {
+        let data = report.pack().map_err(|e| {
+            error!("Error packing BootMouseReport: {:?}", e);
+            UsbError::ParseError
+        })?;
+        self.inner.write_report(&data)
+    }
+}
+
+impl<'a, B: UsbBus> InterfaceClass<'a> for BootMouseInterface<'a, B> {
+    delegate! {
+        to self.inner{
+           fn report_descriptor(&self) -> &'a [u8];
+           fn id(&self) -> InterfaceNumber;
+           fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
+           fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'static str>;
+           fn reset(&mut self);
+           fn set_report(&mut self, data: &[u8]) -> Result<()>;
+           fn get_report(&mut self, data: &mut [u8]) -> Result<usize>;
+           fn get_report_ack(&mut self) -> Result<()>;
+           fn set_idle(&mut self, report_id: u8, value: u8);
+           fn get_idle(&self, report_id: u8) -> u8;
+           fn set_protocol(&mut self, protocol: HidProtocol);
+           fn get_protocol(&self) -> HidProtocol;
+        }
+    }
 }
