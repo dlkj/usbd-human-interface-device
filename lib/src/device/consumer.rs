@@ -4,7 +4,6 @@ use crate::hid_class::interface::InterfaceConfig;
 use embedded_time::duration::Milliseconds;
 use frunk::{HCons, HNil};
 use packed_struct::prelude::*;
-use usb_device::class_prelude::*;
 
 use crate::hid_class::prelude::*;
 use crate::page::Consumer;
@@ -110,21 +109,17 @@ pub const FIXED_FUNCTION_REPORT_DESCRIPTOR: &[u8] = &[
 ];
 
 /// Create a pre-configured [`crate::hid_class::UsbHidClassBuilder`] for a consumer control
-pub fn new_consumer_control<B: usb_device::bus::UsbBus>(
-    usb_alloc: &'_ UsbBusAllocator<B>,
-) -> UsbHidClassBuilder<'_, B, HCons<InterfaceConfig<'_>, HNil>> {
-    UsbHidClassBuilder::new(usb_alloc)
-        .new_interface(
-            UsbHidInterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
-                .description("Consumer Control")
-                .idle_default(Milliseconds(0))
-                .unwrap()
-                .in_endpoint(UsbPacketSize::Size8, Milliseconds(50))
-                .unwrap()
-                .without_out_endpoint()
-                .build(),
-        )
-        .unwrap()
+pub fn new_consumer_control<'a>() -> UsbHidClassBuilder<'a, HCons<InterfaceConfig<'a>, HNil>> {
+    UsbHidClassBuilder::new().new_interface(
+        UsbHidInterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
+            .description("Consumer Control")
+            .idle_default(Milliseconds(0))
+            .unwrap()
+            .in_endpoint(UsbPacketSize::Size8, Milliseconds(50))
+            .unwrap()
+            .without_out_endpoint()
+            .build(),
+    )
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, PackedStruct)]

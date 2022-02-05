@@ -134,14 +134,14 @@ pub struct Interface<'a, B: UsbBus> {
 }
 
 pub trait UsbAllocatable<'a, B: UsbBus> {
-    type Output;
-    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Output;
+    type Allocated;
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated;
 }
 
 impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for InterfaceConfig<'a> {
-    type Output = Interface<'a, B>;
+    type Allocated = Interface<'a, B>;
 
-    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Output {
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
         Interface {
             config: self,
             id: usb_alloc.interface(),
@@ -163,13 +163,23 @@ impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for InterfaceConfig<'a> {
     }
 }
 
-impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for HCons<InterfaceConfig<'a>, HNil> {
-    type Output = HCons<Interface<'a, B>, HNil>;
+impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for HNil {
+    type Allocated = HNil;
 
-    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Output {
+    fn allocate(self, _: &'a UsbBusAllocator<B>) -> Self::Allocated {
+        self
+    }
+}
+
+impl<'a, B: UsbBus + 'a, Tail: UsbAllocatable<'a, B>> UsbAllocatable<'a, B>
+    for HCons<InterfaceConfig<'a>, Tail>
+{
+    type Allocated = HCons<Interface<'a, B>, Tail::Allocated>;
+
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
         HCons {
             head: self.head.allocate(usb_alloc),
-            tail: HNil,
+            tail: self.tail.allocate(usb_alloc),
         }
     }
 }

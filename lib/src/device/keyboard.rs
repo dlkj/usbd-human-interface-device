@@ -4,31 +4,26 @@ use crate::hid_class::interface::InterfaceConfig;
 use embedded_time::duration::Milliseconds;
 use frunk::{HCons, HNil};
 use packed_struct::prelude::*;
-use usb_device::class_prelude::*;
 
 use crate::hid_class::prelude::*;
 use crate::page::Keyboard;
 
 /// Create a pre-configured [`crate::hid_class::UsbHidClassBuilder`] for a boot keyboard
-pub fn new_boot_keyboard<B: usb_device::bus::UsbBus>(
-    usb_alloc: &'_ UsbBusAllocator<B>,
-) -> UsbHidClassBuilder<'_, B, HCons<InterfaceConfig<'_>, HNil>> {
-    UsbHidClassBuilder::new(usb_alloc)
-        .new_interface(
-            UsbHidInterfaceBuilder::new(BOOT_KEYBOARD_REPORT_DESCRIPTOR)
-                .boot_device(InterfaceProtocol::Keyboard)
-                .description("Keyboard")
-                .idle_default(Milliseconds(500))
-                .unwrap()
-                .in_endpoint(UsbPacketSize::Size8, Milliseconds(10))
-                .unwrap()
-                //.without_out_endpoint()
-                //Shouldn't require a dedicated out endpoint, but leds are flaky without it
-                .with_out_endpoint(UsbPacketSize::Size8, Milliseconds(100))
-                .unwrap()
-                .build(),
-        )
-        .unwrap()
+pub fn new_boot_keyboard<'a>() -> UsbHidClassBuilder<'a, HCons<InterfaceConfig<'a>, HNil>> {
+    UsbHidClassBuilder::new().new_interface(
+        UsbHidInterfaceBuilder::new(BOOT_KEYBOARD_REPORT_DESCRIPTOR)
+            .boot_device(InterfaceProtocol::Keyboard)
+            .description("Keyboard")
+            .idle_default(Milliseconds(500))
+            .unwrap()
+            .in_endpoint(UsbPacketSize::Size8, Milliseconds(10))
+            .unwrap()
+            //.without_out_endpoint()
+            //Shouldn't require a dedicated out endpoint, but leds are flaky without it
+            .with_out_endpoint(UsbPacketSize::Size8, Milliseconds(100))
+            .unwrap()
+            .build(),
+    )
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, PackedStruct)]

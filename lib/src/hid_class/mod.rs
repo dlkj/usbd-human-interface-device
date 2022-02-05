@@ -1,11 +1,9 @@
 //! Abstract Human Interface Device Class for implementing any HID compliant device
 
-use crate::hid_class::interface::{InterfaceClass, InterfaceConfigHList};
-use core::default::Default;
+use crate::hid_class::interface::{InterfaceClass, InterfaceConfigHList, UsbAllocatable};
 use descriptor::*;
-use frunk::hlist::Selector;
+use frunk::hlist::{HList, Selector};
 use frunk::{HCons, HNil};
-use heapless::Vec;
 use interface::{Interface, InterfaceConfig};
 use log::{error, info, trace, warn};
 use packed_struct::prelude::*;
@@ -48,44 +46,45 @@ pub enum UsbHidBuilderError {
     NoInterfacesDefined,
 }
 
-const MAX_INTERFACE_COUNT: usize = 8;
-
 #[must_use = "this `UsbHidClassBuilder` must be assigned or consumed by `::build()`"]
 #[derive(Clone)]
-pub struct UsbHidClassBuilder<'a, B: UsbBus, InterfaceList: InterfaceConfigHList<'a>> {
-    usb_alloc: &'a UsbBusAllocator<B>,
-    interfaceList: InterfaceList,
-    interfaces: Vec<InterfaceConfig<'a>, MAX_INTERFACE_COUNT>,
+pub struct UsbHidClassBuilder<'a, InterfaceList: InterfaceConfigHList<'a>> {
+    interface_list: InterfaceList,
 }
 
-impl<'a, B: UsbBus, I: InterfaceConfigHList<'a>> core::fmt::Debug for UsbHidClassBuilder<'a, B, I> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        //todo
-        f.debug_struct("UsbHidClassBuilder")
-            .field("bus_alloc", &"UsbBusAllocator{...}")
-            .field("interfaces", &"Interfaces{...}")
-            .finish()
-    }
-}
-
-impl<'a, B: UsbBus> UsbHidClassBuilder<'a, B, HNil> {
-    pub fn new(usb_alloc: &'a UsbBusAllocator<B>) -> Self {
+impl<'a> UsbHidClassBuilder<'a, HNil> {
+    pub fn new() -> Self {
         Self {
-            usb_alloc,
-            interfaceList: HNil,
-            interfaces: Default::default(),
+            interface_list: HNil,
         }
     }
+}
 
-    pub fn new_interface(mut self, interface_config: InterfaceConfig<'a>) -> BuilderResult<Self> {
-        self.interfaces
-            .push(interface_config)
-            .map_err(|_| UsbHidBuilderError::TooManyInterfaces)?;
-        Ok(self)
+impl<'a> Default for UsbHidClassBuilder<'a, HNil> {
+    fn default() -> Self {
+        Self::new()
     }
+}
 
-    pub fn build(self) -> BuilderResult<UsbHidClass<HCons<Interface<'a, B>, HNil>>> {
-        Ok(self.interfaces.allocate(self.usb_alloc))
+impl<'a, I: HList> UsbHidClassBuilder<'a, I> {
+    pub fn new_interface(
+        self,
+        interface_config: InterfaceConfig<'a>,
+    ) -> UsbHidClassBuilder<'a, HCons<InterfaceConfig<'a>, I>> {
+        UsbHidClassBuilder {
+            interface_list: self.interface_list.prepend(interface_config),
+        }
+    }
+}
+
+impl<'a, Tail: InterfaceConfigHList<'a>> UsbHidClassBuilder<'a, HCons<InterfaceConfig<'a>, Tail>> {
+    pub fn build<B>(
+        self,
+        &usb_alloc: UsbBusAllocator<B>,
+    ) -> UsbHidClass<HCons<Interface<'a, B>, Tail::Allocated>> {
+        UsbHidClass {
+            interfaces: self.interface_list.allocate(usb_alloc),
+        }
     }
 }
 
@@ -164,21 +163,6 @@ impl<'a, B: UsbBus + 'a, Head: InterfaceClass<'a, B> + 'a, Tail: InterfaceHList<
 pub struct UsbHidClass<I> {
     interfaces: I,
 }
-
-// impl<'a, B, I> UsbAllocatable<'a, B, I> for UsbHidClass<HCons<Interface<'a, B>, HNil>>
-// where
-//     B: UsbBus,
-//     I: IntoIterator<Item = InterfaceConfig<'a>>,
-// {
-//     fn allocate(usb_alloc: &'a UsbBusAllocator<B>, interface_configs: I) -> Self {
-//         let ic = interface_configs.into_iter().next().unwrap();
-//         let i = Interface::allocate(usb_alloc, ic);
-//
-//         UsbHidClass {
-//             interfaces: hlist![i],
-//         }
-//     }
-// }
 
 impl<Head, Tail> UsbHidClass<HCons<Head, Tail>> {
     pub fn interface<T, Index>(&self) -> &T

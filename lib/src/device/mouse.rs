@@ -55,22 +55,18 @@ pub struct BootMouseReport {
 }
 
 /// Create a pre-configured [`crate::hid_class::UsbHidClassBuilder`] for a boot mouse
-pub fn new_boot_mouse<B: usb_device::bus::UsbBus>(
-    usb_alloc: &'_ UsbBusAllocator<B>,
-) -> UsbHidClassBuilder<'_, B, HCons<InterfaceConfig<'_>, HNil>> {
-    UsbHidClassBuilder::new(usb_alloc)
-        .new_interface(
-            UsbHidInterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR)
-                .boot_device(InterfaceProtocol::Mouse)
-                .description("Mouse")
-                .idle_default(Milliseconds(0))
-                .unwrap()
-                .in_endpoint(UsbPacketSize::Size8, Milliseconds(10))
-                .unwrap()
-                .without_out_endpoint()
-                .build(),
-        )
-        .unwrap()
+pub fn new_boot_mouse<'a>() -> UsbHidClassBuilder<'a, HCons<InterfaceConfig<'a>, HNil>> {
+    UsbHidClassBuilder::new().new_interface(
+        UsbHidInterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR)
+            .boot_device(InterfaceProtocol::Mouse)
+            .description("Mouse")
+            .idle_default(Milliseconds(0))
+            .unwrap()
+            .in_endpoint(UsbPacketSize::Size8, Milliseconds(10))
+            .unwrap()
+            .without_out_endpoint()
+            .build(),
+    )
 }
 
 /// Boot compatible mouse with wheel, pan and eight buttons
