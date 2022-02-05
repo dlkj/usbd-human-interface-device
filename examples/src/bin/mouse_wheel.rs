@@ -81,13 +81,13 @@ fn main() -> ! {
     ));
 
     let mut mouse = UsbHidClassBuilder::new()
-        .new_interface(
-            UsbHidInterfaceBuilder::new(WHEEL_MOUSE_REPORT_DESCRIPTOR)
+        .add_interface(
+            InterfaceBuilder::new(WHEEL_MOUSE_REPORT_DESCRIPTOR)
                 .boot_device(InterfaceProtocol::Mouse)
                 .description("Wheel Mouse")
                 .idle_default(Milliseconds(0))
                 .unwrap()
-                .in_endpoint(UsbPacketSize::Size8, Milliseconds(10))
+                .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(10))
                 .unwrap()
                 .without_out_endpoint()
                 .build(),

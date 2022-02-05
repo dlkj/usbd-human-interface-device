@@ -35,13 +35,13 @@ impl<'a, Tail: InterfaceConfigHList<'a>> InterfaceConfigHList<'a>
 
 #[must_use = "this `UsbHidInterfaceBuilder` must be assigned or consumed by `::build_interface()`"]
 #[derive(Clone, Debug)]
-pub struct UsbHidInterfaceBuilder<'a> {
+pub struct InterfaceBuilder<'a> {
     config: InterfaceConfig<'a>,
 }
 
-impl<'a> UsbHidInterfaceBuilder<'a> {
+impl<'a> InterfaceBuilder<'a> {
     pub fn new(report_descriptor: &'a [u8]) -> Self {
-        UsbHidInterfaceBuilder {
+        InterfaceBuilder {
             config: InterfaceConfig {
                 report_descriptor,
                 description: None,
@@ -49,7 +49,7 @@ impl<'a> UsbHidInterfaceBuilder<'a> {
                 idle_default: 0,
                 out_endpoint: None,
                 in_endpoint: EndpointConfig {
-                    max_packet_size: UsbPacketSize::Size8,
+                    max_packet_size: UsbPacketSize::Bytes8,
                     poll_interval: 20,
                 },
             },
@@ -121,6 +121,17 @@ impl<'a> UsbHidInterfaceBuilder<'a> {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PackedStruct)]
+#[packed_struct(endian = "lsb", size_bytes = 7)]
+pub struct HidDescriptorBody {
+    bcd_hid: u16,
+    country_code: u8,
+    num_descriptors: u8,
+    #[packed_field(ty = "enum", size_bytes = "1")]
+    descriptor_type: DescriptorType,
+    descriptor_length: u16,
+}
+
 pub struct Interface<'a, B: UsbBus> {
     id: InterfaceNumber,
     config: InterfaceConfig<'a>,
@@ -185,7 +196,7 @@ impl<'a, B: UsbBus + 'a, Tail: UsbAllocatable<'a, B>> UsbAllocatable<'a, B>
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a, B> for Interface<'a, B> {
+impl<'a, B: UsbBus> InterfaceClass<'a> for Interface<'a, B> {
     fn report_descriptor(&self) -> &'a [u8] {
         self.config.report_descriptor
     }
@@ -204,10 +215,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a, B> for Interface<'a, B> {
         )?;
 
         //Hid descriptor
-        writer.write(
-            DescriptorType::Hid as u8,
-            &hid_descriptor(self.config.report_descriptor.len())?,
-        )?;
+        writer.write(DescriptorType::Hid as u8, &self.hid_descriptor_body())?;
 
         //Endpoint descriptors
         writer.endpoint(&self.in_endpoint)?;
@@ -319,7 +327,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a, B> for Interface<'a, B> {
     }
 }
 
-pub trait InterfaceClass<'a, B: UsbBus> {
+pub trait InterfaceClass<'a> {
     fn report_descriptor(&self) -> &'a [u8];
     fn id(&self) -> InterfaceNumber;
     fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
@@ -332,16 +340,35 @@ pub trait InterfaceClass<'a, B: UsbBus> {
     fn get_idle(&self, report_id: u8) -> u8;
     fn set_protocol(&mut self, protocol: HidProtocol);
     fn get_protocol(&self) -> HidProtocol;
+    fn hid_descriptor_body(&self) -> [u8; 7] {
+        let descriptor_len = self.report_descriptor().len();
+        if descriptor_len > u16::MAX as usize {
+            panic!(
+                "Report descriptor length {:X} too long to fit in u16",
+                descriptor_len
+            );
+        } else {
+            HidDescriptorBody {
+                bcd_hid: SPEC_VERSION_1_11,
+                country_code: COUNTRY_CODE_NOT_SUPPORTED,
+                num_descriptors: 1,
+                descriptor_type: DescriptorType::Report,
+                descriptor_length: descriptor_len as u16,
+            }
+            .pack()
+            .expect("Failed to pack HidDescriptor")
+        }
+    }
 }
 
-impl<'a, B: UsbBus> RawInterface for Interface<'a, B> {
-    fn protocol(&self) -> HidProtocol {
+impl<'a, B: UsbBus> Interface<'a, B> {
+    pub fn protocol(&self) -> HidProtocol {
         self.protocol
     }
-    fn global_idle(&self) -> Milliseconds {
+    pub fn global_idle(&self) -> Milliseconds {
         Milliseconds((self.global_idle as u32) * 4)
     }
-    fn report_idle(&self, report_id: u8) -> Option<Milliseconds> {
+    pub fn report_idle(&self, report_id: u8) -> Option<Milliseconds> {
         if report_id == 0 {
             None
         } else {
@@ -350,7 +377,7 @@ impl<'a, B: UsbBus> RawInterface for Interface<'a, B> {
                 .map(|&i| Milliseconds((i as u32) * 4))
         }
     }
-    fn write_report(&self, data: &[u8]) -> usb_device::Result<usize> {
+    pub fn write_report(&self, data: &[u8]) -> usb_device::Result<usize> {
         //Try to write report to the report buffer for the config endpoint
         let mut in_buffer = self.control_in_report_buffer.borrow_mut();
         let control_result = if in_buffer.is_empty() {
@@ -375,7 +402,7 @@ impl<'a, B: UsbBus> RawInterface for Interface<'a, B> {
             (_, Err(e)) => Err(e),
         }
     }
-    fn read_report(&self, data: &mut [u8]) -> usb_device::Result<usize> {
+    pub fn read_report(&self, data: &mut [u8]) -> usb_device::Result<usize> {
         //If there is an out endpoint, try to read from it first
         let ep_result = if let Some(ep) = &self.out_endpoint {
             ep.read(data)
@@ -404,10 +431,71 @@ impl<'a, B: UsbBus> RawInterface for Interface<'a, B> {
     }
 }
 
-pub trait RawInterface {
-    fn protocol(&self) -> HidProtocol;
-    fn global_idle(&self) -> Milliseconds;
-    fn report_idle(&self, report_id: u8) -> Option<Milliseconds>;
-    fn write_report(&self, data: &[u8]) -> usb_device::Result<usize>;
-    fn read_report(&self, data: &mut [u8]) -> usb_device::Result<usize>;
+pub trait InterfaceHList<'a> {
+    fn get_id_mut(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a>>;
+    fn get_id(&self, id: u8) -> Option<&dyn InterfaceClass<'a>>;
+    fn reset(&mut self);
+    fn write_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()>;
+    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'static str>;
+}
+
+impl<'a> InterfaceHList<'a> for HNil {
+    #[inline(always)]
+    fn get_id_mut(&mut self, _: u8) -> Option<&mut dyn InterfaceClass<'a>> {
+        None
+    }
+    #[inline(always)]
+    fn get_id(&self, _: u8) -> Option<&dyn InterfaceClass<'a>> {
+        None
+    }
+    #[inline(always)]
+    fn reset(&mut self) {}
+    #[inline(always)]
+    fn write_descriptors(&self, _: &mut DescriptorWriter) -> Result<()> {
+        Ok(())
+    }
+    #[inline(always)]
+    fn get_string(&self, _: StringIndex, _: u16) -> Option<&'static str> {
+        None
+    }
+}
+
+impl<'a, Head: InterfaceClass<'a> + 'a, Tail: InterfaceHList<'a>> InterfaceHList<'a>
+    for HCons<Head, Tail>
+{
+    #[inline(always)]
+    fn get_id_mut(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a>> {
+        if id == u8::from(self.head.id()) {
+            Some(&mut self.head)
+        } else {
+            self.tail.get_id_mut(id)
+        }
+    }
+    #[inline(always)]
+    fn get_id(&self, id: u8) -> Option<&dyn InterfaceClass<'a>> {
+        if id == u8::from(self.head.id()) {
+            Some(&self.head)
+        } else {
+            self.tail.get_id(id)
+        }
+    }
+    #[inline(always)]
+    fn reset(&mut self) {
+        self.head.reset();
+        self.tail.reset();
+    }
+    #[inline(always)]
+    fn write_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
+        self.head.write_descriptors(writer)?;
+        self.tail.write_descriptors(writer)
+    }
+    #[inline(always)]
+    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'static str> {
+        let s = self.head.get_string(index, lang_id);
+        if s.is_some() {
+            s
+        } else {
+            self.tail.get_string(index, lang_id)
+        }
+    }
 }

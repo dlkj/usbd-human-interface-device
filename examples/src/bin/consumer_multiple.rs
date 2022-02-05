@@ -14,7 +14,6 @@ use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_hid_devices::device::consumer::MultipleConsumerReport;
-use usbd_hid_devices::hid_class::interface::RawInterface;
 
 use usbd_hid_devices::page::Consumer;
 

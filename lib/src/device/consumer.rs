@@ -110,12 +110,12 @@ pub const FIXED_FUNCTION_REPORT_DESCRIPTOR: &[u8] = &[
 
 /// Create a pre-configured [`crate::hid_class::UsbHidClassBuilder`] for a consumer control
 pub fn new_consumer_control<'a>() -> UsbHidClassBuilder<'a, HCons<InterfaceConfig<'a>, HNil>> {
-    UsbHidClassBuilder::new().new_interface(
-        UsbHidInterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
+    UsbHidClassBuilder::new().add_interface(
+        InterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
             .description("Consumer Control")
             .idle_default(Milliseconds(0))
             .unwrap()
-            .in_endpoint(UsbPacketSize::Size8, Milliseconds(50))
+            .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(50))
             .unwrap()
             .without_out_endpoint()
             .build(),

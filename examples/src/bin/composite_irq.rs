@@ -37,6 +37,7 @@ use usbd_hid_devices_example_rp2040::*;
 type UsbDevices = (
     UsbDevice<'static, hal::usb::UsbBus>,
     UsbHidClass<
+        hal::usb::UsbBus,
         HCons<
             Interface<'static, hal::usb::UsbBus>,
             HCons<
@@ -142,37 +143,37 @@ fn main() -> ! {
 
     let composite = UsbHidClassBuilder::new()
         //Boot Keyboard - interface 0
-        .new_interface(
-            UsbHidInterfaceBuilder::new(BOOT_KEYBOARD_REPORT_DESCRIPTOR)
+        .add_interface(
+            InterfaceBuilder::new(BOOT_KEYBOARD_REPORT_DESCRIPTOR)
                 .boot_device(InterfaceProtocol::Keyboard)
                 .description("Keyboard")
                 .idle_default(DEFAULT_KEYBOARD_IDLE)
                 .unwrap()
-                .in_endpoint(UsbPacketSize::Size8, KEYBOARD_MOUSE_POLL)
+                .in_endpoint(UsbPacketSize::Bytes8, KEYBOARD_MOUSE_POLL)
                 .unwrap()
-                .with_out_endpoint(UsbPacketSize::Size8, KEYBOARD_LED_POLL)
+                .with_out_endpoint(UsbPacketSize::Bytes8, KEYBOARD_LED_POLL)
                 .unwrap()
                 .build(),
         )
         //Boot Mouse - interface 1
-        .new_interface(
-            UsbHidInterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR)
+        .add_interface(
+            InterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR)
                 .boot_device(InterfaceProtocol::Mouse)
                 .description("Mouse")
                 .idle_default(Milliseconds(0))
                 .unwrap()
-                .in_endpoint(UsbPacketSize::Size8, KEYBOARD_MOUSE_POLL)
+                .in_endpoint(UsbPacketSize::Bytes8, KEYBOARD_MOUSE_POLL)
                 .unwrap()
                 .without_out_endpoint()
                 .build(),
         )
         //Consumer control - interface 2
-        .new_interface(
-            UsbHidInterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
+        .add_interface(
+            InterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
                 .description("Consumer Control")
                 .idle_default(Milliseconds(0))
                 .unwrap()
-                .in_endpoint(UsbPacketSize::Size8, CONSUMER_POLL)
+                .in_endpoint(UsbPacketSize::Bytes8, CONSUMER_POLL)
                 .unwrap()
                 .without_out_endpoint()
                 .build(),

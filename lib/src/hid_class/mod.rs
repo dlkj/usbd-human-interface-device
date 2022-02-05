@@ -6,7 +6,7 @@ use core::marker::PhantomData;
 use descriptor::*;
 use frunk::hlist::Selector;
 use frunk::{HCons, HNil};
-use interface::{Interface, InterfaceConfig};
+use interface::{Interface, InterfaceConfig, InterfaceHList};
 use log::{error, info, trace, warn};
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
@@ -35,21 +35,19 @@ pub enum HidRequest {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, PrimitiveEnum)]
 #[repr(u8)]
 pub enum UsbPacketSize {
-    Size8 = 8,
-    Size16 = 16,
-    Size32 = 32,
-    Size64 = 64,
+    Bytes8 = 8,
+    Bytes16 = 16,
+    Bytes32 = 32,
+    Bytes64 = 64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UsbHidBuilderError {
     ValueOverflow,
-    TooManyInterfaces,
-    NoInterfacesDefined,
 }
 
 #[must_use = "this `UsbHidClassBuilder` must be assigned or consumed by `::build()`"]
-#[derive(Clone)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct UsbHidClassBuilder<'a, InterfaceList: InterfaceConfigHList<'a>> {
     interface_list: InterfaceList,
     _marker: PhantomData<&'a Self>,
@@ -71,7 +69,7 @@ impl<'a> Default for UsbHidClassBuilder<'a, HNil> {
 }
 
 impl<'a, I: InterfaceConfigHList<'a>> UsbHidClassBuilder<'a, I> {
-    pub fn new_interface(
+    pub fn add_interface(
         self,
         interface_config: InterfaceConfig<'a>,
     ) -> UsbHidClassBuilder<'a, HCons<InterfaceConfig<'a>, I>> {
@@ -86,132 +84,61 @@ impl<'a, Tail: InterfaceConfigHList<'a>> UsbHidClassBuilder<'a, HCons<InterfaceC
     pub fn build<B: UsbBus>(
         self,
         usb_alloc: &'a UsbBusAllocator<B>,
-    ) -> UsbHidClass<HCons<Interface<'a, B>, Tail::Allocated>>
+    ) -> UsbHidClass<B, HCons<Interface<'a, B>, Tail::Allocated>>
     where
         Tail: UsbAllocatable<'a, B>,
     {
         UsbHidClass {
             interfaces: self.interface_list.allocate(usb_alloc),
+            _marker: Default::default(),
         }
     }
 }
 
 type BuilderResult<B> = core::result::Result<B, UsbHidBuilderError>;
 
-pub trait InterfaceHList<'a, B: UsbBus + 'a> {
-    fn get_id_mut(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a, B>>;
-    fn get_id(&self, id: u8) -> Option<&dyn InterfaceClass<'a, B>>;
-    fn reset(&mut self);
-    fn write_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()>;
-    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'static str>;
-}
-
-impl<'a, B: UsbBus + 'a> InterfaceHList<'a, B> for HNil {
-    #[inline(always)]
-    fn get_id_mut(&mut self, _: u8) -> Option<&mut dyn InterfaceClass<'a, B>> {
-        None
-    }
-    #[inline(always)]
-    fn get_id(&self, _: u8) -> Option<&dyn InterfaceClass<'a, B>> {
-        None
-    }
-    #[inline(always)]
-    fn reset(&mut self) {}
-    #[inline(always)]
-    fn write_descriptors(&self, _: &mut DescriptorWriter) -> Result<()> {
-        Ok(())
-    }
-    #[inline(always)]
-    fn get_string(&self, _: StringIndex, _: u16) -> Option<&'static str> {
-        None
-    }
-}
-
-impl<'a, B: UsbBus + 'a, Head: InterfaceClass<'a, B> + 'a, Tail: InterfaceHList<'a, B>>
-    InterfaceHList<'a, B> for HCons<Head, Tail>
-{
-    #[inline(always)]
-    fn get_id_mut(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a, B>> {
-        if id == u8::from(self.head.id()) {
-            Some(&mut self.head)
-        } else {
-            self.tail.get_id_mut(id)
-        }
-    }
-    #[inline(always)]
-    fn get_id(&self, id: u8) -> Option<&dyn InterfaceClass<'a, B>> {
-        if id == u8::from(self.head.id()) {
-            Some(&self.head)
-        } else {
-            self.tail.get_id(id)
-        }
-    }
-    #[inline(always)]
-    fn reset(&mut self) {
-        self.head.reset();
-        self.tail.reset();
-    }
-    #[inline(always)]
-    fn write_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
-        self.head.write_descriptors(writer)?;
-        self.tail.write_descriptors(writer)
-    }
-    #[inline(always)]
-    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'static str> {
-        let s = self.head.get_string(index, lang_id);
-        if s.is_some() {
-            s
-        } else {
-            self.tail.get_string(index, lang_id)
-        }
-    }
-}
-
 /// USB Human Interface Device class
-pub struct UsbHidClass<I> {
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct UsbHidClass<B, I> {
     interfaces: I,
+    _marker: PhantomData<B>,
 }
 
-impl<Head, Tail> UsbHidClass<HCons<Head, Tail>> {
+impl<'a, B, I: InterfaceHList<'a>> UsbHidClass<B, I> {
     pub fn interface<T, Index>(&self) -> &T
     where
-        HCons<Head, Tail>: Selector<T, Index>,
+        I: Selector<T, Index>,
     {
-        self.interfaces.get::<T, Index>()
+        self.interfaces.get()
     }
 }
 
-impl<I> UsbHidClass<I> {
-    pub fn get_descriptor<B: UsbBus>(&self, transfer: ControlIn<B>, report_descriptor: &[u8]) {
+impl<B: UsbBus, I> UsbHidClass<B, I> {
+    fn get_descriptor(transfer: ControlIn<B>, interface: &dyn InterfaceClass<'_>) {
         let request: &Request = transfer.request();
         match DescriptorType::from_primitive((request.value >> 8) as u8) {
-            Some(DescriptorType::Report) => match transfer.accept_with(report_descriptor) {
-                Err(e) => error!("Failed to send report descriptor - {:?}", e),
-                Ok(_) => {
-                    trace!("Sent report descriptor")
-                }
-            },
-            Some(DescriptorType::Hid) => match hid_descriptor(report_descriptor.len()) {
-                Err(e) => {
-                    error!("Failed to generate Hid descriptor - {:?}", e);
-                    //Stall, we can't make further progress without a valid descriptor
-                    transfer.reject().ok();
-                }
-                Ok(hid_descriptor) => {
-                    let mut buffer = [0; 9];
-                    buffer[0] = buffer.len() as u8;
-                    buffer[1] = DescriptorType::Hid as u8;
-                    (&mut buffer[2..]).copy_from_slice(&hid_descriptor);
-                    match transfer.accept_with(&buffer) {
-                        Err(e) => {
-                            error!("Failed to send Hid descriptor - {:?}", e);
-                        }
-                        Ok(_) => {
-                            trace!("Sent hid descriptor")
-                        }
+            Some(DescriptorType::Report) => {
+                match transfer.accept_with(interface.report_descriptor()) {
+                    Err(e) => error!("Failed to send report descriptor - {:?}", e),
+                    Ok(_) => {
+                        trace!("Sent report descriptor")
                     }
                 }
-            },
+            }
+            Some(DescriptorType::Hid) => {
+                let mut buffer = [0; 9];
+                buffer[0] = buffer.len() as u8;
+                buffer[1] = DescriptorType::Hid as u8;
+                (&mut buffer[2..]).copy_from_slice(&interface.hid_descriptor_body());
+                match transfer.accept_with(&buffer) {
+                    Err(e) => {
+                        error!("Failed to send Hid descriptor - {:?}", e);
+                    }
+                    Ok(_) => {
+                        trace!("Sent hid descriptor")
+                    }
+                }
+            }
             _ => {
                 warn!(
                     "Unsupported descriptor type, request type:{:X?}, request:{:X}, value:{:X}",
@@ -222,11 +149,10 @@ impl<I> UsbHidClass<I> {
     }
 }
 
-impl<'a, B, I> UsbClass<B> for UsbHidClass<I>
+impl<'a, B, I> UsbClass<B> for UsbHidClass<B, I>
 where
-    B: UsbBus + 'a,
-    I: InterfaceHList<'a, B> + 'a,
-    Self: 'a,
+    B: UsbBus,
+    I: InterfaceHList<'a>,
 {
     fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
         self.interfaces.write_descriptors(writer)?;
@@ -345,7 +271,7 @@ where
 
                 if request.request == Request::GET_DESCRIPTOR {
                     info!("Get descriptor");
-                    self.get_descriptor(transfer, interface.report_descriptor());
+                    Self::get_descriptor(transfer, interface);
                 }
             }
 

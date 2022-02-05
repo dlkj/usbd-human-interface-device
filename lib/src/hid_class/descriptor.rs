@@ -1,7 +1,4 @@
-use log::error;
 use packed_struct::prelude::*;
-use usb_device::class_prelude::*;
-use usb_device::Result;
 
 pub const USB_CLASS_HID: u8 = 0x03;
 pub const SPEC_VERSION_1_11: u16 = 0x0111; //1.11 in BCD
@@ -44,38 +41,4 @@ impl From<InterfaceProtocol> for InterfaceSubClass {
 pub enum HidProtocol {
     Boot = 0x00,
     Report = 0x01,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PackedStruct)]
-#[packed_struct(endian = "lsb", size_bytes = 7)]
-pub struct HidDescriptorBody {
-    bcd_hid: u16,
-    country_code: u8,
-    num_descriptors: u8,
-    #[packed_field(ty = "enum", size_bytes = "1")]
-    descriptor_type: DescriptorType,
-    descriptor_length: u16,
-}
-
-pub fn hid_descriptor(class_descriptor_len: usize) -> Result<[u8; 7]> {
-    if class_descriptor_len > u16::MAX as usize {
-        error!(
-            "Report descriptor length {:X} too long to fit in u16",
-            class_descriptor_len
-        );
-        Err(UsbError::InvalidState)
-    } else {
-        Ok(HidDescriptorBody {
-            bcd_hid: SPEC_VERSION_1_11,
-            country_code: COUNTRY_CODE_NOT_SUPPORTED,
-            num_descriptors: 1,
-            descriptor_type: DescriptorType::Report,
-            descriptor_length: class_descriptor_len as u16,
-        }
-        .pack()
-        .map_err(|e| {
-            error!("Failed to pack HidDescriptor {}", e);
-            UsbError::InvalidState
-        })?)
-    }
 }

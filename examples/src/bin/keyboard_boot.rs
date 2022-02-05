@@ -17,7 +17,6 @@ use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_hid_devices::device::keyboard::{new_boot_keyboard, BootKeyboardReport, KeyboardLeds};
-use usbd_hid_devices::hid_class::interface::RawInterface;
 use usbd_hid_devices::page::Keyboard;
 
 use usbd_hid_devices_example_rp2040::*;

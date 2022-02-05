@@ -10,17 +10,17 @@ use crate::page::Keyboard;
 
 /// Create a pre-configured [`crate::hid_class::UsbHidClassBuilder`] for a boot keyboard
 pub fn new_boot_keyboard<'a>() -> UsbHidClassBuilder<'a, HCons<InterfaceConfig<'a>, HNil>> {
-    UsbHidClassBuilder::new().new_interface(
-        UsbHidInterfaceBuilder::new(BOOT_KEYBOARD_REPORT_DESCRIPTOR)
+    UsbHidClassBuilder::new().add_interface(
+        InterfaceBuilder::new(BOOT_KEYBOARD_REPORT_DESCRIPTOR)
             .boot_device(InterfaceProtocol::Keyboard)
             .description("Keyboard")
             .idle_default(Milliseconds(500))
             .unwrap()
-            .in_endpoint(UsbPacketSize::Size8, Milliseconds(10))
+            .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(10))
             .unwrap()
             //.without_out_endpoint()
             //Shouldn't require a dedicated out endpoint, but leds are flaky without it
-            .with_out_endpoint(UsbPacketSize::Size8, Milliseconds(100))
+            .with_out_endpoint(UsbPacketSize::Bytes8, Milliseconds(100))
             .unwrap()
             .build(),
     )
