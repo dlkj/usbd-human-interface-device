@@ -24,6 +24,14 @@ pub struct InterfaceConfig<'a> {
     pub in_endpoint: EndpointConfig,
 }
 
+pub trait InterfaceConfigHList<'a> {}
+
+impl<'a> InterfaceConfigHList<'a> for HNil {}
+impl<'a, Tail: InterfaceConfigHList<'a>> InterfaceConfigHList<'a>
+    for HCons<InterfaceConfig<'a>, Tail>
+{
+}
+
 #[must_use = "this `UsbHidInterfaceBuilder` must be assigned or consumed by `::build_interface()`"]
 #[derive(Clone, Debug)]
 pub struct UsbHidInterfaceBuilder<'a> {
@@ -125,31 +133,45 @@ pub struct Interface<'a, B: UsbBus> {
     control_out_report_buffer: RefCell<Vec<u8, 64>>,
 }
 
-impl<'a, B: UsbBus> UsbAllocatable<'a, B, InterfaceConfig<'a>> for Interface<'a, B> {
-    fn allocate(usb_alloc: &'a UsbBusAllocator<B>, config: InterfaceConfig<'a>) -> Self {
+pub trait UsbAllocatable<'a, B: UsbBus> {
+    type Output;
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Output;
+}
+
+impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for InterfaceConfig<'a> {
+    type Output = Interface<'a, B>;
+
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Output {
         Interface {
-            config,
+            config: self,
             id: usb_alloc.interface(),
             in_endpoint: usb_alloc.interrupt(
-                config.in_endpoint.max_packet_size as u16,
-                config.in_endpoint.poll_interval,
+                self.in_endpoint.max_packet_size as u16,
+                self.in_endpoint.poll_interval,
             ),
-            out_endpoint: config
+            out_endpoint: self
                 .out_endpoint
                 .map(|c| usb_alloc.interrupt(c.max_packet_size as u16, c.poll_interval)),
-            description_index: config.description.map(|_| usb_alloc.string()),
+            description_index: self.description.map(|_| usb_alloc.string()),
             //When initialized, all devices default to report protocol - Hid spec 7.2.6 Set_Protocol Request
             protocol: HidProtocol::Report,
             report_idle: Default::default(),
-            global_idle: config.idle_default,
+            global_idle: self.idle_default,
             control_in_report_buffer: RefCell::new(Default::default()),
             control_out_report_buffer: RefCell::new(Default::default()),
         }
     }
 }
 
-pub trait UsbAllocatable<'a, B: UsbBus, C> {
-    fn allocate(usb_alloc: &'a UsbBusAllocator<B>, config: C) -> Self;
+impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for HCons<InterfaceConfig<'a>, HNil> {
+    type Output = HCons<Interface<'a, B>, HNil>;
+
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Output {
+        HCons {
+            head: self.head.allocate(usb_alloc),
+            tail: HNil,
+        }
+    }
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a, B> for Interface<'a, B> {

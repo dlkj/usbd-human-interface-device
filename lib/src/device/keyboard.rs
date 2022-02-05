@@ -1,6 +1,6 @@
 //!HID keyboards
 
-use crate::hid_class::interface::Interface;
+use crate::hid_class::interface::InterfaceConfig;
 use embedded_time::duration::Milliseconds;
 use frunk::{HCons, HNil};
 use packed_struct::prelude::*;
@@ -12,7 +12,7 @@ use crate::page::Keyboard;
 /// Create a pre-configured [`crate::hid_class::UsbHidClassBuilder`] for a boot keyboard
 pub fn new_boot_keyboard<B: usb_device::bus::UsbBus>(
     usb_alloc: &'_ UsbBusAllocator<B>,
-) -> UsbHidClassBuilder<'_, B, HCons<Interface<'_, B>, HNil>> {
+) -> UsbHidClassBuilder<'_, B, HCons<InterfaceConfig<'_>, HNil>> {
     UsbHidClassBuilder::new(usb_alloc)
         .new_interface(
             UsbHidInterfaceBuilder::new(BOOT_KEYBOARD_REPORT_DESCRIPTOR)
