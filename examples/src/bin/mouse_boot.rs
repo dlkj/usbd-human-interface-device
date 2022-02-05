@@ -81,9 +81,7 @@ fn main() -> ! {
         &mut pac.RESETS,
     ));
 
-    let mut mouse = usbd_hid_devices::device::mouse::new_boot_mouse(&usb_bus)
-        .build()
-        .unwrap();
+    let mut mouse = usbd_hid_devices::device::mouse::new_boot_mouse().build(&usb_bus);
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))

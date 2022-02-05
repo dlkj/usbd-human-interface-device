@@ -12,6 +12,7 @@ use embedded_hal::digital::v2::*;
 use embedded_hal::prelude::_embedded_hal_timer_CountDown;
 use embedded_time::duration::Milliseconds;
 use embedded_time::rate::Hertz;
+use frunk::indices::Here;
 use frunk::{HCons, HNil};
 use hal::pac;
 use hal::timer::CountDown;
@@ -26,7 +27,7 @@ use usbd_hid_devices::device::keyboard::{
     BootKeyboardReport, KeyboardLeds, BOOT_KEYBOARD_REPORT_DESCRIPTOR,
 };
 use usbd_hid_devices::device::mouse::{BootMouseReport, BOOT_MOUSE_REPORT_DESCRIPTOR};
-use usbd_hid_devices::hid_class::interface::{Interface, RawInterface};
+use usbd_hid_devices::hid_class::interface::Interface;
 use usbd_hid_devices::hid_class::prelude::*;
 use usbd_hid_devices::page::Consumer;
 use usbd_hid_devices::page::Keyboard;
@@ -35,7 +36,15 @@ use usbd_hid_devices_example_rp2040::*;
 
 type UsbDevices = (
     UsbDevice<'static, hal::usb::UsbBus>,
-    UsbHidClass<HCons<Interface<'static, hal::usb::UsbBus>, HNil>>,
+    UsbHidClass<
+        HCons<
+            Interface<'static, hal::usb::UsbBus>,
+            HCons<
+                Interface<'static, hal::usb::UsbBus>,
+                HCons<Interface<'static, hal::usb::UsbBus>, HNil>,
+            >,
+        >,
+    >,
 );
 
 static USB_DEVICES: Mutex<RefCell<Option<UsbDevices>>> = Mutex::new(RefCell::new(None));
@@ -131,7 +140,7 @@ fn main() -> ! {
         USB_ALLOC.as_ref().unwrap()
     };
 
-    let composite = UsbHidClassBuilder::new(usb_alloc)
+    let composite = UsbHidClassBuilder::new()
         //Boot Keyboard - interface 0
         .new_interface(
             UsbHidInterfaceBuilder::new(BOOT_KEYBOARD_REPORT_DESCRIPTOR)
@@ -145,7 +154,6 @@ fn main() -> ! {
                 .unwrap()
                 .build(),
         )
-        .unwrap()
         //Boot Mouse - interface 1
         .new_interface(
             UsbHidInterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR)
@@ -158,7 +166,6 @@ fn main() -> ! {
                 .without_out_endpoint()
                 .build(),
         )
-        .unwrap()
         //Consumer control - interface 2
         .new_interface(
             UsbHidInterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
@@ -170,10 +177,8 @@ fn main() -> ! {
                 .without_out_endpoint()
                 .build(),
         )
-        .unwrap()
         //Build
-        .build()
-        .unwrap();
+        .build(usb_alloc);
 
     //https://pid.codes
     let usb_dev = UsbDeviceBuilder::new(usb_alloc, UsbVidPid(0x1209, 0x0001))
@@ -338,14 +343,15 @@ fn USBCTRL_IRQ() {
     if let Some((ref mut usb_device, ref mut composite)) = IRQ_USB_DEVICES {
         if usb_device.poll(&mut [composite]) {
             let mut buf = [1];
-            match composite.interface().read_report(&mut buf) {
+            let keyboard: &Interface<'_, _> = composite.interface::<_, Here>();
+            match keyboard.read_report(&mut buf) {
                 Err(UsbError::WouldBlock) => {}
                 Err(e) => {
                     panic!("Failed to read keyboard report: {:?}", e)
                 }
                 Ok(_) => {
                     let leds = KeyboardLeds::unpack(&buf).expect("Failed to unpack Keyboard Leds");
-                    let idle = composite.interface().global_idle();
+                    let idle = keyboard.global_idle();
 
                     cortex_m::interrupt::free(|cs| {
                         KEYBOARD_STATUS
@@ -361,9 +367,8 @@ fn USBCTRL_IRQ() {
                 let keyboard_report = *KEYBOARD_REPORT.borrow(cs).borrow();
                 let report = keyboard_report;
                 if let Some(r) = report {
-                    match composite
-                        .interface()
-                        .write_report(&r.pack().expect("Failed to pack keyboard report"))
+                    let keyboard: &Interface<'_, _> = composite.interface::<_, Here>();
+                    match keyboard.write_report(&r.pack().expect("Failed to pack keyboard report"))
                     {
                         Err(UsbError::WouldBlock) => {}
                         Ok(_) => {
@@ -377,10 +382,8 @@ fn USBCTRL_IRQ() {
 
                 let mouse_report_ref = *MOUSE_REPORT.borrow(cs).borrow();
                 if let Some(r) = mouse_report_ref {
-                    match composite
-                        .interface()
-                        .write_report(&r.pack().expect("Failed to pack mouse report"))
-                    {
+                    let mouse: &Interface<'_, _> = composite.interface::<_, Here>();
+                    match mouse.write_report(&r.pack().expect("Failed to pack mouse report")) {
                         Err(UsbError::WouldBlock) => {}
                         Ok(_) => {
                             MOUSE_REPORT.borrow(cs).replace(None);
@@ -393,9 +396,8 @@ fn USBCTRL_IRQ() {
 
                 let consumer_report = *CONSUMER_REPORT.borrow(cs).borrow();
                 if let Some(r) = consumer_report {
-                    match composite
-                        .interface()
-                        .write_report(&r.pack().expect("Failed to pack consumer report"))
+                    let consumer: &Interface<'_, _> = composite.interface::<_, Here>();
+                    match consumer.write_report(&r.pack().expect("Failed to pack consumer report"))
                     {
                         Err(UsbError::WouldBlock) => {}
                         Ok(_) => {

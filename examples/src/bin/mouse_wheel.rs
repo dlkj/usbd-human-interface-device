@@ -80,7 +80,7 @@ fn main() -> ! {
         &mut pac.RESETS,
     ));
 
-    let mut mouse = UsbHidClassBuilder::new(&usb_bus)
+    let mut mouse = UsbHidClassBuilder::new()
         .new_interface(
             UsbHidInterfaceBuilder::new(WHEEL_MOUSE_REPORT_DESCRIPTOR)
                 .boot_device(InterfaceProtocol::Mouse)
@@ -92,9 +92,7 @@ fn main() -> ! {
                 .without_out_endpoint()
                 .build(),
         )
-        .unwrap()
-        .build()
-        .unwrap();
+        .build(&usb_bus);
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))

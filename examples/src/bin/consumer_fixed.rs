@@ -82,7 +82,7 @@ fn main() -> ! {
         &mut pac.RESETS,
     ));
 
-    let mut consumer = UsbHidClassBuilder::new(&usb_bus)
+    let mut consumer = UsbHidClassBuilder::new()
         .new_interface(
             UsbHidInterfaceBuilder::new(
                 usbd_hid_devices::device::consumer::FIXED_FUNCTION_REPORT_DESCRIPTOR,
@@ -95,9 +95,7 @@ fn main() -> ! {
             .without_out_endpoint()
             .build(),
         )
-        .unwrap()
-        .build()
-        .unwrap();
+        .build(&usb_bus);
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))

@@ -3,7 +3,6 @@ use crate::hid_class::interface::InterfaceConfig;
 use embedded_time::duration::Milliseconds;
 use frunk::{HCons, HNil};
 use packed_struct::prelude::*;
-use usb_device::class_prelude::*;
 
 use crate::hid_class::prelude::*;
 

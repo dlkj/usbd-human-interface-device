@@ -83,9 +83,7 @@ fn main() -> ! {
         &mut pac.RESETS,
     ));
 
-    let mut consumer = usbd_hid_devices::device::consumer::new_consumer_control(&usb_bus)
-        .build()
-        .unwrap();
+    let mut consumer = usbd_hid_devices::device::consumer::new_consumer_control().build(&usb_bus);
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))

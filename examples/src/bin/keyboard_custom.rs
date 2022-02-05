@@ -124,7 +124,7 @@ fn main() -> ! {
         0xC0, //        End Collection
     ];
 
-    let mut keyboard = UsbHidClassBuilder::new(&usb_bus)
+    let mut keyboard = UsbHidClassBuilder::new()
         .new_interface(
             UsbHidInterfaceBuilder::new(LOGITECH_GAMING_KEYBOARD_REPORT_DESCRIPTOR)
                 .description("Custom Keyboard")
@@ -136,9 +136,7 @@ fn main() -> ! {
                 .unwrap()
                 .build(),
         )
-        .unwrap()
-        .build()
-        .unwrap();
+        .build(&usb_bus);
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))

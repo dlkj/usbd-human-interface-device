@@ -88,7 +88,7 @@ fn main() -> ! {
         &mut pac.RESETS,
     ));
 
-    let mut keyboard = UsbHidClassBuilder::new(&usb_bus)
+    let mut keyboard = UsbHidClassBuilder::new()
         .new_interface(
             UsbHidInterfaceBuilder::new(NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR)
                 .description("NKRO Keyboard")
@@ -101,9 +101,7 @@ fn main() -> ! {
                 .unwrap()
                 .build(),
         )
-        .unwrap()
-        .build()
-        .unwrap();
+        .build(&usb_bus);
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))

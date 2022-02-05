@@ -10,6 +10,7 @@ use embedded_hal::digital::v2::*;
 use embedded_hal::prelude::_embedded_hal_timer_CountDown;
 use embedded_time::duration::Milliseconds;
 use embedded_time::rate::Hertz;
+use frunk::indices::Here;
 use hal::pac;
 use hal::timer::CountDown;
 use hal::Clock;
@@ -22,6 +23,7 @@ use usbd_hid_devices::device::keyboard::{
     BootKeyboardReport, KeyboardLeds, BOOT_KEYBOARD_REPORT_DESCRIPTOR,
 };
 use usbd_hid_devices::device::mouse::{BootMouseReport, BOOT_MOUSE_REPORT_DESCRIPTOR};
+use usbd_hid_devices::hid_class::interface::Interface;
 
 use usbd_hid_devices::hid_class::prelude::*;
 use usbd_hid_devices::page::Consumer;
@@ -103,7 +105,7 @@ fn main() -> ! {
         USB_ALLOC.as_ref().unwrap()
     };
 
-    let mut composite = UsbHidClassBuilder::new(usb_alloc)
+    let mut composite = UsbHidClassBuilder::new()
         //Boot Keyboard - interface 0
         .new_interface(
             UsbHidInterfaceBuilder::new(BOOT_KEYBOARD_REPORT_DESCRIPTOR)
@@ -117,7 +119,6 @@ fn main() -> ! {
                 .unwrap()
                 .build(),
         )
-        .unwrap()
         //Boot Mouse - interface 1
         .new_interface(
             UsbHidInterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR)
@@ -130,7 +131,6 @@ fn main() -> ! {
                 .without_out_endpoint()
                 .build(),
         )
-        .unwrap()
         //Consumer control - interface 2
         .new_interface(
             UsbHidInterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
@@ -142,10 +142,8 @@ fn main() -> ! {
                 .without_out_endpoint()
                 .build(),
         )
-        .unwrap()
         //Build
-        .build()
-        .unwrap();
+        .build(usb_alloc);
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(usb_alloc, UsbVidPid(0x1209, 0x0001))
@@ -210,7 +208,8 @@ fn main() -> ! {
                 .map(|r| r != keyboard_report)
                 .unwrap_or(true)
             {
-                match composite.interface().write_report(
+                let keyboard: &Interface<'_, hal::usb::UsbBus> = composite.interface::<_, Here>();
+                match keyboard.write_report(
                     &keyboard_report
                         .pack()
                         .expect("Failed to pack keyboard report"),
@@ -218,7 +217,7 @@ fn main() -> ! {
                     Err(UsbError::WouldBlock) => {}
                     Ok(_) => {
                         last_keyboard_report = Some(keyboard_report);
-                        keyboard_idle = reset_idle(&timer, composite.interface().global_idle());
+                        keyboard_idle = reset_idle(&timer, keyboard.global_idle());
                     }
                     Err(e) => {
                         panic!("Failed to write keyboard report: {:?}", e)
@@ -231,9 +230,8 @@ fn main() -> ! {
                 || mouse_report.x != 0
                 || mouse_report.y != 0
             {
-                match composite
-                    .interface()
-                    .write_report(&mouse_report.pack().expect("Failed to pack mouse report"))
+                let mouse: &Interface<'_, hal::usb::UsbBus> = composite.interface::<_, Here>();
+                match mouse.write_report(&mouse_report.pack().expect("Failed to pack mouse report"))
                 {
                     Err(UsbError::WouldBlock) => {}
                     Ok(_) => {
@@ -259,7 +257,8 @@ fn main() -> ! {
             };
 
             if last_consumer_report != consumer_report {
-                match composite.interface().write_report(
+                let consumer: &Interface<'_, hal::usb::UsbBus> = composite.interface::<_, Here>();
+                match consumer.write_report(
                     &consumer_report
                         .pack()
                         .expect("Failed to pack consumer report"),
@@ -277,7 +276,8 @@ fn main() -> ! {
 
         if usb_dev.poll(&mut [&mut composite]) {
             let mut buf = [1];
-            match composite.interface().read_report(&mut buf) {
+            let keyboard: &Interface<'_, hal::usb::UsbBus> = composite.interface::<_, Here>();
+            match keyboard.read_report(&mut buf) {
                 Err(UsbError::WouldBlock) => {}
                 Err(e) => {
                     panic!("Failed to read keyboard report: {:?}", e)

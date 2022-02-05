@@ -85,7 +85,7 @@ fn main() -> ! {
         &mut pac.RESETS,
     ));
 
-    let mut keyboard = new_boot_keyboard(&usb_bus).build().unwrap();
+    let mut keyboard = new_boot_keyboard().build(&usb_bus);
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))

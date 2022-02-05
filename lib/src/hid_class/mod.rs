@@ -1,8 +1,10 @@
 //! Abstract Human Interface Device Class for implementing any HID compliant device
 
 use crate::hid_class::interface::{InterfaceClass, InterfaceConfigHList, UsbAllocatable};
+use core::default::Default;
+use core::marker::PhantomData;
 use descriptor::*;
-use frunk::hlist::{HList, Selector};
+use frunk::hlist::Selector;
 use frunk::{HCons, HNil};
 use interface::{Interface, InterfaceConfig};
 use log::{error, info, trace, warn};
@@ -50,12 +52,14 @@ pub enum UsbHidBuilderError {
 #[derive(Clone)]
 pub struct UsbHidClassBuilder<'a, InterfaceList: InterfaceConfigHList<'a>> {
     interface_list: InterfaceList,
+    _marker: PhantomData<&'a Self>,
 }
 
 impl<'a> UsbHidClassBuilder<'a, HNil> {
     pub fn new() -> Self {
         Self {
             interface_list: HNil,
+            _marker: Default::default(),
         }
     }
 }
@@ -66,22 +70,26 @@ impl<'a> Default for UsbHidClassBuilder<'a, HNil> {
     }
 }
 
-impl<'a, I: HList> UsbHidClassBuilder<'a, I> {
+impl<'a, I: InterfaceConfigHList<'a>> UsbHidClassBuilder<'a, I> {
     pub fn new_interface(
         self,
         interface_config: InterfaceConfig<'a>,
     ) -> UsbHidClassBuilder<'a, HCons<InterfaceConfig<'a>, I>> {
         UsbHidClassBuilder {
             interface_list: self.interface_list.prepend(interface_config),
+            _marker: Default::default(),
         }
     }
 }
 
 impl<'a, Tail: InterfaceConfigHList<'a>> UsbHidClassBuilder<'a, HCons<InterfaceConfig<'a>, Tail>> {
-    pub fn build<B>(
+    pub fn build<B: UsbBus>(
         self,
-        &usb_alloc: UsbBusAllocator<B>,
-    ) -> UsbHidClass<HCons<Interface<'a, B>, Tail::Allocated>> {
+        usb_alloc: &'a UsbBusAllocator<B>,
+    ) -> UsbHidClass<HCons<Interface<'a, B>, Tail::Allocated>>
+    where
+        Tail: UsbAllocatable<'a, B>,
+    {
         UsbHidClass {
             interfaces: self.interface_list.allocate(usb_alloc),
         }
