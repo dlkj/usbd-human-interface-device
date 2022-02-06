@@ -69,10 +69,15 @@ impl<'a> Default for UsbHidClassBuilder<'a, HNil> {
 }
 
 impl<'a, I: HList> UsbHidClassBuilder<'a, I> {
-    pub fn add_interface(
+    pub fn add_interface<B, Conf, Class>(
         self,
-        interface_config: InterfaceConfig<'a>,
-    ) -> UsbHidClassBuilder<'a, HCons<InterfaceConfig<'a>, I>> {
+        interface_config: Conf,
+    ) -> UsbHidClassBuilder<'a, HCons<Conf, I>>
+    where
+        Conf: UsbAllocatable<'a, B, Allocated = Class>,
+        B: UsbBus,
+        Class: InterfaceClass<'a>,
+    {
         UsbHidClassBuilder {
             interface_list: self.interface_list.prepend(interface_config),
             _marker: Default::default(),

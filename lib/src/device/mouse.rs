@@ -1,12 +1,12 @@
 //!HID mice
 use crate::hid_class::descriptor::HidProtocol;
-use crate::hid_class::interface::{Interface, InterfaceClass, InterfaceConfig};
+use crate::hid_class::interface::{Interface, InterfaceClass, InterfaceConfig, UsbAllocatable};
 use delegate::delegate;
 use embedded_time::duration::Milliseconds;
 use frunk::{HCons, HNil};
 use log::error;
 use packed_struct::prelude::*;
-use usb_device::bus::{InterfaceNumber, StringIndex, UsbBus};
+use usb_device::bus::{InterfaceNumber, StringIndex, UsbBus, UsbBusAllocator};
 use usb_device::class_prelude::DescriptorWriter;
 use usb_device::Result;
 use usb_device::UsbError;
@@ -61,8 +61,8 @@ pub struct BootMouseReport {
 }
 
 /// Create a pre-configured [`crate::hid_class::UsbHidClassBuilder`] for a boot mouse
-pub fn new_boot_mouse<'a>() -> UsbHidClassBuilder<'a, HCons<InterfaceConfig<'a>, HNil>> {
-    UsbHidClassBuilder::new().add_interface(
+pub fn new_boot_mouse<'a>() -> UsbHidClassBuilder<'a, HCons<BootMouseInterfaceConfig<'a>, HNil>> {
+    UsbHidClassBuilder::new().add_interface(BootMouseInterfaceConfig::new(
         InterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR)
             .boot_device(InterfaceProtocol::Mouse)
             .description("Mouse")
@@ -72,7 +72,7 @@ pub fn new_boot_mouse<'a>() -> UsbHidClassBuilder<'a, HCons<InterfaceConfig<'a>,
             .unwrap()
             .without_out_endpoint()
             .build(),
-    )
+    ))
 }
 
 /// Boot compatible mouse with wheel, pan and eight buttons
@@ -165,5 +165,23 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for BootMouseInterface<'a, B> {
            fn set_protocol(&mut self, protocol: HidProtocol);
            fn get_protocol(&self) -> HidProtocol;
         }
+    }
+}
+
+pub struct BootMouseInterfaceConfig<'a> {
+    config: InterfaceConfig<'a>,
+}
+
+impl<'a> BootMouseInterfaceConfig<'a> {
+    pub fn new(config: InterfaceConfig<'a>) -> Self {
+        Self { config }
+    }
+}
+
+impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for BootMouseInterfaceConfig<'a> {
+    type Allocated = BootMouseInterface<'a, B>;
+
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
+        BootMouseInterface::new(self.config.allocate(usb_alloc))
     }
 }

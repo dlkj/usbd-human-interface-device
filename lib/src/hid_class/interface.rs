@@ -14,6 +14,7 @@ pub struct EndpointConfig {
     pub max_packet_size: UsbPacketSize,
 }
 
+//todo revisit lifetime for InterfaceConfig. Change to static?
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct InterfaceConfig<'a> {
     pub report_descriptor: &'a [u8],
