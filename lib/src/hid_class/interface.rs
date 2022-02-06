@@ -4,7 +4,6 @@ use core::cell::RefCell;
 use core::default::Default;
 use embedded_time::duration::Milliseconds;
 use embedded_time::fixed_point::FixedPoint;
-use frunk::hlist::HList;
 use heapless::Vec;
 use log::{error, trace, warn};
 use usb_device::UsbError;
@@ -23,14 +22,6 @@ pub struct InterfaceConfig<'a> {
     pub idle_default: u8,
     pub out_endpoint: Option<EndpointConfig>,
     pub in_endpoint: EndpointConfig,
-}
-
-pub trait InterfaceConfigHList<'a>: HList {}
-
-impl<'a> InterfaceConfigHList<'a> for HNil {}
-impl<'a, Tail: InterfaceConfigHList<'a>> InterfaceConfigHList<'a>
-    for HCons<InterfaceConfig<'a>, Tail>
-{
 }
 
 #[must_use = "this `UsbHidInterfaceBuilder` must be assigned or consumed by `::build_interface()`"]
