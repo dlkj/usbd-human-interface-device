@@ -1,9 +1,10 @@
 //!HID consumer control devices
 
-use crate::hid_class::interface::InterfaceConfig;
+use crate::hid_class::interface::RawInterfaceConfig;
 use embedded_time::duration::Milliseconds;
 use frunk::{HCons, HNil};
 use packed_struct::prelude::*;
+use usb_device::class_prelude::UsbBus;
 
 use crate::hid_class::prelude::*;
 use crate::page::Consumer;
@@ -109,7 +110,8 @@ pub const FIXED_FUNCTION_REPORT_DESCRIPTOR: &[u8] = &[
 ];
 
 /// Create a pre-configured [`crate::hid_class::UsbHidClassBuilder`] for a consumer control
-pub fn new_consumer_control<'a>() -> UsbHidClassBuilder<'a, HCons<InterfaceConfig<'a>, HNil>> {
+pub fn new_consumer_control<'a, B: UsbBus>(
+) -> UsbHidClassBuilder<'a, B, HCons<RawInterfaceConfig<'a>, HNil>> {
     UsbHidClassBuilder::new().add_interface(
         InterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
             .description("Consumer Control")

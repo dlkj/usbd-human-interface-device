@@ -1,12 +1,14 @@
 //!HID mice
 use crate::hid_class::descriptor::HidProtocol;
-use crate::hid_class::interface::{Interface, InterfaceClass, InterfaceConfig, UsbAllocatable};
+use crate::hid_class::interface::{
+    InterfaceClass, RawInterface, WrappedInterface, WrappedInterfaceConfig,
+};
+use core::default::Default;
 use delegate::delegate;
 use embedded_time::duration::Milliseconds;
-use frunk::{HCons, HNil};
 use log::error;
 use packed_struct::prelude::*;
-use usb_device::bus::{InterfaceNumber, StringIndex, UsbBus, UsbBusAllocator};
+use usb_device::bus::{InterfaceNumber, StringIndex, UsbBus};
 use usb_device::class_prelude::DescriptorWriter;
 use usb_device::Result;
 use usb_device::UsbError;
@@ -58,21 +60,6 @@ pub struct BootMouseReport {
     pub x: i8,
     #[packed_field]
     pub y: i8,
-}
-
-/// Create a pre-configured [`crate::hid_class::UsbHidClassBuilder`] for a boot mouse
-pub fn new_boot_mouse<'a>() -> UsbHidClassBuilder<'a, HCons<BootMouseInterfaceConfig<'a>, HNil>> {
-    UsbHidClassBuilder::new().add_interface(BootMouseInterfaceConfig::new(
-        InterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR)
-            .boot_device(InterfaceProtocol::Mouse)
-            .description("Mouse")
-            .idle_default(Milliseconds(0))
-            .unwrap()
-            .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(10))
-            .unwrap()
-            .without_out_endpoint()
-            .build(),
-    ))
 }
 
 /// Boot compatible mouse with wheel, pan and eight buttons
@@ -132,14 +119,10 @@ pub struct WheelMouseReport {
 }
 
 pub struct BootMouseInterface<'a, B: UsbBus> {
-    inner: Interface<'a, B>,
+    inner: RawInterface<'a, B>,
 }
 
 impl<'a, B: UsbBus> BootMouseInterface<'a, B> {
-    pub fn new(interface: Interface<'a, B>) -> Self {
-        Self { inner: interface }
-    }
-
     pub fn write_mouse_report(&self, report: BootMouseReport) -> usb_device::Result<usize> {
         let data = report.pack().map_err(|e| {
             error!("Error packing BootMouseReport: {:?}", e);
@@ -168,20 +151,23 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for BootMouseInterface<'a, B> {
     }
 }
 
-pub struct BootMouseInterfaceConfig<'a> {
-    config: InterfaceConfig<'a>,
-}
-
-impl<'a> BootMouseInterfaceConfig<'a> {
-    pub fn new(config: InterfaceConfig<'a>) -> Self {
-        Self { config }
+impl<'a, B: UsbBus> WrappedInterface<'a, B> for BootMouseInterface<'a, B> {
+    /// Create a pre-configured [`crate::hid_class::UsbHidClassBuilder`] for a boot mouse
+    fn default_config() -> WrappedInterfaceConfig<'a, Self> {
+        WrappedInterfaceConfig::new(
+            InterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR)
+                .boot_device(InterfaceProtocol::Mouse)
+                .description("Mouse")
+                .idle_default(Milliseconds(0))
+                .unwrap()
+                .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(10))
+                .unwrap()
+                .without_out_endpoint()
+                .build(),
+        )
     }
-}
 
-impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for BootMouseInterfaceConfig<'a> {
-    type Allocated = BootMouseInterface<'a, B>;
-
-    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
-        BootMouseInterface::new(self.config.allocate(usb_alloc))
+    fn new(interface: RawInterface<'a, B>) -> Self {
+        Self { inner: interface }
     }
 }

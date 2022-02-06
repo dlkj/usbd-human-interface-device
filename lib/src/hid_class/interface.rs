@@ -16,7 +16,7 @@ pub struct EndpointConfig {
 
 //todo revisit lifetime for InterfaceConfig. Change to static?
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct InterfaceConfig<'a> {
+pub struct RawInterfaceConfig<'a> {
     pub report_descriptor: &'a [u8],
     pub description: Option<&'static str>,
     pub protocol: InterfaceProtocol,
@@ -28,13 +28,13 @@ pub struct InterfaceConfig<'a> {
 #[must_use = "this `UsbHidInterfaceBuilder` must be assigned or consumed by `::build_interface()`"]
 #[derive(Clone, Debug)]
 pub struct InterfaceBuilder<'a> {
-    config: InterfaceConfig<'a>,
+    config: RawInterfaceConfig<'a>,
 }
 
 impl<'a> InterfaceBuilder<'a> {
     pub fn new(report_descriptor: &'a [u8]) -> Self {
         InterfaceBuilder {
-            config: InterfaceConfig {
+            config: RawInterfaceConfig {
                 report_descriptor,
                 description: None,
                 protocol: InterfaceProtocol::None,
@@ -108,7 +108,7 @@ impl<'a> InterfaceBuilder<'a> {
         Ok(self)
     }
 
-    pub fn build(self) -> InterfaceConfig<'a> {
+    pub fn build(self) -> RawInterfaceConfig<'a> {
         self.config
     }
 }
@@ -124,9 +124,9 @@ pub struct HidDescriptorBody {
     descriptor_length: u16,
 }
 
-pub struct Interface<'a, B: UsbBus> {
+pub struct RawInterface<'a, B: UsbBus> {
     id: InterfaceNumber,
-    config: InterfaceConfig<'a>,
+    config: RawInterfaceConfig<'a>,
     out_endpoint: Option<EndpointOut<'a, B>>,
     in_endpoint: EndpointIn<'a, B>,
     description_index: Option<StringIndex>,
@@ -142,11 +142,11 @@ pub trait UsbAllocatable<'a, B: UsbBus> {
     fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated;
 }
 
-impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for InterfaceConfig<'a> {
-    type Allocated = Interface<'a, B>;
+impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for RawInterfaceConfig<'a> {
+    type Allocated = RawInterface<'a, B>;
 
     fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
-        Interface {
+        RawInterface {
             config: self,
             id: usb_alloc.interface(),
             in_endpoint: usb_alloc.interrupt(
@@ -175,10 +175,13 @@ impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for HNil {
     }
 }
 
-impl<'a, B: UsbBus + 'a, Tail: UsbAllocatable<'a, B>> UsbAllocatable<'a, B>
-    for HCons<InterfaceConfig<'a>, Tail>
+impl<'a, B, C, Tail> UsbAllocatable<'a, B> for HCons<C, Tail>
+where
+    B: UsbBus + 'a,
+    C: UsbAllocatable<'a, B>,
+    Tail: UsbAllocatable<'a, B>,
 {
-    type Allocated = HCons<Interface<'a, B>, Tail::Allocated>;
+    type Allocated = HCons<C::Allocated, Tail::Allocated>;
 
     fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
         HCons {
@@ -188,7 +191,7 @@ impl<'a, B: UsbBus + 'a, Tail: UsbAllocatable<'a, B>> UsbAllocatable<'a, B>
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a> for Interface<'a, B> {
+impl<'a, B: UsbBus> InterfaceClass<'a> for RawInterface<'a, B> {
     fn report_descriptor(&self) -> &'a [u8] {
         self.config.report_descriptor
     }
@@ -353,7 +356,7 @@ pub trait InterfaceClass<'a> {
     }
 }
 
-impl<'a, B: UsbBus> Interface<'a, B> {
+impl<'a, B: UsbBus> RawInterface<'a, B> {
     pub fn protocol(&self) -> HidProtocol {
         self.protocol
     }
@@ -488,6 +491,35 @@ impl<'a, Head: InterfaceClass<'a> + 'a, Tail: InterfaceHList<'a>> InterfaceHList
             s
         } else {
             self.tail.get_string(index, lang_id)
+        }
+    }
+}
+
+pub trait WrappedInterface<'a, B: UsbBus>: Sized {
+    fn default_config() -> WrappedInterfaceConfig<'a, Self>;
+    fn new(interface: RawInterface<'a, B>) -> Self;
+}
+
+impl<'a, I: WrappedInterface<'a, B>, B: UsbBus + 'a> UsbAllocatable<'a, B>
+    for WrappedInterfaceConfig<'a, I>
+{
+    type Allocated = I;
+
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
+        I::new(self.config.allocate(usb_alloc))
+    }
+}
+
+pub struct WrappedInterfaceConfig<'a, I> {
+    config: RawInterfaceConfig<'a>,
+    interface: PhantomData<I>,
+}
+
+impl<'a, I> WrappedInterfaceConfig<'a, I> {
+    pub fn new(config: RawInterfaceConfig<'a>) -> Self {
+        Self {
+            config,
+            interface: Default::default(),
         }
     }
 }

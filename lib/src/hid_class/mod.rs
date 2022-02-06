@@ -6,7 +6,7 @@ use core::marker::PhantomData;
 use descriptor::*;
 use frunk::hlist::{HList, Selector};
 use frunk::{HCons, HNil};
-use interface::{Interface, InterfaceConfig, InterfaceHList};
+use interface::InterfaceHList;
 use log::{error, info, trace, warn};
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
@@ -48,12 +48,12 @@ pub enum UsbHidBuilderError {
 
 #[must_use = "this `UsbHidClassBuilder` must be assigned or consumed by `::build()`"]
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct UsbHidClassBuilder<'a, InterfaceList> {
+pub struct UsbHidClassBuilder<'a, B, InterfaceList> {
     interface_list: InterfaceList,
-    _marker: PhantomData<&'a Self>,
+    _marker: PhantomData<&'a B>,
 }
 
-impl<'a> UsbHidClassBuilder<'a, HNil> {
+impl<'a, B> UsbHidClassBuilder<'a, B, HNil> {
     pub fn new() -> Self {
         Self {
             interface_list: HNil,
@@ -62,20 +62,19 @@ impl<'a> UsbHidClassBuilder<'a, HNil> {
     }
 }
 
-impl<'a> Default for UsbHidClassBuilder<'a, HNil> {
+impl<'a, B> Default for UsbHidClassBuilder<'a, B, HNil> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'a, I: HList> UsbHidClassBuilder<'a, I> {
-    pub fn add_interface<B, Conf, Class>(
+impl<'a, B: UsbBus, I: HList> UsbHidClassBuilder<'a, B, I> {
+    pub fn add_interface<Conf, Class>(
         self,
         interface_config: Conf,
-    ) -> UsbHidClassBuilder<'a, HCons<Conf, I>>
+    ) -> UsbHidClassBuilder<'a, B, HCons<Conf, I>>
     where
         Conf: UsbAllocatable<'a, B, Allocated = Class>,
-        B: UsbBus,
         Class: InterfaceClass<'a>,
     {
         UsbHidClassBuilder {
@@ -85,14 +84,16 @@ impl<'a, I: HList> UsbHidClassBuilder<'a, I> {
     }
 }
 
-impl<'a, Tail: HList> UsbHidClassBuilder<'a, HCons<InterfaceConfig<'a>, Tail>> {
-    pub fn build<B: UsbBus>(
+impl<'a, B, C, Tail> UsbHidClassBuilder<'a, B, HCons<C, Tail>>
+where
+    B: UsbBus,
+    Tail: UsbAllocatable<'a, B>,
+    C: UsbAllocatable<'a, B>,
+{
+    pub fn build(
         self,
         usb_alloc: &'a UsbBusAllocator<B>,
-    ) -> UsbHidClass<B, HCons<Interface<'a, B>, Tail::Allocated>>
-    where
-        Tail: UsbAllocatable<'a, B>,
-    {
+    ) -> UsbHidClass<B, HCons<C::Allocated, Tail::Allocated>> {
         UsbHidClass {
             interfaces: self.interface_list.allocate(usb_alloc),
             _marker: Default::default(),

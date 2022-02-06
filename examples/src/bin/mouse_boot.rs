@@ -10,10 +10,10 @@ use embedded_time::rate::Hertz;
 use hal::pac;
 use hal::Clock;
 use log::*;
-use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_hid_devices::device::mouse::BootMouseReport;
+use usbd_hid_devices::hid_class::prelude::*;
 
 use usbd_hid_devices_example_rp2040::*;
 
@@ -80,7 +80,9 @@ fn main() -> ! {
         &mut pac.RESETS,
     ));
 
-    let mut mouse = usbd_hid_devices::device::mouse::new_boot_mouse().build(&usb_bus);
+    let mut mouse = UsbHidClassBuilder::new()
+        .add_interface(usbd_hid_devices::device::mouse::BootMouseInterface::default_config())
+        .build(&usb_bus);
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))
@@ -130,7 +132,7 @@ fn main() -> ! {
 
             //Only write a report if the mouse is moving or buttons change
             if report.buttons != last_buttons || report.x != 0 || report.y != 0 {
-                match mouse.interface().write_report(&report.pack().unwrap()) {
+                match mouse.interface().write_mouse_report(report) {
                     Err(UsbError::WouldBlock) => {}
                     Ok(_) => {
                         last_buttons = report.buttons;
