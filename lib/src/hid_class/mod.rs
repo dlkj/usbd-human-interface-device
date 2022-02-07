@@ -110,12 +110,16 @@ pub struct UsbHidClass<B, I> {
     _marker: PhantomData<B>,
 }
 
-impl<'a, B, I: InterfaceHList<'a>> UsbHidClass<B, I> {
+impl<'a, B, InterfaceList: InterfaceHList<'a>> UsbHidClass<B, InterfaceList> {
     pub fn interface<T, Index>(&self) -> &T
     where
-        I: Selector<T, Index>,
+        InterfaceList: Selector<T, Index>,
     {
         self.interfaces.get()
+    }
+
+    pub fn interfaces(&'a self) -> InterfaceList::Output {
+        self.interfaces.to_ref()
     }
 }
 

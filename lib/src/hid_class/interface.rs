@@ -4,6 +4,7 @@ use core::cell::RefCell;
 use core::default::Default;
 use embedded_time::duration::Milliseconds;
 use embedded_time::fixed_point::FixedPoint;
+use frunk::ToRef;
 use heapless::Vec;
 use log::{error, trace, warn};
 use usb_device::UsbError;
@@ -426,7 +427,7 @@ impl<'a, B: UsbBus> RawInterface<'a, B> {
     }
 }
 
-pub trait InterfaceHList<'a> {
+pub trait InterfaceHList<'a>: ToRef<'a> {
     fn get_id_mut(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a>>;
     fn get_id(&self, id: u8) -> Option<&dyn InterfaceClass<'a>>;
     fn reset(&mut self);
