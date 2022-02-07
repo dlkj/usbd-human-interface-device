@@ -13,10 +13,10 @@ use hal::pac;
 use hal::timer::CountDown;
 use hal::Clock;
 use log::*;
-use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_hid_devices::device::keyboard::{new_boot_keyboard, BootKeyboardReport, KeyboardLeds};
+use usbd_hid_devices::device::keyboard::BootKeyboardReport;
+use usbd_hid_devices::hid_class::prelude::*;
 use usbd_hid_devices::page::Keyboard;
 
 use usbd_hid_devices_example_rp2040::*;
@@ -84,7 +84,9 @@ fn main() -> ! {
         &mut pac.RESETS,
     ));
 
-    let mut keyboard = new_boot_keyboard().build(&usb_bus);
+    let mut keyboard = UsbHidClassBuilder::new()
+        .add_interface(usbd_hid_devices::device::keyboard::BootKeyboardInterface::default_config())
+        .build(&usb_bus);
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))
@@ -145,7 +147,7 @@ fn main() -> ! {
             if last_keys.map(|k| k != keys).unwrap_or(true) {
                 match keyboard
                     .interface()
-                    .write_report(&BootKeyboardReport::new(keys).pack().unwrap())
+                    .write_report(&BootKeyboardReport::new(keys))
                 {
                     Err(UsbError::WouldBlock) => {}
                     Ok(_) => {
@@ -160,19 +162,16 @@ fn main() -> ! {
         }
 
         if usb_dev.poll(&mut [&mut keyboard]) {
-            let data = &mut [0];
-            match keyboard.interface().read_report(data) {
+            match keyboard.interface().read_report() {
                 Err(UsbError::WouldBlock) => {
                     //do nothing
                 }
                 Err(e) => {
                     panic!("Failed to read keyboard report: {:?}", e)
                 }
-                Ok(_) => {
+                Ok(leds) => {
                     //send scroll lock to the led
-                    led_pin
-                        .set_state(PinState::from(KeyboardLeds::unpack(data).unwrap().num_lock))
-                        .ok();
+                    led_pin.set_state(PinState::from(leds.num_lock)).ok();
                 }
             }
         }

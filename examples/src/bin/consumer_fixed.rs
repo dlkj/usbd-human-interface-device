@@ -10,7 +10,6 @@ use embedded_time::rate::Hertz;
 use hal::pac;
 use hal::Clock;
 use log::*;
-use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_hid_devices::device::consumer::FixedFunctionReport;
@@ -84,19 +83,9 @@ fn main() -> ! {
 
     let mut consumer = UsbHidClassBuilder::new()
         .add_interface(
-            InterfaceBuilder::new(
-                usbd_hid_devices::device::consumer::FIXED_FUNCTION_REPORT_DESCRIPTOR,
-            )
-            .description("Consumer Control")
-            .idle_default(Milliseconds(0))
-            .unwrap()
-            .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(50))
-            .unwrap()
-            .without_out_endpoint()
-            .build(),
+            usbd_hid_devices::device::consumer::ConsumerControlFixedInterface::default_config(),
         )
         .build(&usb_bus);
-
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))
         .manufacturer("usbd-hid-devices")
@@ -141,7 +130,7 @@ fn main() -> ! {
         if input_count_down.wait().is_ok() {
             let report = get_report(keys);
             if report != last {
-                match consumer.interface().write_report(&report.pack().unwrap()) {
+                match consumer.interface().write_report(&report) {
                     Err(UsbError::WouldBlock) => {}
                     Ok(_) => {
                         last = report;

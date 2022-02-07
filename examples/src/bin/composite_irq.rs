@@ -24,7 +24,7 @@ use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_hid_devices::device::consumer::{MultipleConsumerReport, MULTIPLE_CODE_REPORT_DESCRIPTOR};
 use usbd_hid_devices::device::keyboard::{
-    BootKeyboardReport, KeyboardLeds, BOOT_KEYBOARD_REPORT_DESCRIPTOR,
+    BootKeyboardReport, KeyboardLedsReport, BOOT_KEYBOARD_REPORT_DESCRIPTOR,
 };
 use usbd_hid_devices::device::mouse::{BootMouseReport, BOOT_MOUSE_REPORT_DESCRIPTOR};
 use usbd_hid_devices::hid_class::interface::RawInterface;
@@ -53,9 +53,9 @@ static KEYBOARD_REPORT: Mutex<RefCell<Option<BootKeyboardReport>>> = Mutex::new(
 static MOUSE_REPORT: Mutex<RefCell<Option<BootMouseReport>>> = Mutex::new(RefCell::new(None));
 static CONSUMER_REPORT: Mutex<RefCell<Option<MultipleConsumerReport>>> =
     Mutex::new(RefCell::new(None));
-static KEYBOARD_STATUS: Mutex<RefCell<(KeyboardLeds, Milliseconds, UsbDeviceState)>> =
+static KEYBOARD_STATUS: Mutex<RefCell<(KeyboardLedsReport, Milliseconds, UsbDeviceState)>> =
     Mutex::new(RefCell::new((
-        KeyboardLeds {
+        KeyboardLedsReport {
             num_lock: false,
             caps_lock: false,
             scroll_lock: false,
@@ -351,7 +351,8 @@ fn USBCTRL_IRQ() {
                     panic!("Failed to read keyboard report: {:?}", e)
                 }
                 Ok(_) => {
-                    let leds = KeyboardLeds::unpack(&buf).expect("Failed to unpack Keyboard Leds");
+                    let leds =
+                        KeyboardLedsReport::unpack(&buf).expect("Failed to unpack Keyboard Leds");
                     let idle = keyboard.global_idle();
 
                     cortex_m::interrupt::free(|cs| {

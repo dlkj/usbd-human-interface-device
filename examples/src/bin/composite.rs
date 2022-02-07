@@ -20,7 +20,7 @@ use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_hid_devices::device::consumer::{MultipleConsumerReport, MULTIPLE_CODE_REPORT_DESCRIPTOR};
 use usbd_hid_devices::device::keyboard::{
-    BootKeyboardReport, KeyboardLeds, BOOT_KEYBOARD_REPORT_DESCRIPTOR,
+    BootKeyboardReport, KeyboardLedsReport, BOOT_KEYBOARD_REPORT_DESCRIPTOR,
 };
 use usbd_hid_devices::device::mouse::{BootMouseReport, BOOT_MOUSE_REPORT_DESCRIPTOR};
 use usbd_hid_devices::hid_class::interface::RawInterface;
@@ -208,7 +208,8 @@ fn main() -> ! {
                 .map(|r| r != keyboard_report)
                 .unwrap_or(true)
             {
-                let keyboard: &RawInterface<'_, hal::usb::UsbBus> = composite.interface::<_, Here>();
+                let keyboard: &RawInterface<'_, hal::usb::UsbBus> =
+                    composite.interface::<_, Here>();
                 match keyboard.write_report(
                     &keyboard_report
                         .pack()
@@ -257,7 +258,8 @@ fn main() -> ! {
             };
 
             if last_consumer_report != consumer_report {
-                let consumer: &RawInterface<'_, hal::usb::UsbBus> = composite.interface::<_, Here>();
+                let consumer: &RawInterface<'_, hal::usb::UsbBus> =
+                    composite.interface::<_, Here>();
                 match consumer.write_report(
                     &consumer_report
                         .pack()
@@ -283,7 +285,8 @@ fn main() -> ! {
                     panic!("Failed to read keyboard report: {:?}", e)
                 }
                 Ok(_) => {
-                    let leds = KeyboardLeds::unpack(&buf).expect("Failed to unpack Keyboard Leds");
+                    let leds =
+                        KeyboardLedsReport::unpack(&buf).expect("Failed to unpack Keyboard Leds");
                     led_pin.set_state(PinState::from(leds.num_lock)).ok();
                 }
             }

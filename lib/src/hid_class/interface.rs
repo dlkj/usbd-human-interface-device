@@ -497,6 +497,7 @@ impl<'a, Head: InterfaceClass<'a> + 'a, Tail: InterfaceHList<'a>> InterfaceHList
 }
 
 pub trait WrappedInterface<'a, B: UsbBus>: Sized {
+    /// Create a default configuration [`crate::hid_class::UsbHidClassBuilder`]
     fn default_config() -> WrappedInterfaceConfig<'a, Self>;
     fn new(interface: RawInterface<'a, B>) -> Self;
 }

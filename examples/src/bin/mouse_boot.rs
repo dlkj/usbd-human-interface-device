@@ -132,7 +132,7 @@ fn main() -> ! {
 
             //Only write a report if the mouse is moving or buttons change
             if report.buttons != last_buttons || report.x != 0 || report.y != 0 {
-                match mouse.interface().write_mouse_report(&report) {
+                match mouse.interface().write_report(&report) {
                     Err(UsbError::WouldBlock) => {}
                     Ok(_) => {
                         last_buttons = report.buttons;

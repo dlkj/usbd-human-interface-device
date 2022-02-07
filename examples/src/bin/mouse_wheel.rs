@@ -10,10 +10,9 @@ use embedded_time::rate::Hertz;
 use hal::pac;
 use hal::Clock;
 use log::*;
-use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_hid_devices::device::mouse::{WheelMouseReport, WHEEL_MOUSE_REPORT_DESCRIPTOR};
+use usbd_hid_devices::device::mouse::WheelMouseReport;
 use usbd_hid_devices::hid_class::prelude::*;
 use usbd_hid_devices_example_rp2040::*;
 
@@ -81,17 +80,7 @@ fn main() -> ! {
     ));
 
     let mut mouse = UsbHidClassBuilder::new()
-        .add_interface(
-            InterfaceBuilder::new(WHEEL_MOUSE_REPORT_DESCRIPTOR)
-                .boot_device(InterfaceProtocol::Mouse)
-                .description("Wheel Mouse")
-                .idle_default(Milliseconds(0))
-                .unwrap()
-                .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(10))
-                .unwrap()
-                .without_out_endpoint()
-                .build(),
-        )
+        .add_interface(usbd_hid_devices::device::mouse::WheelMouseInterface::default_config())
         .build(&usb_bus);
 
     //https://pid.codes
@@ -147,7 +136,7 @@ fn main() -> ! {
                 || report.vertical_wheel != 0
                 || report.horizontal_wheel != 0
             {
-                match mouse.interface().write_report(&report.pack().unwrap()) {
+                match mouse.interface().write_report(&report) {
                     Err(UsbError::WouldBlock) => {}
                     Ok(_) => {
                         last_buttons = report.buttons;

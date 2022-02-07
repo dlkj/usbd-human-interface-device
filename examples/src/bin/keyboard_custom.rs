@@ -16,7 +16,7 @@ use log::*;
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_hid_devices::device::keyboard::{BootKeyboardReport, KeyboardLeds};
+use usbd_hid_devices::device::keyboard::{BootKeyboardReport, KeyboardLedsReport};
 
 use usbd_hid_devices::hid_class::prelude::*;
 use usbd_hid_devices::page::Keyboard;
@@ -223,7 +223,9 @@ fn main() -> ! {
                 Ok(_) => {
                     //send scroll lock to the led
                     led_pin
-                        .set_state(PinState::from(KeyboardLeds::unpack(data).unwrap().num_lock))
+                        .set_state(PinState::from(
+                            KeyboardLedsReport::unpack(data).unwrap().num_lock,
+                        ))
                         .ok();
                 }
             }
