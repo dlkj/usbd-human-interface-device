@@ -23,7 +23,7 @@ use usbd_hid_devices::device::keyboard::{
     BootKeyboardReport, KeyboardLeds, BOOT_KEYBOARD_REPORT_DESCRIPTOR,
 };
 use usbd_hid_devices::device::mouse::{BootMouseReport, BOOT_MOUSE_REPORT_DESCRIPTOR};
-use usbd_hid_devices::hid_class::interface::Interface;
+use usbd_hid_devices::hid_class::interface::RawInterface;
 
 use usbd_hid_devices::hid_class::prelude::*;
 use usbd_hid_devices::page::Consumer;
@@ -208,7 +208,7 @@ fn main() -> ! {
                 .map(|r| r != keyboard_report)
                 .unwrap_or(true)
             {
-                let keyboard: &Interface<'_, hal::usb::UsbBus> = composite.interface::<_, Here>();
+                let keyboard: &RawInterface<'_, hal::usb::UsbBus> = composite.interface::<_, Here>();
                 match keyboard.write_report(
                     &keyboard_report
                         .pack()
@@ -230,7 +230,7 @@ fn main() -> ! {
                 || mouse_report.x != 0
                 || mouse_report.y != 0
             {
-                let mouse: &Interface<'_, hal::usb::UsbBus> = composite.interface::<_, Here>();
+                let mouse: &RawInterface<'_, hal::usb::UsbBus> = composite.interface::<_, Here>();
                 match mouse.write_report(&mouse_report.pack().expect("Failed to pack mouse report"))
                 {
                     Err(UsbError::WouldBlock) => {}
@@ -257,7 +257,7 @@ fn main() -> ! {
             };
 
             if last_consumer_report != consumer_report {
-                let consumer: &Interface<'_, hal::usb::UsbBus> = composite.interface::<_, Here>();
+                let consumer: &RawInterface<'_, hal::usb::UsbBus> = composite.interface::<_, Here>();
                 match consumer.write_report(
                     &consumer_report
                         .pack()
@@ -276,7 +276,7 @@ fn main() -> ! {
 
         if usb_dev.poll(&mut [&mut composite]) {
             let mut buf = [1];
-            let keyboard: &Interface<'_, hal::usb::UsbBus> = composite.interface::<_, Here>();
+            let keyboard: &RawInterface<'_, hal::usb::UsbBus> = composite.interface::<_, Here>();
             match keyboard.read_report(&mut buf) {
                 Err(UsbError::WouldBlock) => {}
                 Err(e) => {

@@ -27,7 +27,7 @@ use usbd_hid_devices::device::keyboard::{
     BootKeyboardReport, KeyboardLeds, BOOT_KEYBOARD_REPORT_DESCRIPTOR,
 };
 use usbd_hid_devices::device::mouse::{BootMouseReport, BOOT_MOUSE_REPORT_DESCRIPTOR};
-use usbd_hid_devices::hid_class::interface::Interface;
+use usbd_hid_devices::hid_class::interface::RawInterface;
 use usbd_hid_devices::hid_class::prelude::*;
 use usbd_hid_devices::page::Consumer;
 use usbd_hid_devices::page::Keyboard;
@@ -39,10 +39,10 @@ type UsbDevices = (
     UsbHidClass<
         hal::usb::UsbBus,
         HCons<
-            Interface<'static, hal::usb::UsbBus>,
+            RawInterface<'static, hal::usb::UsbBus>,
             HCons<
-                Interface<'static, hal::usb::UsbBus>,
-                HCons<Interface<'static, hal::usb::UsbBus>, HNil>,
+                RawInterface<'static, hal::usb::UsbBus>,
+                HCons<RawInterface<'static, hal::usb::UsbBus>, HNil>,
             >,
         >,
     >,
@@ -344,7 +344,7 @@ fn USBCTRL_IRQ() {
     if let Some((ref mut usb_device, ref mut composite)) = IRQ_USB_DEVICES {
         if usb_device.poll(&mut [composite]) {
             let mut buf = [1];
-            let keyboard: &Interface<'_, _> = composite.interface::<_, Here>();
+            let keyboard: &RawInterface<'_, _> = composite.interface::<_, Here>();
             match keyboard.read_report(&mut buf) {
                 Err(UsbError::WouldBlock) => {}
                 Err(e) => {
@@ -368,7 +368,7 @@ fn USBCTRL_IRQ() {
                 let keyboard_report = *KEYBOARD_REPORT.borrow(cs).borrow();
                 let report = keyboard_report;
                 if let Some(r) = report {
-                    let keyboard: &Interface<'_, _> = composite.interface::<_, Here>();
+                    let keyboard: &RawInterface<'_, _> = composite.interface::<_, Here>();
                     match keyboard.write_report(&r.pack().expect("Failed to pack keyboard report"))
                     {
                         Err(UsbError::WouldBlock) => {}
@@ -383,7 +383,7 @@ fn USBCTRL_IRQ() {
 
                 let mouse_report_ref = *MOUSE_REPORT.borrow(cs).borrow();
                 if let Some(r) = mouse_report_ref {
-                    let mouse: &Interface<'_, _> = composite.interface::<_, Here>();
+                    let mouse: &RawInterface<'_, _> = composite.interface::<_, Here>();
                     match mouse.write_report(&r.pack().expect("Failed to pack mouse report")) {
                         Err(UsbError::WouldBlock) => {}
                         Ok(_) => {
@@ -397,7 +397,7 @@ fn USBCTRL_IRQ() {
 
                 let consumer_report = *CONSUMER_REPORT.borrow(cs).borrow();
                 if let Some(r) = consumer_report {
-                    let consumer: &Interface<'_, _> = composite.interface::<_, Here>();
+                    let consumer: &RawInterface<'_, _> = composite.interface::<_, Here>();
                     match consumer.write_report(&r.pack().expect("Failed to pack consumer report"))
                     {
                         Err(UsbError::WouldBlock) => {}

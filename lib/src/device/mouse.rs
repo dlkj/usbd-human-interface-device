@@ -123,7 +123,7 @@ pub struct BootMouseInterface<'a, B: UsbBus> {
 }
 
 impl<'a, B: UsbBus> BootMouseInterface<'a, B> {
-    pub fn write_mouse_report(&self, report: BootMouseReport) -> usb_device::Result<usize> {
+    pub fn write_mouse_report(&self, report: &BootMouseReport) -> usb_device::Result<usize> {
         let data = report.pack().map_err(|e| {
             error!("Error packing BootMouseReport: {:?}", e);
             UsbError::ParseError

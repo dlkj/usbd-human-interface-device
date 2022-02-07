@@ -1,10 +1,12 @@
 //!HID consumer control devices
 
-use crate::hid_class::interface::RawInterfaceConfig;
+use crate::hid_class::interface::{InterfaceClass, RawInterface, WrappedInterfaceConfig};
+use delegate::delegate;
 use embedded_time::duration::Milliseconds;
-use frunk::{HCons, HNil};
+use log::error;
 use packed_struct::prelude::*;
-use usb_device::class_prelude::UsbBus;
+use usb_device::class_prelude::*;
+use usb_device::{Result, UsbError};
 
 use crate::hid_class::prelude::*;
 use crate::page::Consumer;
@@ -109,21 +111,6 @@ pub const FIXED_FUNCTION_REPORT_DESCRIPTOR: &[u8] = &[
     0xC0, //        End Collection
 ];
 
-/// Create a pre-configured [`crate::hid_class::UsbHidClassBuilder`] for a consumer control
-pub fn new_consumer_control<'a, B: UsbBus>(
-) -> UsbHidClassBuilder<'a, B, HCons<RawInterfaceConfig<'a>, HNil>> {
-    UsbHidClassBuilder::new().add_interface(
-        InterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
-            .description("Consumer Control")
-            .idle_default(Milliseconds(0))
-            .unwrap()
-            .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(50))
-            .unwrap()
-            .without_out_endpoint()
-            .build(),
-    )
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, PackedStruct)]
 #[packed_struct(endian = "lsb", bit_numbering = "lsb0", size_bytes = "1")]
 pub struct FixedFunctionReport {
@@ -141,4 +128,60 @@ pub struct FixedFunctionReport {
     pub volume_increment: bool,
     #[packed_field(bits = "6")]
     pub volume_decrement: bool,
+}
+
+pub struct ConsumerControlInterface<'a, B: UsbBus> {
+    inner: RawInterface<'a, B>,
+}
+
+impl<'a, B: UsbBus> ConsumerControlInterface<'a, B> {
+    pub fn write_consumer_report(
+        &self,
+        report: &MultipleConsumerReport,
+    ) -> usb_device::Result<usize> {
+        let data = report.pack().map_err(|e| {
+            error!("Error packing MultipleConsumerReport: {:?}", e);
+            UsbError::ParseError
+        })?;
+        self.inner.write_report(&data)
+    }
+}
+
+impl<'a, B: UsbBus> InterfaceClass<'a> for ConsumerControlInterface<'a, B> {
+    delegate! {
+        to self.inner{
+           fn report_descriptor(&self) -> &'a [u8];
+           fn id(&self) -> InterfaceNumber;
+           fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
+           fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'static str>;
+           fn reset(&mut self);
+           fn set_report(&mut self, data: &[u8]) -> Result<()>;
+           fn get_report(&mut self, data: &mut [u8]) -> Result<usize>;
+           fn get_report_ack(&mut self) -> Result<()>;
+           fn set_idle(&mut self, report_id: u8, value: u8);
+           fn get_idle(&self, report_id: u8) -> u8;
+           fn set_protocol(&mut self, protocol: HidProtocol);
+           fn get_protocol(&self) -> HidProtocol;
+        }
+    }
+}
+
+impl<'a, B: UsbBus> WrappedInterface<'a, B> for ConsumerControlInterface<'a, B> {
+    /// Create a pre-configured [`crate::hid_class::UsbHidClassBuilder`] for a boot mouse
+    fn default_config() -> WrappedInterfaceConfig<'a, Self> {
+        WrappedInterfaceConfig::new(
+            InterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
+                .description("Consumer Control")
+                .idle_default(Milliseconds(0))
+                .unwrap()
+                .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(50))
+                .unwrap()
+                .without_out_endpoint()
+                .build(),
+        )
+    }
+
+    fn new(interface: RawInterface<'a, B>) -> Self {
+        Self { inner: interface }
+    }
 }

@@ -9,4 +9,7 @@
 //! ```
 
 pub use super::interface::{InterfaceBuilder, WrappedInterface};
-pub use super::{descriptor::InterfaceProtocol, UsbHidClass, UsbHidClassBuilder, UsbPacketSize};
+pub use super::{
+    descriptor::HidProtocol, descriptor::InterfaceProtocol, UsbHidClass, UsbHidClassBuilder,
+    UsbPacketSize,
+};
