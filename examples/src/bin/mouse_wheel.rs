@@ -10,12 +10,10 @@ use embedded_time::rate::Hertz;
 use hal::pac;
 use hal::Clock;
 use log::*;
-use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_hid_devices::device::mouse::{WheelMouseReport, WHEEL_MOUSE_REPORT_DESCRIPTOR};
+use usbd_hid_devices::device::mouse::WheelMouseReport;
 use usbd_hid_devices::hid_class::prelude::*;
-
 use usbd_hid_devices_example_rp2040::*;
 
 #[entry]
@@ -69,8 +67,7 @@ fn main() -> ! {
 
     let button = pins.gpio0.into_pull_up_input();
 
-    init_display(oled_spi, oled_dc.into(), oled_cs.into());
-    check_for_persisted_panic(&button);
+    init_logger(oled_spi, oled_dc.into(), oled_cs.into(), &button);
     info!("Starting up...");
 
     //USB
@@ -82,19 +79,9 @@ fn main() -> ! {
         &mut pac.RESETS,
     ));
 
-    let mut mouse = UsbHidClassBuilder::new(&usb_bus)
-        .new_interface(WHEEL_MOUSE_REPORT_DESCRIPTOR)
-        .boot_device(InterfaceProtocol::Mouse)
-        .description("Wheel Mouse")
-        .idle_default(Milliseconds(0))
-        .unwrap()
-        .in_endpoint(UsbPacketSize::Size8, Milliseconds(10))
-        .unwrap()
-        .without_out_endpoint()
-        .build_interface()
-        .unwrap()
-        .build()
-        .unwrap();
+    let mut mouse = UsbHidClassBuilder::new()
+        .add_interface(usbd_hid_devices::device::mouse::WheelMouseInterface::default_config())
+        .build(&usb_bus);
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))
@@ -149,11 +136,7 @@ fn main() -> ! {
                 || report.vertical_wheel != 0
                 || report.horizontal_wheel != 0
             {
-                match mouse
-                    .get_interface_mut(0)
-                    .unwrap()
-                    .write_report(&report.pack().unwrap())
-                {
+                match mouse.interface().write_report(&report) {
                     Err(UsbError::WouldBlock) => {}
                     Ok(_) => {
                         last_buttons = report.buttons;

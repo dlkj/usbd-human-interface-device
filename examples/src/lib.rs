@@ -4,6 +4,8 @@
 
 use core::cell::{Cell, RefCell};
 
+use crate::hal::spi::Enabled;
+use crate::pac::SPI1;
 use adafruit_macropad::hal;
 use arrayvec::ArrayString;
 use cortex_m::interrupt::Mutex;
@@ -41,7 +43,17 @@ type DisplaySpiInt = SpiInterface<Spi<hal::spi::Enabled, pac::SPI1, 8_u8>, DynPi
 static OLED_DISPLAY: Mutex<RefCell<Option<GraphicsMode<DisplaySpiInt>>>> =
     Mutex::new(RefCell::new(None));
 
-pub fn check_for_persisted_panic(restart: &dyn InputPin<Error = core::convert::Infallible>) {
+pub fn init_logger<E>(
+    oled_spi: Spi<Enabled, SPI1, 8>,
+    oled_dc: DynPin,
+    oled_cs: DynPin,
+    button: &dyn InputPin<Error = E>,
+) {
+    init_display(oled_spi, oled_dc, oled_cs);
+    check_for_persisted_panic(button);
+}
+
+fn check_for_persisted_panic<E>(restart: &dyn InputPin<Error = E>) {
     if let Some(msg) = panic_persist::get_panic_message_utf8() {
         cortex_m::interrupt::free(|cs| {
             let mut display_ref = OLED_DISPLAY.borrow(cs).borrow_mut();
@@ -50,7 +62,7 @@ pub fn check_for_persisted_panic(restart: &dyn InputPin<Error = core::convert::I
             }
         });
 
-        while restart.is_high().unwrap() {
+        while restart.is_high().unwrap_or(false) {
             cortex_m::asm::nop()
         }
 
@@ -80,7 +92,7 @@ where
     Ok(())
 }
 
-pub fn init_display(spi: Spi<hal::spi::Enabled, pac::SPI1, 8_u8>, dc: DynPin, cs: DynPin) {
+fn init_display(spi: Spi<hal::spi::Enabled, pac::SPI1, 8_u8>, dc: DynPin, cs: DynPin) {
     let mut display: GraphicsMode<_> = sh1106::Builder::new().connect_spi(spi, dc, cs).into();
 
     display.init().unwrap();

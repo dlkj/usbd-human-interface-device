@@ -10,6 +10,7 @@ use embedded_hal::digital::v2::*;
 use embedded_hal::prelude::_embedded_hal_timer_CountDown;
 use embedded_time::duration::Milliseconds;
 use embedded_time::rate::Hertz;
+use frunk::indices::Here;
 use hal::pac;
 use hal::timer::CountDown;
 use hal::Clock;
@@ -19,13 +20,14 @@ use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_hid_devices::device::consumer::{MultipleConsumerReport, MULTIPLE_CODE_REPORT_DESCRIPTOR};
 use usbd_hid_devices::device::keyboard::{
-    BootKeyboardReport, KeyboardLeds, BOOT_KEYBOARD_REPORT_DESCRIPTOR,
+    BootKeyboardReport, KeyboardLedsReport, BOOT_KEYBOARD_REPORT_DESCRIPTOR,
 };
 use usbd_hid_devices::device::mouse::{BootMouseReport, BOOT_MOUSE_REPORT_DESCRIPTOR};
+use usbd_hid_devices::hid_class::interface::RawInterface;
+
 use usbd_hid_devices::hid_class::prelude::*;
 use usbd_hid_devices::page::Consumer;
 use usbd_hid_devices::page::Keyboard;
-
 use usbd_hid_devices_example_rp2040::*;
 
 const DEFAULT_KEYBOARD_IDLE: Milliseconds = Milliseconds(500);
@@ -85,8 +87,7 @@ fn main() -> ! {
 
     let button = pins.gpio0.into_pull_up_input();
 
-    init_display(oled_spi, oled_dc.into(), oled_cs.into());
-    check_for_persisted_panic(&button);
+    init_logger(oled_spi, oled_dc.into(), oled_cs.into(), &button);
     info!("Starting up...");
 
     //USB
@@ -104,43 +105,45 @@ fn main() -> ! {
         USB_ALLOC.as_ref().unwrap()
     };
 
-    let mut composite = UsbHidClassBuilder::new(usb_alloc)
+    let mut composite = UsbHidClassBuilder::new()
         //Boot Keyboard - interface 0
-        .new_interface(BOOT_KEYBOARD_REPORT_DESCRIPTOR)
-        .boot_device(InterfaceProtocol::Keyboard)
-        .description("Keyboard")
-        .idle_default(DEFAULT_KEYBOARD_IDLE)
-        .unwrap()
-        .in_endpoint(UsbPacketSize::Size8, KEYBOARD_MOUSE_POLL)
-        .unwrap()
-        .with_out_endpoint(UsbPacketSize::Size8, KEYBOARD_LED_POLL)
-        .unwrap()
-        .build_interface()
-        .unwrap()
+        .add_interface(
+            InterfaceBuilder::new(BOOT_KEYBOARD_REPORT_DESCRIPTOR)
+                .boot_device(InterfaceProtocol::Keyboard)
+                .description("Keyboard")
+                .idle_default(DEFAULT_KEYBOARD_IDLE)
+                .unwrap()
+                .in_endpoint(UsbPacketSize::Bytes8, KEYBOARD_MOUSE_POLL)
+                .unwrap()
+                .with_out_endpoint(UsbPacketSize::Bytes8, KEYBOARD_LED_POLL)
+                .unwrap()
+                .build(),
+        )
         //Boot Mouse - interface 1
-        .new_interface(BOOT_MOUSE_REPORT_DESCRIPTOR)
-        .boot_device(InterfaceProtocol::Mouse)
-        .description("Mouse")
-        .idle_default(Milliseconds(0))
-        .unwrap()
-        .in_endpoint(UsbPacketSize::Size8, KEYBOARD_MOUSE_POLL)
-        .unwrap()
-        .without_out_endpoint()
-        .build_interface()
-        .unwrap()
+        .add_interface(
+            InterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR)
+                .boot_device(InterfaceProtocol::Mouse)
+                .description("Mouse")
+                .idle_default(Milliseconds(0))
+                .unwrap()
+                .in_endpoint(UsbPacketSize::Bytes8, KEYBOARD_MOUSE_POLL)
+                .unwrap()
+                .without_out_endpoint()
+                .build(),
+        )
         //Consumer control - interface 2
-        .new_interface(MULTIPLE_CODE_REPORT_DESCRIPTOR)
-        .description("Consumer Control")
-        .idle_default(Milliseconds(0))
-        .unwrap()
-        .in_endpoint(UsbPacketSize::Size8, CONSUMER_POLL)
-        .unwrap()
-        .without_out_endpoint()
-        .build_interface()
-        .unwrap()
+        .add_interface(
+            InterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
+                .description("Consumer Control")
+                .idle_default(Milliseconds(0))
+                .unwrap()
+                .in_endpoint(UsbPacketSize::Bytes8, CONSUMER_POLL)
+                .unwrap()
+                .without_out_endpoint()
+                .build(),
+        )
         //Build
-        .build()
-        .unwrap();
+        .build(usb_alloc);
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(usb_alloc, UsbVidPid(0x1209, 0x0001))
@@ -205,7 +208,9 @@ fn main() -> ! {
                 .map(|r| r != keyboard_report)
                 .unwrap_or(true)
             {
-                match composite.get_interface_mut(0).unwrap().write_report(
+                let keyboard: &RawInterface<'_, hal::usb::UsbBus> =
+                    composite.interface::<_, Here>();
+                match keyboard.write_report(
                     &keyboard_report
                         .pack()
                         .expect("Failed to pack keyboard report"),
@@ -213,8 +218,7 @@ fn main() -> ! {
                     Err(UsbError::WouldBlock) => {}
                     Ok(_) => {
                         last_keyboard_report = Some(keyboard_report);
-                        keyboard_idle =
-                            reset_idle(&timer, composite.get_interface(0).unwrap().global_idle());
+                        keyboard_idle = reset_idle(&timer, keyboard.global_idle());
                     }
                     Err(e) => {
                         panic!("Failed to write keyboard report: {:?}", e)
@@ -227,10 +231,8 @@ fn main() -> ! {
                 || mouse_report.x != 0
                 || mouse_report.y != 0
             {
-                match composite
-                    .get_interface_mut(1)
-                    .unwrap()
-                    .write_report(&mouse_report.pack().expect("Failed to pack mouse report"))
+                let mouse: &RawInterface<'_, hal::usb::UsbBus> = composite.interface::<_, Here>();
+                match mouse.write_report(&mouse_report.pack().expect("Failed to pack mouse report"))
                 {
                     Err(UsbError::WouldBlock) => {}
                     Ok(_) => {
@@ -256,7 +258,9 @@ fn main() -> ! {
             };
 
             if last_consumer_report != consumer_report {
-                match composite.get_interface_mut(2).unwrap().write_report(
+                let consumer: &RawInterface<'_, hal::usb::UsbBus> =
+                    composite.interface::<_, Here>();
+                match consumer.write_report(
                     &consumer_report
                         .pack()
                         .expect("Failed to pack consumer report"),
@@ -274,17 +278,15 @@ fn main() -> ! {
 
         if usb_dev.poll(&mut [&mut composite]) {
             let mut buf = [1];
-            match composite
-                .get_interface_mut(0)
-                .unwrap()
-                .read_report(&mut buf)
-            {
+            let keyboard: &RawInterface<'_, hal::usb::UsbBus> = composite.interface::<_, Here>();
+            match keyboard.read_report(&mut buf) {
                 Err(UsbError::WouldBlock) => {}
                 Err(e) => {
                     panic!("Failed to read keyboard report: {:?}", e)
                 }
                 Ok(_) => {
-                    let leds = KeyboardLeds::unpack(&buf).expect("Failed to unpack Keyboard Leds");
+                    let leds =
+                        KeyboardLedsReport::unpack(&buf).expect("Failed to unpack Keyboard Leds");
                     led_pin.set_state(PinState::from(leds.num_lock)).ok();
                 }
             }

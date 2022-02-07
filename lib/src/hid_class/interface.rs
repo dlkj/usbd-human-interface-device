@@ -1,7 +1,10 @@
 use crate::hid_class::descriptor::*;
 use crate::hid_class::*;
+use core::cell::RefCell;
+use core::default::Default;
 use embedded_time::duration::Milliseconds;
 use embedded_time::fixed_point::FixedPoint;
+use frunk::ToRef;
 use heapless::Vec;
 use log::{error, trace, warn};
 use usb_device::UsbError;
@@ -12,10 +15,11 @@ pub struct EndpointConfig {
     pub max_packet_size: UsbPacketSize,
 }
 
+//todo revisit lifetime for InterfaceConfig. Change to static?
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct InterfaceConfig<'a> {
+pub struct RawInterfaceConfig<'a> {
     pub report_descriptor: &'a [u8],
-    pub description: Option<&'a str>,
+    pub description: Option<&'static str>,
     pub protocol: InterfaceProtocol,
     pub idle_default: u8,
     pub out_endpoint: Option<EndpointConfig>,
@@ -24,26 +28,21 @@ pub struct InterfaceConfig<'a> {
 
 #[must_use = "this `UsbHidInterfaceBuilder` must be assigned or consumed by `::build_interface()`"]
 #[derive(Clone, Debug)]
-pub struct UsbHidInterfaceBuilder<'a, B: UsbBus> {
-    class_builder: UsbHidClassBuilder<'a, B>,
-    config: InterfaceConfig<'a>,
+pub struct InterfaceBuilder<'a> {
+    config: RawInterfaceConfig<'a>,
 }
 
-impl<'a, B: UsbBus> UsbHidInterfaceBuilder<'a, B> {
-    pub(super) fn new(
-        class_builder: UsbHidClassBuilder<'a, B>,
-        report_descriptor: &'a [u8],
-    ) -> Self {
-        UsbHidInterfaceBuilder {
-            class_builder,
-            config: InterfaceConfig {
+impl<'a> InterfaceBuilder<'a> {
+    pub fn new(report_descriptor: &'a [u8]) -> Self {
+        InterfaceBuilder {
+            config: RawInterfaceConfig {
                 report_descriptor,
                 description: None,
                 protocol: InterfaceProtocol::None,
                 idle_default: 0,
                 out_endpoint: None,
                 in_endpoint: EndpointConfig {
-                    max_packet_size: UsbPacketSize::Size8,
+                    max_packet_size: UsbPacketSize::Bytes8,
                     poll_interval: 20,
                 },
             },
@@ -74,7 +73,7 @@ impl<'a, B: UsbBus> UsbHidInterfaceBuilder<'a, B> {
         Ok(self)
     }
 
-    pub fn description(mut self, s: &'a str) -> Self {
+    pub fn description(mut self, s: &'static str) -> Self {
         self.config.description = Some(s);
         self
     }
@@ -110,131 +109,98 @@ impl<'a, B: UsbBus> UsbHidInterfaceBuilder<'a, B> {
         Ok(self)
     }
 
-    pub fn build_interface(mut self) -> BuilderResult<UsbHidClassBuilder<'a, B>> {
-        self.class_builder
-            .interfaces
-            .push(self.config)
-            .map_err(|_| UsbHidBuilderError::TooManyInterfaces)?;
-        Ok(self.class_builder)
+    pub fn build(self) -> RawInterfaceConfig<'a> {
+        self.config
     }
 }
 
-pub struct Interface<'a, B: UsbBus> {
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PackedStruct)]
+#[packed_struct(endian = "lsb", size_bytes = 7)]
+pub struct HidDescriptorBody {
+    bcd_hid: u16,
+    country_code: u8,
+    num_descriptors: u8,
+    #[packed_field(ty = "enum", size_bytes = "1")]
+    descriptor_type: DescriptorType,
+    descriptor_length: u16,
+}
+
+pub struct RawInterface<'a, B: UsbBus> {
     id: InterfaceNumber,
-    config: InterfaceConfig<'a>,
+    config: RawInterfaceConfig<'a>,
     out_endpoint: Option<EndpointOut<'a, B>>,
     in_endpoint: EndpointIn<'a, B>,
     description_index: Option<StringIndex>,
     protocol: HidProtocol,
     report_idle: heapless::FnvIndexMap<u8, u8, 32>,
     global_idle: u8,
-    control_in_report_buffer: Vec<u8, 64>,
-    control_out_report_buffer: Vec<u8, 64>,
+    control_in_report_buffer: RefCell<Vec<u8, 64>>,
+    control_out_report_buffer: RefCell<Vec<u8, 64>>,
 }
 
-impl<'a, B: UsbBus> Interface<'a, B> {
-    pub fn config(&self) -> &InterfaceConfig {
-        &self.config
-    }
+pub trait UsbAllocatable<'a, B: UsbBus> {
+    type Allocated;
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated;
 }
 
-impl<'a, B: UsbBus> Interface<'a, B> {
-    pub(super) fn new(config: InterfaceConfig<'a>, usb_alloc: &'a UsbBusAllocator<B>) -> Self {
-        Interface {
-            config,
+impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for RawInterfaceConfig<'a> {
+    type Allocated = RawInterface<'a, B>;
+
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
+        RawInterface {
+            config: self,
             id: usb_alloc.interface(),
             in_endpoint: usb_alloc.interrupt(
-                config.in_endpoint.max_packet_size as u16,
-                config.in_endpoint.poll_interval,
+                self.in_endpoint.max_packet_size as u16,
+                self.in_endpoint.poll_interval,
             ),
-            out_endpoint: config
+            out_endpoint: self
                 .out_endpoint
                 .map(|c| usb_alloc.interrupt(c.max_packet_size as u16, c.poll_interval)),
-            description_index: config.description.map(|_| usb_alloc.string()),
+            description_index: self.description.map(|_| usb_alloc.string()),
             //When initialized, all devices default to report protocol - Hid spec 7.2.6 Set_Protocol Request
             protocol: HidProtocol::Report,
             report_idle: Default::default(),
-            global_idle: config.idle_default,
-            control_in_report_buffer: Default::default(),
-            control_out_report_buffer: Default::default(),
+            global_idle: self.idle_default,
+            control_in_report_buffer: RefCell::new(Default::default()),
+            control_out_report_buffer: RefCell::new(Default::default()),
         }
     }
+}
 
-    pub fn protocol(&self) -> HidProtocol {
-        self.protocol
+impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for HNil {
+    type Allocated = HNil;
+
+    fn allocate(self, _: &'a UsbBusAllocator<B>) -> Self::Allocated {
+        self
+    }
+}
+
+impl<'a, B, C, Tail> UsbAllocatable<'a, B> for HCons<C, Tail>
+where
+    B: UsbBus + 'a,
+    C: UsbAllocatable<'a, B>,
+    Tail: UsbAllocatable<'a, B>,
+{
+    type Allocated = HCons<C::Allocated, Tail::Allocated>;
+
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
+        HCons {
+            head: self.head.allocate(usb_alloc),
+            tail: self.tail.allocate(usb_alloc),
+        }
+    }
+}
+
+impl<'a, B: UsbBus> InterfaceClass<'a> for RawInterface<'a, B> {
+    fn report_descriptor(&self) -> &'a [u8] {
+        self.config.report_descriptor
     }
 
-    pub fn id(&self) -> InterfaceNumber {
+    fn id(&self) -> InterfaceNumber {
         self.id
     }
-
-    pub fn global_idle(&self) -> Milliseconds {
-        Milliseconds((self.global_idle as u32) * 4)
-    }
-
-    pub fn report_idle(&self, report_id: u8) -> Option<Milliseconds> {
-        if report_id == 0 {
-            None
-        } else {
-            self.report_idle
-                .get(&report_id)
-                .map(|&i| Milliseconds((i as u32) * 4))
-        }
-    }
-
-    pub fn write_report(&mut self, data: &[u8]) -> usb_device::Result<usize> {
-        //Try to write report to the report buffer for the config endpoint
-        let control_result = if self.control_in_report_buffer.is_empty() {
-            match self.control_in_report_buffer.extend_from_slice(data) {
-                Ok(_) => Ok(data.len()),
-                Err(_) => Err(UsbError::BufferOverflow),
-            }
-        } else {
-            Err(UsbError::WouldBlock)
-        };
-
-        //Also try to write report to the in endpoint
-        let endpoint_result = self.in_endpoint.write(data);
-
-        match (control_result, endpoint_result) {
-            //OK if either succeeded
-            (_, Ok(n)) => Ok(n),
-            (Ok(n), _) => Ok(n),
-            //non-WouldBlock errors take preference
-            (Err(UsbError::WouldBlock), Err(e)) => Err(e),
-            (Err(e), Err(UsbError::WouldBlock)) => Err(e),
-            (_, Err(e)) => Err(e),
-        }
-    }
-
-    pub fn read_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize> {
-        //If there is an out endpoint, try to read from it first
-        let ep_result = if let Some(ep) = &self.out_endpoint {
-            ep.read(data)
-        } else {
-            Err(UsbError::WouldBlock)
-        };
-
-        match ep_result {
-            Err(UsbError::WouldBlock) => {
-                //If there wasn't data available from the in endpoint
-                //try the config endpoint report buffer
-                if self.control_out_report_buffer.is_empty() {
-                    Err(UsbError::WouldBlock)
-                } else if data.len() < self.control_out_report_buffer.len() {
-                    Err(UsbError::BufferOverflow)
-                } else {
-                    let n = self.control_out_report_buffer.len();
-                    data[..n].copy_from_slice(&self.control_out_report_buffer);
-                    self.control_out_report_buffer.clear();
-                    Ok(n)
-                }
-            }
-            _ => ep_result,
-        }
-    }
-
-    pub fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()> {
+    fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()> {
         writer.interface_alt(
             self.id,
             usb_device::device::DEFAULT_ALTERNATE_SETTING,
@@ -245,10 +211,7 @@ impl<'a, B: UsbBus> Interface<'a, B> {
         )?;
 
         //Hid descriptor
-        writer.write(
-            DescriptorType::Hid as u8,
-            &hid_descriptor(self.config.report_descriptor.len())?,
-        )?;
+        writer.write(DescriptorType::Hid as u8, &self.hid_descriptor_body())?;
 
         //Endpoint descriptors
         writer.endpoint(&self.in_endpoint)?;
@@ -258,65 +221,68 @@ impl<'a, B: UsbBus> Interface<'a, B> {
 
         Ok(())
     }
-
-    pub fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&str> {
+    fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'static str> {
         self.description_index
             .filter(|&i| i == index)
             .map(|_| self.config.description)
             .flatten()
     }
-
-    pub fn reset(&mut self) {
+    fn reset(&mut self) {
         self.protocol = HidProtocol::Report;
         self.global_idle = self.config.idle_default;
         self.report_idle.clear();
-        self.control_in_report_buffer.clear();
-        self.control_out_report_buffer.clear();
+        self.control_in_report_buffer.borrow_mut().clear();
+        self.control_out_report_buffer.borrow_mut().clear();
     }
-
-    pub fn set_report(&mut self, data: &[u8]) -> Result<()> {
-        if !self.control_out_report_buffer.is_empty() {
+    fn set_report(&mut self, data: &[u8]) -> Result<()> {
+        let mut out_buffer = self.control_out_report_buffer.borrow_mut();
+        if !out_buffer.is_empty() {
             trace!("Failed to set report, buffer not empty");
             Err(UsbError::WouldBlock)
         } else {
-            match self.control_out_report_buffer.extend_from_slice(data) {
+            match out_buffer.extend_from_slice(data) {
                 Err(_) => {
                     error!(
                     "Failed to set report, too large for buffer. Report size {:X}, expected <={:X}",
                     data.len(),
-                    &self.control_out_report_buffer.capacity()
+                    &out_buffer.capacity()
                 );
                     Err(UsbError::BufferOverflow)
                 }
                 Ok(_) => {
-                    trace!(
-                        "Set report, {:X} bytes",
-                        &self.control_out_report_buffer.len()
-                    );
+                    trace!("Set report, {:X} bytes", &out_buffer.len());
                     Ok(())
                 }
             }
         }
     }
 
-    pub fn get_report<F: FnOnce(&[u8]) -> Result<()>>(&mut self, send_data: F) {
-        if self.control_in_report_buffer.is_empty() {
-            trace!("GetReport - NAK - empty buffer");
+    fn get_report(&mut self, data: &mut [u8]) -> Result<usize> {
+        let in_buffer = self.control_in_report_buffer.borrow();
+        if in_buffer.is_empty() {
+            trace!("GetReport would block, empty buffer");
+            Err(UsbError::WouldBlock)
+        } else if data.len() < in_buffer.len() {
+            error!("GetReport failed, buffer too short");
+            Err(UsbError::BufferOverflow)
         } else {
-            match send_data(&self.control_in_report_buffer) {
-                Err(e) => error!("Failed to send report - {:?}", e),
-                Ok(()) => {
-                    trace!(
-                        "Sent report, {:X} bytes",
-                        self.control_in_report_buffer.len()
-                    );
-                    self.control_in_report_buffer.clear();
-                }
-            }
+            data[..in_buffer.len()].copy_from_slice(&in_buffer[..]);
+            Ok(in_buffer.len())
         }
     }
 
-    pub fn set_idle(&mut self, report_id: u8, value: u8) {
+    fn get_report_ack(&mut self) -> Result<()> {
+        let mut in_buffer = self.control_in_report_buffer.borrow_mut();
+        if in_buffer.is_empty() {
+            error!("GetReport ACK failed, empty buffer");
+            Err(UsbError::WouldBlock)
+        } else {
+            in_buffer.clear();
+            Ok(())
+        }
+    }
+
+    fn set_idle(&mut self, report_id: u8, value: u8) {
         if report_id == 0 {
             self.global_idle = value;
             //"If the lower byte of value is zero, then the idle rate applies to all
@@ -337,8 +303,7 @@ impl<'a, B: UsbBus> Interface<'a, B> {
             }
         }
     }
-
-    pub fn get_idle(&self, report_id: u8) -> u8 {
+    fn get_idle(&self, report_id: u8) -> u8 {
         if report_id == 0 {
             self.global_idle
         } else {
@@ -348,9 +313,215 @@ impl<'a, B: UsbBus> Interface<'a, B> {
                 .unwrap_or(&self.global_idle)
         }
     }
-
-    pub fn set_protocol(&mut self, protocol: HidProtocol) {
+    fn set_protocol(&mut self, protocol: HidProtocol) {
         self.protocol = protocol;
         info!("Set protocol to {:?}", protocol);
+    }
+
+    fn get_protocol(&self) -> HidProtocol {
+        self.protocol
+    }
+}
+
+pub trait InterfaceClass<'a> {
+    fn report_descriptor(&self) -> &'a [u8];
+    fn id(&self) -> InterfaceNumber;
+    fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
+    fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'static str>;
+    fn reset(&mut self);
+    fn set_report(&mut self, data: &[u8]) -> Result<()>;
+    fn get_report(&mut self, data: &mut [u8]) -> Result<usize>;
+    fn get_report_ack(&mut self) -> Result<()>;
+    fn set_idle(&mut self, report_id: u8, value: u8);
+    fn get_idle(&self, report_id: u8) -> u8;
+    fn set_protocol(&mut self, protocol: HidProtocol);
+    fn get_protocol(&self) -> HidProtocol;
+    fn hid_descriptor_body(&self) -> [u8; 7] {
+        let descriptor_len = self.report_descriptor().len();
+        if descriptor_len > u16::MAX as usize {
+            panic!(
+                "Report descriptor length {:X} too long to fit in u16",
+                descriptor_len
+            );
+        } else {
+            HidDescriptorBody {
+                bcd_hid: SPEC_VERSION_1_11,
+                country_code: COUNTRY_CODE_NOT_SUPPORTED,
+                num_descriptors: 1,
+                descriptor_type: DescriptorType::Report,
+                descriptor_length: descriptor_len as u16,
+            }
+            .pack()
+            .expect("Failed to pack HidDescriptor")
+        }
+    }
+}
+
+impl<'a, B: UsbBus> RawInterface<'a, B> {
+    pub fn protocol(&self) -> HidProtocol {
+        self.protocol
+    }
+    pub fn global_idle(&self) -> Milliseconds {
+        Milliseconds((self.global_idle as u32) * 4)
+    }
+    pub fn report_idle(&self, report_id: u8) -> Option<Milliseconds> {
+        if report_id == 0 {
+            None
+        } else {
+            self.report_idle
+                .get(&report_id)
+                .map(|&i| Milliseconds((i as u32) * 4))
+        }
+    }
+    pub fn write_report(&self, data: &[u8]) -> usb_device::Result<usize> {
+        //Try to write report to the report buffer for the config endpoint
+        let mut in_buffer = self.control_in_report_buffer.borrow_mut();
+        let control_result = if in_buffer.is_empty() {
+            match in_buffer.extend_from_slice(data) {
+                Ok(_) => Ok(data.len()),
+                Err(_) => Err(UsbError::BufferOverflow),
+            }
+        } else {
+            Err(UsbError::WouldBlock)
+        };
+
+        //Also try to write report to the in endpoint
+        let endpoint_result = self.in_endpoint.write(data);
+
+        match (control_result, endpoint_result) {
+            //OK if either succeeded
+            (_, Ok(n)) => Ok(n),
+            (Ok(n), _) => Ok(n),
+            //non-WouldBlock errors take preference
+            (Err(UsbError::WouldBlock), Err(e)) => Err(e),
+            (Err(e), Err(UsbError::WouldBlock)) => Err(e),
+            (_, Err(e)) => Err(e),
+        }
+    }
+    pub fn read_report(&self, data: &mut [u8]) -> usb_device::Result<usize> {
+        //If there is an out endpoint, try to read from it first
+        let ep_result = if let Some(ep) = &self.out_endpoint {
+            ep.read(data)
+        } else {
+            Err(UsbError::WouldBlock)
+        };
+
+        match ep_result {
+            Err(UsbError::WouldBlock) => {
+                //If there wasn't data available from the in endpoint
+                //try the config endpoint report buffer
+                let mut out_buffer = self.control_out_report_buffer.borrow_mut();
+                if out_buffer.is_empty() {
+                    Err(UsbError::WouldBlock)
+                } else if data.len() < out_buffer.len() {
+                    Err(UsbError::BufferOverflow)
+                } else {
+                    let n = out_buffer.len();
+                    data[..n].copy_from_slice(&out_buffer);
+                    out_buffer.clear();
+                    Ok(n)
+                }
+            }
+            _ => ep_result,
+        }
+    }
+}
+
+pub trait InterfaceHList<'a>: ToRef<'a> {
+    fn get_id_mut(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a>>;
+    fn get_id(&self, id: u8) -> Option<&dyn InterfaceClass<'a>>;
+    fn reset(&mut self);
+    fn write_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()>;
+    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'static str>;
+}
+
+impl<'a> InterfaceHList<'a> for HNil {
+    #[inline(always)]
+    fn get_id_mut(&mut self, _: u8) -> Option<&mut dyn InterfaceClass<'a>> {
+        None
+    }
+    #[inline(always)]
+    fn get_id(&self, _: u8) -> Option<&dyn InterfaceClass<'a>> {
+        None
+    }
+    #[inline(always)]
+    fn reset(&mut self) {}
+    #[inline(always)]
+    fn write_descriptors(&self, _: &mut DescriptorWriter) -> Result<()> {
+        Ok(())
+    }
+    #[inline(always)]
+    fn get_string(&self, _: StringIndex, _: u16) -> Option<&'static str> {
+        None
+    }
+}
+
+impl<'a, Head: InterfaceClass<'a> + 'a, Tail: InterfaceHList<'a>> InterfaceHList<'a>
+    for HCons<Head, Tail>
+{
+    #[inline(always)]
+    fn get_id_mut(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a>> {
+        if id == u8::from(self.head.id()) {
+            Some(&mut self.head)
+        } else {
+            self.tail.get_id_mut(id)
+        }
+    }
+    #[inline(always)]
+    fn get_id(&self, id: u8) -> Option<&dyn InterfaceClass<'a>> {
+        if id == u8::from(self.head.id()) {
+            Some(&self.head)
+        } else {
+            self.tail.get_id(id)
+        }
+    }
+    #[inline(always)]
+    fn reset(&mut self) {
+        self.head.reset();
+        self.tail.reset();
+    }
+    #[inline(always)]
+    fn write_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
+        self.head.write_descriptors(writer)?;
+        self.tail.write_descriptors(writer)
+    }
+    #[inline(always)]
+    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'static str> {
+        let s = self.head.get_string(index, lang_id);
+        if s.is_some() {
+            s
+        } else {
+            self.tail.get_string(index, lang_id)
+        }
+    }
+}
+
+pub trait WrappedInterface<'a, B: UsbBus>: Sized {
+    /// Create a default configuration [`crate::hid_class::UsbHidClassBuilder`]
+    fn default_config() -> WrappedInterfaceConfig<'a, Self>;
+    fn new(interface: RawInterface<'a, B>) -> Self;
+}
+
+impl<'a, I: WrappedInterface<'a, B>, B: UsbBus + 'a> UsbAllocatable<'a, B>
+    for WrappedInterfaceConfig<'a, I>
+{
+    type Allocated = I;
+
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
+        I::new(self.config.allocate(usb_alloc))
+    }
+}
+
+pub struct WrappedInterfaceConfig<'a, I> {
+    config: RawInterfaceConfig<'a>,
+    interface: PhantomData<I>,
+}
+
+impl<'a, I> WrappedInterfaceConfig<'a, I> {
+    pub fn new(config: RawInterfaceConfig<'a>) -> Self {
+        Self {
+            config,
+            interface: Default::default(),
+        }
     }
 }

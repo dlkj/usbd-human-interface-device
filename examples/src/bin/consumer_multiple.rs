@@ -10,10 +10,11 @@ use embedded_time::rate::Hertz;
 use hal::pac;
 use hal::Clock;
 use log::*;
-use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_hid_devices::device::consumer::MultipleConsumerReport;
+use usbd_hid_devices::hid_class::prelude::*;
+
 use usbd_hid_devices::page::Consumer;
 
 use usbd_hid_devices_example_rp2040::*;
@@ -69,8 +70,7 @@ fn main() -> ! {
 
     let button = pins.gpio0.into_pull_up_input();
 
-    init_display(oled_spi, oled_dc.into(), oled_cs.into());
-    check_for_persisted_panic(&button);
+    init_logger(oled_spi, oled_dc.into(), oled_cs.into(), &button);
     info!("Starting up...");
 
     //USB
@@ -82,9 +82,11 @@ fn main() -> ! {
         &mut pac.RESETS,
     ));
 
-    let mut consumer = usbd_hid_devices::device::consumer::new_consumer_control(&usb_bus)
-        .build()
-        .unwrap();
+    let mut consumer = UsbHidClassBuilder::new()
+        .add_interface(
+            usbd_hid_devices::device::consumer::ConsumerControlInterface::default_config(),
+        )
+        .build(&usb_bus);
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))
@@ -130,11 +132,7 @@ fn main() -> ! {
         if input_count_down.wait().is_ok() {
             let report = get_report(keys);
             if report != last {
-                match consumer
-                    .get_interface_mut(0)
-                    .unwrap()
-                    .write_report(&report.pack().unwrap())
-                {
+                match consumer.interface().write_report(&report) {
                     Err(UsbError::WouldBlock) => {}
                     Ok(_) => {
                         last = report;

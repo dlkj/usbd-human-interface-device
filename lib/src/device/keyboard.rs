@@ -1,35 +1,93 @@
 //!HID keyboards
 
+use crate::hid_class::interface::{InterfaceClass, RawInterface, WrappedInterfaceConfig};
+use delegate::delegate;
 use embedded_time::duration::Milliseconds;
+use log::error;
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
+use usb_device::Result;
+use usb_device::UsbError;
 
 use crate::hid_class::prelude::*;
 use crate::page::Keyboard;
 
-/// Create a pre-configured [`crate::hid_class::UsbHidClassBuilder`] for a boot keyboard
-pub fn new_boot_keyboard<B: usb_device::bus::UsbBus>(
-    usb_alloc: &'_ UsbBusAllocator<B>,
-) -> UsbHidClassBuilder<'_, B> {
-    UsbHidClassBuilder::new(usb_alloc)
-        .new_interface(BOOT_KEYBOARD_REPORT_DESCRIPTOR)
-        .boot_device(InterfaceProtocol::Keyboard)
-        .description("Keyboard")
-        .idle_default(Milliseconds(500))
-        .unwrap()
-        .in_endpoint(UsbPacketSize::Size8, Milliseconds(10))
-        .unwrap()
-        //.without_out_endpoint()
-        //Shouldn't require a dedicated out endpoint, but leds are flaky without it
-        .with_out_endpoint(UsbPacketSize::Size8, Milliseconds(100))
-        .unwrap()
-        .build_interface()
-        .unwrap()
+pub struct BootKeyboardInterface<'a, B: UsbBus> {
+    inner: RawInterface<'a, B>,
+}
+
+impl<'a, B: UsbBus> BootKeyboardInterface<'a, B> {
+    pub fn write_report(&self, report: &BootKeyboardReport) -> usb_device::Result<usize> {
+        let data = report.pack().map_err(|e| {
+            error!("Error packing BootKeyboardReport: {:?}", e);
+            UsbError::ParseError
+        })?;
+        self.inner.write_report(&data)
+    }
+
+    pub fn read_report(&self) -> usb_device::Result<KeyboardLedsReport> {
+        let data = &mut [0];
+        match self.inner.read_report(data) {
+            Err(e) => Err(e),
+            Ok(_) => match KeyboardLedsReport::unpack(data) {
+                Ok(r) => Ok(r),
+                Err(_) => Err(UsbError::ParseError),
+            },
+        }
+    }
+
+    delegate! {
+        to self.inner{
+            pub fn global_idle(&self) -> Milliseconds;
+        }
+    }
+}
+
+impl<'a, B: UsbBus> InterfaceClass<'a> for BootKeyboardInterface<'a, B> {
+    delegate! {
+        to self.inner{
+           fn report_descriptor(&self) -> &'a [u8];
+           fn id(&self) -> InterfaceNumber;
+           fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
+           fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'static str>;
+           fn reset(&mut self);
+           fn set_report(&mut self, data: &[u8]) -> Result<()>;
+           fn get_report(&mut self, data: &mut [u8]) -> Result<usize>;
+           fn get_report_ack(&mut self) -> Result<()>;
+           fn set_idle(&mut self, report_id: u8, value: u8);
+           fn get_idle(&self, report_id: u8) -> u8;
+           fn set_protocol(&mut self, protocol: HidProtocol);
+           fn get_protocol(&self) -> HidProtocol;
+        }
+    }
+}
+
+impl<'a, B: UsbBus> WrappedInterface<'a, B> for BootKeyboardInterface<'a, B> {
+    fn default_config() -> WrappedInterfaceConfig<'a, Self> {
+        WrappedInterfaceConfig::new(
+            InterfaceBuilder::new(BOOT_KEYBOARD_REPORT_DESCRIPTOR)
+                .boot_device(InterfaceProtocol::Keyboard)
+                .description("Keyboard")
+                .idle_default(Milliseconds(500))
+                .unwrap()
+                .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(10))
+                .unwrap()
+                //.without_out_endpoint()
+                //Shouldn't require a dedicated out endpoint, but leds are flaky without it
+                .with_out_endpoint(UsbPacketSize::Bytes8, Milliseconds(100))
+                .unwrap()
+                .build(),
+        )
+    }
+
+    fn new(interface: RawInterface<'a, B>) -> Self {
+        Self { inner: interface }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, PackedStruct)]
 #[packed_struct(endian = "lsb", bit_numbering = "lsb0", size_bytes = "1")]
-pub struct KeyboardLeds {
+pub struct KeyboardLedsReport {
     #[packed_field(bits = "0")]
     pub num_lock: bool,
     #[packed_field(bits = "1")]
@@ -327,6 +385,77 @@ impl NKROBootKeyboardReport {
     }
 }
 
+pub struct NKROBootKeyboardInterface<'a, B: UsbBus> {
+    inner: RawInterface<'a, B>,
+}
+
+impl<'a, B: UsbBus> NKROBootKeyboardInterface<'a, B> {
+    pub fn write_report(&self, report: &NKROBootKeyboardReport) -> usb_device::Result<usize> {
+        let data = report.pack().map_err(|e| {
+            error!("Error packing BootKeyboardReport: {:?}", e);
+            UsbError::ParseError
+        })?;
+        self.inner.write_report(&data)
+    }
+
+    pub fn read_report(&self) -> usb_device::Result<KeyboardLedsReport> {
+        let data = &mut [0];
+        match self.inner.read_report(data) {
+            Err(e) => Err(e),
+            Ok(_) => match KeyboardLedsReport::unpack(data) {
+                Ok(r) => Ok(r),
+                Err(_) => Err(UsbError::ParseError),
+            },
+        }
+    }
+
+    delegate! {
+        to self.inner{
+            pub fn global_idle(&self) -> Milliseconds;
+        }
+    }
+}
+
+impl<'a, B: UsbBus> InterfaceClass<'a> for NKROBootKeyboardInterface<'a, B> {
+    delegate! {
+        to self.inner{
+           fn report_descriptor(&self) -> &'a [u8];
+           fn id(&self) -> InterfaceNumber;
+           fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
+           fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'static str>;
+           fn reset(&mut self);
+           fn set_report(&mut self, data: &[u8]) -> Result<()>;
+           fn get_report(&mut self, data: &mut [u8]) -> Result<usize>;
+           fn get_report_ack(&mut self) -> Result<()>;
+           fn set_idle(&mut self, report_id: u8, value: u8);
+           fn get_idle(&self, report_id: u8) -> u8;
+           fn set_protocol(&mut self, protocol: HidProtocol);
+           fn get_protocol(&self) -> HidProtocol;
+        }
+    }
+}
+
+impl<'a, B: UsbBus> WrappedInterface<'a, B> for NKROBootKeyboardInterface<'a, B> {
+    fn default_config() -> WrappedInterfaceConfig<'a, Self> {
+        WrappedInterfaceConfig::new(
+            InterfaceBuilder::new(NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR)
+                .description("NKRO Keyboard")
+                .boot_device(InterfaceProtocol::Keyboard)
+                .idle_default(Milliseconds(500))
+                .unwrap()
+                .in_endpoint(UsbPacketSize::Bytes32, Milliseconds(10))
+                .unwrap()
+                .with_out_endpoint(UsbPacketSize::Bytes8, Milliseconds(100))
+                .unwrap()
+                .build(),
+        )
+    }
+
+    fn new(interface: RawInterface<'a, B>) -> Self {
+        Self { inner: interface }
+    }
+}
+
 //18 bytes - derived from https://learn.adafruit.com/custom-hid-devices-in-circuitpython/n-key-rollover-nkro-hid-device
 //First byte modifiers, 17 byte key bit array
 #[rustfmt::skip]
@@ -369,14 +498,14 @@ pub const NKRO_COMPACT_KEYBOARD_REPORT_DESCRIPTOR: &[u8] = &[
 mod test {
     use packed_struct::prelude::*;
 
-    use crate::device::keyboard::{BootKeyboardReport, KeyboardLeds};
+    use crate::device::keyboard::{BootKeyboardReport, KeyboardLedsReport};
     use crate::page::Keyboard;
 
     #[test]
     fn leds_num_lock() {
         assert_eq!(
-            KeyboardLeds::unpack(&[1]),
-            Ok(KeyboardLeds {
+            KeyboardLedsReport::unpack(&[1]),
+            Ok(KeyboardLedsReport {
                 num_lock: true,
                 caps_lock: false,
                 scroll_lock: false,
@@ -389,8 +518,8 @@ mod test {
     #[test]
     fn leds_caps_lock() {
         assert_eq!(
-            KeyboardLeds::unpack(&[2]),
-            Ok(KeyboardLeds {
+            KeyboardLedsReport::unpack(&[2]),
+            Ok(KeyboardLedsReport {
                 num_lock: false,
                 caps_lock: true,
                 scroll_lock: false,
@@ -400,7 +529,7 @@ mod test {
         );
 
         assert_eq!(
-            KeyboardLeds {
+            KeyboardLedsReport {
                 num_lock: false,
                 caps_lock: true,
                 scroll_lock: false,

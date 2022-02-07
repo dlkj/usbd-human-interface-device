@@ -13,10 +13,10 @@ use hal::pac;
 use hal::timer::CountDown;
 use hal::Clock;
 use log::*;
-use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_hid_devices::device::keyboard::{new_boot_keyboard, BootKeyboardReport, KeyboardLeds};
+use usbd_hid_devices::device::keyboard::BootKeyboardReport;
+use usbd_hid_devices::hid_class::prelude::*;
 use usbd_hid_devices::page::Keyboard;
 
 use usbd_hid_devices_example_rp2040::*;
@@ -72,8 +72,7 @@ fn main() -> ! {
 
     let button = pins.gpio0.into_pull_up_input();
 
-    init_display(oled_spi, oled_dc.into(), oled_cs.into());
-    check_for_persisted_panic(&button);
+    init_logger(oled_spi, oled_dc.into(), oled_cs.into(), &button);
     info!("Starting up...");
 
     //USB
@@ -85,7 +84,9 @@ fn main() -> ! {
         &mut pac.RESETS,
     ));
 
-    let mut keyboard = new_boot_keyboard(&usb_bus).build().unwrap();
+    let mut keyboard = UsbHidClassBuilder::new()
+        .add_interface(usbd_hid_devices::device::keyboard::BootKeyboardInterface::default_config())
+        .build(&usb_bus);
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))
@@ -120,8 +121,7 @@ fn main() -> ! {
     let mut input_count_down = timer.count_down();
     input_count_down.start(Milliseconds(10));
 
-    let mut idle_count_down =
-        reset_idle(&timer, keyboard.get_interface_mut(0).unwrap().global_idle());
+    let mut idle_count_down = reset_idle(&timer, keyboard.interface().global_idle());
 
     let mut display_poll = timer.count_down();
     display_poll.start(DISPLAY_POLL);
@@ -146,17 +146,13 @@ fn main() -> ! {
 
             if last_keys.map(|k| k != keys).unwrap_or(true) {
                 match keyboard
-                    .get_interface_mut(0)
-                    .unwrap()
-                    .write_report(&BootKeyboardReport::new(keys).pack().unwrap())
+                    .interface()
+                    .write_report(&BootKeyboardReport::new(keys))
                 {
                     Err(UsbError::WouldBlock) => {}
                     Ok(_) => {
                         last_keys = Some(keys);
-                        idle_count_down = reset_idle(
-                            &timer,
-                            keyboard.get_interface_mut(0).unwrap().global_idle(),
-                        );
+                        idle_count_down = reset_idle(&timer, keyboard.interface().global_idle());
                     }
                     Err(e) => {
                         panic!("Failed to write keyboard report: {:?}", e)
@@ -166,19 +162,16 @@ fn main() -> ! {
         }
 
         if usb_dev.poll(&mut [&mut keyboard]) {
-            let data = &mut [0];
-            match keyboard.get_interface_mut(0).unwrap().read_report(data) {
+            match keyboard.interface().read_report() {
                 Err(UsbError::WouldBlock) => {
                     //do nothing
                 }
                 Err(e) => {
                     panic!("Failed to read keyboard report: {:?}", e)
                 }
-                Ok(_) => {
+                Ok(leds) => {
                     //send scroll lock to the led
-                    led_pin
-                        .set_state(PinState::from(KeyboardLeds::unpack(data).unwrap().num_lock))
-                        .ok();
+                    led_pin.set_state(PinState::from(leds.num_lock)).ok();
                 }
             }
         }

@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::sync::Mutex;
 use std::vec::Vec;
 
+use crate::hid_class::prelude::InterfaceBuilder;
 use embedded_time::duration::Milliseconds;
 use embedded_time::fixed_point::FixedPoint;
 use env_logger::Env;
@@ -203,12 +204,9 @@ fn descriptor_ordering_satisfies_boot_spec() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClassBuilder::new(&usb_alloc)
-        .new_interface(&[])
-        .build_interface()
-        .unwrap()
-        .build()
-        .unwrap();
+    let mut hid = UsbHidClassBuilder::new()
+        .add_interface(InterfaceBuilder::new(&[]).build())
+        .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("usbd-hid-devices")
@@ -254,12 +252,9 @@ fn get_protocol_default_to_report() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClassBuilder::new(&usb_alloc)
-        .new_interface(&[])
-        .build_interface()
-        .unwrap()
-        .build()
-        .unwrap();
+    let mut hid = UsbHidClassBuilder::new()
+        .add_interface(InterfaceBuilder::new(&[]).build())
+        .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("usbd-hid-devices")
@@ -319,12 +314,9 @@ fn set_protocol() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClassBuilder::new(&usb_alloc)
-        .new_interface(&[])
-        .build_interface()
-        .unwrap()
-        .build()
-        .unwrap();
+    let mut hid = UsbHidClassBuilder::new()
+        .add_interface(InterfaceBuilder::new(&[]).build())
+        .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("usbd-hid-devices")
@@ -384,12 +376,9 @@ fn get_protocol_default_post_reset() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClassBuilder::new(&usb_alloc)
-        .new_interface(&[])
-        .build_interface()
-        .unwrap()
-        .build()
-        .unwrap();
+    let mut hid = UsbHidClassBuilder::new()
+        .add_interface(InterfaceBuilder::new(&[]).build())
+        .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("usbd-hid-devices")
@@ -442,14 +431,14 @@ fn get_global_idle_default() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClassBuilder::new(&usb_alloc)
-        .new_interface(&[])
-        .idle_default(IDLE_DEFAULT)
-        .unwrap()
-        .build_interface()
-        .unwrap()
-        .build()
-        .unwrap();
+    let mut hid = UsbHidClassBuilder::new()
+        .add_interface(
+            InterfaceBuilder::new(&[])
+                .idle_default(IDLE_DEFAULT)
+                .unwrap()
+                .build(),
+        )
+        .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("usbd-hid-devices")
@@ -511,14 +500,14 @@ fn set_global_idle() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClassBuilder::new(&usb_alloc)
-        .new_interface(&[])
-        .idle_default(IDLE_DEFAULT)
-        .unwrap()
-        .build_interface()
-        .unwrap()
-        .build()
-        .unwrap();
+    let mut hid = UsbHidClassBuilder::new()
+        .add_interface(
+            InterfaceBuilder::new(&[])
+                .idle_default(IDLE_DEFAULT)
+                .unwrap()
+                .build(),
+        )
+        .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("usbd-hid-devices")
@@ -581,14 +570,14 @@ fn get_global_idle_default_post_reset() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClassBuilder::new(&usb_alloc)
-        .new_interface(&[])
-        .idle_default(IDLE_DEFAULT)
-        .unwrap()
-        .build_interface()
-        .unwrap()
-        .build()
-        .unwrap();
+    let mut hid = UsbHidClassBuilder::new()
+        .add_interface(
+            InterfaceBuilder::new(&[])
+                .idle_default(IDLE_DEFAULT)
+                .unwrap()
+                .build(),
+        )
+        .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("usbd-hid-devices")
@@ -642,14 +631,14 @@ fn get_report_idle_default() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClassBuilder::new(&usb_alloc)
-        .new_interface(&[])
-        .idle_default(IDLE_DEFAULT)
-        .unwrap()
-        .build_interface()
-        .unwrap()
-        .build()
-        .unwrap();
+    let mut hid = UsbHidClassBuilder::new()
+        .add_interface(
+            InterfaceBuilder::new(&[])
+                .idle_default(IDLE_DEFAULT)
+                .unwrap()
+                .build(),
+        )
+        .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("usbd-hid-devices")
@@ -729,14 +718,14 @@ fn set_report_idle() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClassBuilder::new(&usb_alloc)
-        .new_interface(&[])
-        .idle_default(IDLE_DEFAULT)
-        .unwrap()
-        .build_interface()
-        .unwrap()
-        .build()
-        .unwrap();
+    let mut hid = UsbHidClassBuilder::new()
+        .add_interface(
+            InterfaceBuilder::new(&[])
+                .idle_default(IDLE_DEFAULT)
+                .unwrap()
+                .build(),
+        )
+        .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("usbd-hid-devices")
@@ -801,14 +790,14 @@ fn get_report_idle_default_post_reset() {
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
-    let mut hid = UsbHidClassBuilder::new(&usb_alloc)
-        .new_interface(&[])
-        .idle_default(IDLE_DEFAULT)
-        .unwrap()
-        .build_interface()
-        .unwrap()
-        .build()
-        .unwrap();
+    let mut hid = UsbHidClassBuilder::new()
+        .add_interface(
+            InterfaceBuilder::new(&[])
+                .idle_default(IDLE_DEFAULT)
+                .unwrap()
+                .build(),
+        )
+        .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
         .manufacturer("usbd-hid-devices")
