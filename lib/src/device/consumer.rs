@@ -142,6 +142,20 @@ impl<'a, B: UsbBus> ConsumerControlInterface<'a, B> {
         })?;
         self.inner.write_report(&data)
     }
+
+    pub fn default_config() -> WrappedInterfaceConfig<'a, Self> {
+        WrappedInterfaceConfig::new(
+            InterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
+                .description("Consumer Control")
+                .idle_default(Milliseconds(0))
+                .unwrap()
+                .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(50))
+                .unwrap()
+                .without_out_endpoint()
+                .build(),
+            (),
+        )
+    }
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a> for ConsumerControlInterface<'a, B> {
@@ -164,21 +178,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for ConsumerControlInterface<'a, B> {
 }
 
 impl<'a, B: UsbBus> WrappedInterface<'a, B> for ConsumerControlInterface<'a, B> {
-    /// Create a pre-configured [`crate::hid_class::UsbHidClassBuilder`] for a boot mouse
-    fn default_config() -> WrappedInterfaceConfig<'a, Self> {
-        WrappedInterfaceConfig::new(
-            InterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
-                .description("Consumer Control")
-                .idle_default(Milliseconds(0))
-                .unwrap()
-                .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(50))
-                .unwrap()
-                .without_out_endpoint()
-                .build(),
-        )
-    }
-
-    fn new(interface: RawInterface<'a, B>) -> Self {
+    fn new(interface: RawInterface<'a, B>, _: ()) -> Self {
         Self { inner: interface }
     }
 }
@@ -194,6 +194,20 @@ impl<'a, B: UsbBus> ConsumerControlFixedInterface<'a, B> {
             UsbError::ParseError
         })?;
         self.inner.write_report(&data)
+    }
+
+    pub fn default_config() -> WrappedInterfaceConfig<'a, Self> {
+        WrappedInterfaceConfig::new(
+            InterfaceBuilder::new(FIXED_FUNCTION_REPORT_DESCRIPTOR)
+                .description("Consumer Control")
+                .idle_default(Milliseconds(0))
+                .unwrap()
+                .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(50))
+                .unwrap()
+                .without_out_endpoint()
+                .build(),
+            (),
+        )
     }
 }
 
@@ -217,21 +231,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for ConsumerControlFixedInterface<'a, B> 
 }
 
 impl<'a, B: UsbBus> WrappedInterface<'a, B> for ConsumerControlFixedInterface<'a, B> {
-    /// Create a pre-configured [`crate::hid_class::UsbHidClassBuilder`] for a boot mouse
-    fn default_config() -> WrappedInterfaceConfig<'a, Self> {
-        WrappedInterfaceConfig::new(
-            InterfaceBuilder::new(FIXED_FUNCTION_REPORT_DESCRIPTOR)
-                .description("Consumer Control")
-                .idle_default(Milliseconds(0))
-                .unwrap()
-                .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(50))
-                .unwrap()
-                .without_out_endpoint()
-                .build(),
-        )
-    }
-
-    fn new(interface: RawInterface<'a, B>) -> Self {
+    fn new(interface: RawInterface<'a, B>, _: ()) -> Self {
         Self { inner: interface }
     }
 }

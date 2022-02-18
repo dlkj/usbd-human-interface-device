@@ -496,30 +496,30 @@ impl<'a, Head: InterfaceClass<'a> + 'a, Tail: InterfaceHList<'a>> InterfaceHList
     }
 }
 
-pub trait WrappedInterface<'a, B: UsbBus>: Sized {
-    /// Create a default configuration [`crate::hid_class::UsbHidClassBuilder`]
-    fn default_config() -> WrappedInterfaceConfig<'a, Self>;
-    fn new(interface: RawInterface<'a, B>) -> Self;
+pub trait WrappedInterface<'a, B: UsbBus, C = ()>: Sized {
+    fn new(interface: RawInterface<'a, B>, config: C) -> Self;
 }
 
-impl<'a, I: WrappedInterface<'a, B>, B: UsbBus + 'a> UsbAllocatable<'a, B>
-    for WrappedInterfaceConfig<'a, I>
+impl<'a, I: WrappedInterface<'a, B, C>, B: UsbBus + 'a, C> UsbAllocatable<'a, B>
+    for WrappedInterfaceConfig<'a, I, C>
 {
     type Allocated = I;
 
     fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
-        I::new(self.config.allocate(usb_alloc))
+        I::new(self.inner_config.allocate(usb_alloc), self.config)
     }
 }
 
-pub struct WrappedInterfaceConfig<'a, I> {
-    config: RawInterfaceConfig<'a>,
+pub struct WrappedInterfaceConfig<'a, I, C = ()> {
+    inner_config: RawInterfaceConfig<'a>,
+    config: C,
     interface: PhantomData<I>,
 }
 
-impl<'a, I> WrappedInterfaceConfig<'a, I> {
-    pub fn new(config: RawInterfaceConfig<'a>) -> Self {
+impl<'a, I, C> WrappedInterfaceConfig<'a, I, C> {
+    pub fn new(inner_config: RawInterfaceConfig<'a>, config: C) -> Self {
         Self {
+            inner_config,
             config,
             interface: Default::default(),
         }

@@ -130,6 +130,21 @@ impl<'a, B: UsbBus> BootMouseInterface<'a, B> {
         })?;
         self.inner.write_report(&data)
     }
+
+    pub fn default_config() -> WrappedInterfaceConfig<'a, Self> {
+        WrappedInterfaceConfig::new(
+            InterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR)
+                .boot_device(InterfaceProtocol::Mouse)
+                .description("Mouse")
+                .idle_default(Milliseconds(0))
+                .unwrap()
+                .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(10))
+                .unwrap()
+                .without_out_endpoint()
+                .build(),
+            (),
+        )
+    }
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a> for BootMouseInterface<'a, B> {
@@ -152,21 +167,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for BootMouseInterface<'a, B> {
 }
 
 impl<'a, B: UsbBus> WrappedInterface<'a, B> for BootMouseInterface<'a, B> {
-    fn default_config() -> WrappedInterfaceConfig<'a, Self> {
-        WrappedInterfaceConfig::new(
-            InterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR)
-                .boot_device(InterfaceProtocol::Mouse)
-                .description("Mouse")
-                .idle_default(Milliseconds(0))
-                .unwrap()
-                .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(10))
-                .unwrap()
-                .without_out_endpoint()
-                .build(),
-        )
-    }
-
-    fn new(interface: RawInterface<'a, B>) -> Self {
+    fn new(interface: RawInterface<'a, B>, _: ()) -> Self {
         Self { inner: interface }
     }
 }
@@ -181,6 +182,21 @@ impl<'a, B: UsbBus> WheelMouseInterface<'a, B> {
             UsbError::ParseError
         })?;
         self.inner.write_report(&data)
+    }
+
+    pub fn default_config() -> WrappedInterfaceConfig<'a, Self> {
+        WrappedInterfaceConfig::new(
+            InterfaceBuilder::new(WHEEL_MOUSE_REPORT_DESCRIPTOR)
+                .boot_device(InterfaceProtocol::Mouse)
+                .description("Wheel Mouse")
+                .idle_default(Milliseconds(0))
+                .unwrap()
+                .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(10))
+                .unwrap()
+                .without_out_endpoint()
+                .build(),
+            (),
+        )
     }
 }
 
@@ -204,21 +220,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for WheelMouseInterface<'a, B> {
 }
 
 impl<'a, B: UsbBus> WrappedInterface<'a, B> for WheelMouseInterface<'a, B> {
-    fn default_config() -> WrappedInterfaceConfig<'a, Self> {
-        WrappedInterfaceConfig::new(
-            InterfaceBuilder::new(WHEEL_MOUSE_REPORT_DESCRIPTOR)
-                .boot_device(InterfaceProtocol::Mouse)
-                .description("Wheel Mouse")
-                .idle_default(Milliseconds(0))
-                .unwrap()
-                .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(10))
-                .unwrap()
-                .without_out_endpoint()
-                .build(),
-        )
-    }
-
-    fn new(interface: RawInterface<'a, B>) -> Self {
+    fn new(interface: RawInterface<'a, B>, _: ()) -> Self {
         Self { inner: interface }
     }
 }
