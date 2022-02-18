@@ -3,6 +3,8 @@
 
 use core::convert::Infallible;
 
+use crate::hal::Timer;
+
 use adafruit_macropad::hal;
 use cortex_m_rt::entry;
 use embedded_hal::digital::v2::*;
@@ -14,15 +16,12 @@ use embedded_time::Instant;
 use hal::pac;
 use hal::Clock;
 use log::*;
-
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_hid_devices::device::keyboard::{NKROBootKeyboardReport, UsbHidError};
-
 use usbd_hid_devices::hid_class::prelude::*;
+use usbd_hid_devices::interface::managed::WrappedManagedInterface;
 use usbd_hid_devices::page::Keyboard;
-
-use crate::hal::Timer;
+use usbd_hid_devices::UsbHidError;
 use usbd_hid_devices_example_rp2040::*;
 
 struct TimerClock<'a> {
@@ -162,10 +161,7 @@ fn main() -> ! {
         if input_count_down.wait().is_ok() {
             let keys = get_keys(keys);
 
-            match keyboard
-                .interface()
-                .write_report(&NKROBootKeyboardReport::new(keys))
-            {
+            match keyboard.interface().write_keyboard_report(keys) {
                 Err(UsbHidError::WouldBlock) => {}
                 Err(UsbHidError::Duplicate) => {}
                 Ok(_) => {}

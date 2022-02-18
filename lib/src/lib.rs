@@ -8,6 +8,17 @@
 #[macro_use]
 extern crate std;
 
+use usb_device::UsbError;
+
 pub mod device;
 pub mod hid_class;
+pub mod interface;
 pub mod page;
+
+#[derive(Debug)]
+pub enum UsbHidError {
+    WouldBlock,
+    Duplicate,
+    UsbError(UsbError),
+    SerializationError,
+}

@@ -1,12 +1,12 @@
 //! Abstract Human Interface Device Class for implementing any HID compliant device
 
-use crate::hid_class::interface::{InterfaceClass, UsbAllocatable};
+use crate::interface::InterfaceHList;
+use crate::interface::{InterfaceClass, UsbAllocatable};
 use core::default::Default;
 use core::marker::PhantomData;
 use descriptor::*;
 use frunk::hlist::{HList, Selector};
 use frunk::{HCons, HNil};
-use interface::InterfaceHList;
 use log::{error, info, trace, warn};
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
@@ -16,7 +16,6 @@ use usb_device::control::RequestType;
 use usb_device::Result;
 
 pub mod descriptor;
-pub mod interface;
 pub mod prelude;
 #[cfg(test)]
 mod test;
@@ -101,7 +100,7 @@ where
     }
 }
 
-type BuilderResult<B> = core::result::Result<B, UsbHidBuilderError>;
+pub type BuilderResult<B> = core::result::Result<B, UsbHidBuilderError>;
 
 /// USB Human Interface Device class
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]

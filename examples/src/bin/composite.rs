@@ -23,8 +23,6 @@ use usbd_hid_devices::device::keyboard::{
     BootKeyboardReport, KeyboardLedsReport, BOOT_KEYBOARD_REPORT_DESCRIPTOR,
 };
 use usbd_hid_devices::device::mouse::{BootMouseReport, BOOT_MOUSE_REPORT_DESCRIPTOR};
-use usbd_hid_devices::hid_class::interface::RawInterface;
-
 use usbd_hid_devices::hid_class::prelude::*;
 use usbd_hid_devices::page::Consumer;
 use usbd_hid_devices::page::Keyboard;
@@ -108,7 +106,7 @@ fn main() -> ! {
     let mut composite = UsbHidClassBuilder::new()
         //Boot Keyboard - interface 0
         .add_interface(
-            InterfaceBuilder::new(BOOT_KEYBOARD_REPORT_DESCRIPTOR)
+            RawInterfaceBuilder::new(BOOT_KEYBOARD_REPORT_DESCRIPTOR)
                 .boot_device(InterfaceProtocol::Keyboard)
                 .description("Keyboard")
                 .idle_default(DEFAULT_KEYBOARD_IDLE)
@@ -121,7 +119,7 @@ fn main() -> ! {
         )
         //Boot Mouse - interface 1
         .add_interface(
-            InterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR)
+            RawInterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR)
                 .boot_device(InterfaceProtocol::Mouse)
                 .description("Mouse")
                 .idle_default(Milliseconds(0))
@@ -133,7 +131,7 @@ fn main() -> ! {
         )
         //Consumer control - interface 2
         .add_interface(
-            InterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
+            RawInterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
                 .description("Consumer Control")
                 .idle_default(Milliseconds(0))
                 .unwrap()

@@ -1,8 +1,5 @@
 //!HID mice
 use crate::hid_class::descriptor::HidProtocol;
-use crate::hid_class::interface::{
-    InterfaceClass, RawInterface, WrappedInterface, WrappedInterfaceConfig,
-};
 use core::default::Default;
 use delegate::delegate;
 use embedded_time::duration::Milliseconds;
@@ -14,6 +11,8 @@ use usb_device::Result;
 use usb_device::UsbError;
 
 use crate::hid_class::prelude::*;
+use crate::interface::raw::{RawInterface, WrappedRawInterface, WrappedRawInterfaceConfig};
+use crate::interface::InterfaceClass;
 
 /// HID Mouse report descriptor conforming to the Boot specification
 ///
@@ -131,9 +130,9 @@ impl<'a, B: UsbBus> BootMouseInterface<'a, B> {
         self.inner.write_report(&data)
     }
 
-    pub fn default_config() -> WrappedInterfaceConfig<'a, Self> {
-        WrappedInterfaceConfig::new(
-            InterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR)
+    pub fn default_config() -> WrappedRawInterfaceConfig<'a, Self> {
+        WrappedRawInterfaceConfig::new(
+            RawInterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR)
                 .boot_device(InterfaceProtocol::Mouse)
                 .description("Mouse")
                 .idle_default(Milliseconds(0))
@@ -166,7 +165,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for BootMouseInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> WrappedInterface<'a, B> for BootMouseInterface<'a, B> {
+impl<'a, B: UsbBus> WrappedRawInterface<'a, B> for BootMouseInterface<'a, B> {
     fn new(interface: RawInterface<'a, B>, _: ()) -> Self {
         Self { inner: interface }
     }
@@ -184,9 +183,9 @@ impl<'a, B: UsbBus> WheelMouseInterface<'a, B> {
         self.inner.write_report(&data)
     }
 
-    pub fn default_config() -> WrappedInterfaceConfig<'a, Self> {
-        WrappedInterfaceConfig::new(
-            InterfaceBuilder::new(WHEEL_MOUSE_REPORT_DESCRIPTOR)
+    pub fn default_config() -> WrappedRawInterfaceConfig<'a, Self> {
+        WrappedRawInterfaceConfig::new(
+            RawInterfaceBuilder::new(WHEEL_MOUSE_REPORT_DESCRIPTOR)
                 .boot_device(InterfaceProtocol::Mouse)
                 .description("Wheel Mouse")
                 .idle_default(Milliseconds(0))
@@ -219,7 +218,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for WheelMouseInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> WrappedInterface<'a, B> for WheelMouseInterface<'a, B> {
+impl<'a, B: UsbBus> WrappedRawInterface<'a, B> for WheelMouseInterface<'a, B> {
     fn new(interface: RawInterface<'a, B>, _: ()) -> Self {
         Self { inner: interface }
     }
