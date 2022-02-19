@@ -35,11 +35,11 @@ impl<'a> TimerClock<'a> {
 }
 
 impl<'a> embedded_time::clock::Clock for TimerClock<'a> {
-    type T = u64;
+    type T = u32;
     const SCALING_FACTOR: Fraction = Fraction::new(1, 16_000_000u32);
 
     fn try_now(&self) -> Result<Instant<Self>, Error> {
-        Ok(Instant::new(self.timer.get_counter()))
+        Ok(Instant::new(self.timer.get_counter_low()))
     }
 }
 

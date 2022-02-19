@@ -2,7 +2,7 @@
 
 use delegate::delegate;
 use embedded_time::duration::Milliseconds;
-use embedded_time::Clock;
+use embedded_time::{Clock, TimeInt};
 use log::error;
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
@@ -370,11 +370,17 @@ impl NKROBootKeyboardReport {
     }
 }
 
-pub struct NKROBootKeyboardInterface<'a, B: UsbBus, C: Clock<T = u64>> {
+pub struct NKROBootKeyboardInterface<'a, B: UsbBus, C: Clock> {
     inner: ManagedInterface<'a, B, C, NKROBootKeyboardReport>,
 }
 
-impl<'a, B: UsbBus, C: Clock<T = u64>> NKROBootKeyboardInterface<'a, B, C> {
+impl<'a, B, C, TICK> NKROBootKeyboardInterface<'a, B, C>
+where
+    B: UsbBus,
+    C: Clock<T = TICK>,
+    TICK: TimeInt,
+    u32: TryFrom<TICK>,
+{
     pub fn write_keyboard_report<K: IntoIterator<Item = Keyboard>>(
         &self,
         keys: K,
@@ -415,7 +421,13 @@ impl<'a, B: UsbBus, C: Clock<T = u64>> NKROBootKeyboardInterface<'a, B, C> {
     }
 }
 
-impl<'a, B: UsbBus, C: Clock<T = u64>> InterfaceClass<'a> for NKROBootKeyboardInterface<'a, B, C> {
+impl<'a, B, C, TICK> InterfaceClass<'a> for NKROBootKeyboardInterface<'a, B, C>
+where
+    B: UsbBus,
+    C: Clock<T = TICK>,
+    TICK: TimeInt,
+    u32: TryFrom<TICK>,
+{
     delegate! {
         to self.inner{
             fn report_descriptor(&self) -> &'a [u8];
@@ -434,8 +446,13 @@ impl<'a, B: UsbBus, C: Clock<T = u64>> InterfaceClass<'a> for NKROBootKeyboardIn
     }
 }
 
-impl<'a, B: UsbBus, C: Clock<T = u64>> WrappedManagedInterface<'a, B, C, NKROBootKeyboardReport>
+impl<'a, B, C, TICK> WrappedManagedInterface<'a, B, C, NKROBootKeyboardReport>
     for NKROBootKeyboardInterface<'a, B, C>
+where
+    B: UsbBus,
+    C: Clock<T = TICK>,
+    TICK: TimeInt,
+    u32: TryFrom<TICK>,
 {
     fn new(interface: ManagedInterface<'a, B, C, NKROBootKeyboardReport>, _: ()) -> Self {
         Self { inner: interface }
