@@ -22,3 +22,12 @@ pub enum UsbHidError {
     UsbError(UsbError),
     SerializationError,
 }
+
+impl From<UsbError> for UsbHidError {
+    fn from(e: UsbError) -> Self {
+        match e {
+            UsbError::WouldBlock => UsbHidError::WouldBlock,
+            _ => UsbHidError::UsbError(e),
+        }
+    }
+}

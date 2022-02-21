@@ -121,7 +121,7 @@ where
     TICK: TimeInt,
     u32: TryFrom<TICK>,
 {
-    pub fn write_report(&self, report: &R) -> Result<usize, UsbHidError> {
+    pub fn write_report(&self, report: &R) -> Result<(), UsbHidError> {
         if self.idle_manager.borrow().is_duplicate(report) {
             self.tick()?;
             Err(UsbHidError::Duplicate)
@@ -130,14 +130,13 @@ where
                 error!("Error packing BootKeyboardReport: {:?}", e);
                 UsbHidError::SerializationError
             })?;
-            match self.inner.write_report(&data) {
-                Ok(n) => {
+
+            self.inner
+                .write_report(&data)
+                .map_err(UsbHidError::from)
+                .map(|_| {
                     self.idle_manager.borrow_mut().report_written(*report);
-                    Ok(n)
-                }
-                Err(UsbError::WouldBlock) => Err(UsbHidError::WouldBlock),
-                Err(e) => Err(UsbHidError::UsbError(e)),
-            }
+                })
         }
     }
 

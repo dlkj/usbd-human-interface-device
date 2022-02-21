@@ -10,27 +10,22 @@ use embedded_hal::digital::v2::*;
 use embedded_hal::prelude::_embedded_hal_timer_CountDown;
 use embedded_time::duration::Milliseconds;
 use embedded_time::rate::Hertz;
-use frunk::indices::Here;
 use hal::pac;
-use hal::timer::CountDown;
 use hal::Clock;
 use log::*;
-use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_hid_devices::device::consumer::{MultipleConsumerReport, MULTIPLE_CODE_REPORT_DESCRIPTOR};
-use usbd_hid_devices::device::keyboard::{
-    BootKeyboardReport, KeyboardLedsReport, BOOT_KEYBOARD_REPORT_DESCRIPTOR,
-};
-use usbd_hid_devices::device::mouse::{BootMouseReport, BOOT_MOUSE_REPORT_DESCRIPTOR};
+use usbd_hid_devices::device::consumer::{ConsumerControlInterface, MultipleConsumerReport};
+use usbd_hid_devices::device::keyboard::NKROBootKeyboardInterface;
+use usbd_hid_devices::device::mouse::{WheelMouseInterface, WheelMouseReport};
 use usbd_hid_devices::hid_class::prelude::*;
 use usbd_hid_devices::page::Consumer;
 use usbd_hid_devices::page::Keyboard;
+use usbd_hid_devices::UsbHidError;
+
 use usbd_hid_devices_example_rp2040::*;
 
-const DEFAULT_KEYBOARD_IDLE: Milliseconds = Milliseconds(500);
 const KEYBOARD_MOUSE_POLL: Milliseconds = Milliseconds(10);
-const KEYBOARD_LED_POLL: Milliseconds = Milliseconds(100);
 const CONSUMER_POLL: Milliseconds = Milliseconds(50);
 const WRITE_PENDING_POLL: Milliseconds = Milliseconds(10);
 
@@ -52,6 +47,8 @@ fn main() -> ! {
     .unwrap();
 
     let timer = hal::Timer::new(pac.TIMER, &mut pac.RESETS);
+
+    let clock = TimerClock::new(&timer);
 
     let sio = hal::Sio::new(pac.SIO);
     let pins = hal::gpio::Pins::new(
@@ -104,41 +101,12 @@ fn main() -> ! {
     };
 
     let mut composite = UsbHidClassBuilder::new()
-        //Boot Keyboard - interface 0
         .add_interface(
-            RawInterfaceBuilder::new(BOOT_KEYBOARD_REPORT_DESCRIPTOR)
-                .boot_device(InterfaceProtocol::Keyboard)
-                .description("Keyboard")
-                .idle_default(DEFAULT_KEYBOARD_IDLE)
-                .unwrap()
-                .in_endpoint(UsbPacketSize::Bytes8, KEYBOARD_MOUSE_POLL)
-                .unwrap()
-                .with_out_endpoint(UsbPacketSize::Bytes8, KEYBOARD_LED_POLL)
-                .unwrap()
-                .build(),
+            usbd_hid_devices::device::keyboard::NKROBootKeyboardInterface::default_config(&clock),
         )
-        //Boot Mouse - interface 1
+        .add_interface(usbd_hid_devices::device::mouse::WheelMouseInterface::default_config())
         .add_interface(
-            RawInterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR)
-                .boot_device(InterfaceProtocol::Mouse)
-                .description("Mouse")
-                .idle_default(Milliseconds(0))
-                .unwrap()
-                .in_endpoint(UsbPacketSize::Bytes8, KEYBOARD_MOUSE_POLL)
-                .unwrap()
-                .without_out_endpoint()
-                .build(),
-        )
-        //Consumer control - interface 2
-        .add_interface(
-            RawInterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
-                .description("Consumer Control")
-                .idle_default(Milliseconds(0))
-                .unwrap()
-                .in_endpoint(UsbPacketSize::Bytes8, CONSUMER_POLL)
-                .unwrap()
-                .without_out_endpoint()
-                .build(),
+            usbd_hid_devices::device::consumer::ConsumerControlInterface::default_config(),
         )
         //Build
         .build(usb_alloc);
@@ -154,7 +122,7 @@ fn main() -> ! {
     let mut led_pin = pins.gpio13.into_push_pull_output();
     led_pin.set_low().ok();
 
-    let keys: &[&dyn InputPin<Error = core::convert::Infallible>] = &[
+    let key_pins: &[&dyn InputPin<Error = core::convert::Infallible>] = &[
         &pins.gpio1.into_pull_up_input(),
         &pins.gpio2.into_pull_up_input(),
         &pins.gpio3.into_pull_up_input(),
@@ -171,10 +139,9 @@ fn main() -> ! {
 
     let mut keyboard_mouse_poll = timer.count_down();
     keyboard_mouse_poll.start(KEYBOARD_MOUSE_POLL);
-    let mut last_keyboard_report = None;
-    let mut keyboard_idle = reset_idle(&timer, DEFAULT_KEYBOARD_IDLE);
+
     let mut last_mouse_buttons = 0;
-    let mut mouse_report = BootMouseReport::default();
+    let mut mouse_report = WheelMouseReport::default();
 
     let mut consumer_poll = timer.count_down();
     consumer_poll.start(CONSUMER_POLL);
@@ -186,53 +153,35 @@ fn main() -> ! {
     let mut display_poll = timer.count_down();
     display_poll.start(DISPLAY_POLL);
 
+    let mut tick_count_down = timer.count_down();
+    tick_count_down.start(Milliseconds(1));
+
     loop {
         if button.is_low().unwrap() {
             hal::rom_data::reset_to_usb_boot(0x1 << 13, 0x0);
         }
 
         if keyboard_mouse_poll.wait().is_ok() && usb_dev.state() == UsbDeviceState::Configured {
-            if keyboard_idle
-                .as_mut()
-                .map(|c| c.wait().is_ok())
-                .unwrap_or(false)
-            {
-                //Expire on idle
-                last_keyboard_report = None;
-            }
+            let keys = get_keyboard_keys(key_pins);
 
-            let keyboard_report = BootKeyboardReport::new(get_keyboard_keys(keys));
-            if last_keyboard_report
-                .map(|r| r != keyboard_report)
-                .unwrap_or(true)
-            {
-                let keyboard: &RawInterface<'_, hal::usb::UsbBus> =
-                    composite.interface::<_, Here>();
-                match keyboard.write_report(
-                    &keyboard_report
-                        .pack()
-                        .expect("Failed to pack keyboard report"),
-                ) {
-                    Err(UsbError::WouldBlock) => {}
-                    Ok(_) => {
-                        last_keyboard_report = Some(keyboard_report);
-                        keyboard_idle = reset_idle(&timer, keyboard.global_idle());
-                    }
-                    Err(e) => {
-                        panic!("Failed to write keyboard report: {:?}", e)
-                    }
-                };
-            }
+            let keyboard = composite.interface::<NKROBootKeyboardInterface<'_, _, _>, _>();
+            match keyboard.write_report(keys) {
+                Err(UsbHidError::WouldBlock) => {}
+                Err(UsbHidError::Duplicate) => {}
+                Ok(_) => {}
+                Err(e) => {
+                    panic!("Failed to write keyboard report: {:?}", e)
+                }
+            };
 
-            mouse_report = update_mouse_report(mouse_report, keys);
+            mouse_report = update_mouse_report(mouse_report, key_pins);
             if mouse_report.buttons != last_mouse_buttons
                 || mouse_report.x != 0
                 || mouse_report.y != 0
             {
-                let mouse: &RawInterface<'_, hal::usb::UsbBus> = composite.interface::<_, Here>();
-                match mouse.write_report(&mouse_report.pack().expect("Failed to pack mouse report"))
-                {
-                    Err(UsbError::WouldBlock) => {}
+                let mouse = composite.interface::<WheelMouseInterface<'_, _>, _>();
+                match mouse.write_report(&mouse_report) {
+                    Err(UsbHidError::WouldBlock) => {}
                     Ok(_) => {
                         last_mouse_buttons = mouse_report.buttons;
                         mouse_report = Default::default();
@@ -245,7 +194,7 @@ fn main() -> ! {
         }
 
         if consumer_poll.wait().is_ok() && usb_dev.state() == UsbDeviceState::Configured {
-            let codes = get_consumer_codes(keys);
+            let codes = get_consumer_codes(key_pins);
             let consumer_report = MultipleConsumerReport {
                 codes: [
                     codes[0],
@@ -256,13 +205,8 @@ fn main() -> ! {
             };
 
             if last_consumer_report != consumer_report {
-                let consumer: &RawInterface<'_, hal::usb::UsbBus> =
-                    composite.interface::<_, Here>();
-                match consumer.write_report(
-                    &consumer_report
-                        .pack()
-                        .expect("Failed to pack consumer report"),
-                ) {
+                let consumer = composite.interface::<ConsumerControlInterface<'_, _>, _>();
+                match consumer.write_report(&consumer_report) {
                     Err(UsbError::WouldBlock) => {}
                     Ok(_) => {
                         last_consumer_report = consumer_report;
@@ -274,17 +218,28 @@ fn main() -> ! {
             }
         }
 
+        //Tick once per ms
+        if tick_count_down.wait().is_ok() {
+            match composite
+                .interface::<NKROBootKeyboardInterface<'_, _, _>, _>()
+                .tick()
+            {
+                Err(UsbHidError::WouldBlock) => {}
+                Ok(_) => {}
+                Err(e) => {
+                    panic!("Failed to process keyboard tick: {:?}", e)
+                }
+            };
+        }
+
         if usb_dev.poll(&mut [&mut composite]) {
-            let mut buf = [1];
-            let keyboard: &RawInterface<'_, hal::usb::UsbBus> = composite.interface::<_, Here>();
-            match keyboard.read_report(&mut buf) {
+            let keyboard = composite.interface::<NKROBootKeyboardInterface<'_, _, _>, _>();
+            match keyboard.read_report() {
                 Err(UsbError::WouldBlock) => {}
                 Err(e) => {
                     panic!("Failed to read keyboard report: {:?}", e)
                 }
-                Ok(_) => {
-                    let leds =
-                        KeyboardLedsReport::unpack(&buf).expect("Failed to unpack Keyboard Leds");
+                Ok(leds) => {
                     led_pin.set_state(PinState::from(leds.num_lock)).ok();
                 }
             }
@@ -332,9 +287,9 @@ fn get_consumer_codes(keys: &[&dyn InputPin<Error = Infallible>]) -> [Consumer; 
 }
 
 fn update_mouse_report(
-    mut report: BootMouseReport,
+    mut report: WheelMouseReport,
     keys: &[&dyn InputPin<Error = core::convert::Infallible>],
-) -> BootMouseReport {
+) -> WheelMouseReport {
     if keys[0].is_low().unwrap() {
         report.buttons |= 0x1; //Left
     } else {
@@ -364,14 +319,4 @@ fn update_mouse_report(
     }
 
     report
-}
-
-fn reset_idle(timer: &hal::Timer, idle: Milliseconds) -> Option<CountDown> {
-    if idle <= Milliseconds(0_u32) {
-        None
-    } else {
-        let mut count_down = timer.count_down();
-        count_down.start(idle);
-        Some(count_down)
-    }
 }

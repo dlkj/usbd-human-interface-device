@@ -3,7 +3,6 @@
 use delegate::delegate;
 use embedded_time::duration::Milliseconds;
 use embedded_time::{Clock, TimeInt};
-use log::error;
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::UsbError;
@@ -12,22 +11,28 @@ use crate::hid_class::prelude::*;
 use crate::interface::managed::{
     ManagedInterface, WrappedManagedInterface, WrappedManagedInterfaceConfig,
 };
-use crate::interface::raw::{RawInterface, WrappedRawInterfaceConfig};
 use crate::interface::InterfaceClass;
 use crate::page::Keyboard;
 use crate::UsbHidError;
 
-pub struct BootKeyboardInterface<'a, B: UsbBus> {
-    inner: RawInterface<'a, B>,
+pub struct BootKeyboardInterface<'a, B: UsbBus, C: Clock> {
+    inner: ManagedInterface<'a, B, C, BootKeyboardReport>,
 }
 
-impl<'a, B: UsbBus> BootKeyboardInterface<'a, B> {
-    pub fn write_report(&self, report: &BootKeyboardReport) -> usb_device::Result<usize> {
-        let data = report.pack().map_err(|e| {
-            error!("Error packing BootKeyboardReport: {:?}", e);
-            UsbError::ParseError
-        })?;
-        self.inner.write_report(&data)
+impl<'a, B, C, TICK> BootKeyboardInterface<'a, B, C>
+where
+    B: UsbBus,
+    C: Clock<T = TICK>,
+    TICK: TimeInt,
+    u32: TryFrom<TICK>,
+{
+    pub fn write_report<K: IntoIterator<Item = Keyboard>>(
+        &self,
+        keys: K,
+    ) -> Result<(), UsbHidError> {
+        self.inner
+            .write_report(&BootKeyboardReport::new(keys))
+            .map(|_| ())
     }
 
     pub fn read_report(&self) -> usb_device::Result<KeyboardLedsReport> {
@@ -41,14 +46,10 @@ impl<'a, B: UsbBus> BootKeyboardInterface<'a, B> {
         }
     }
 
-    delegate! {
-        to self.inner{
-            pub fn global_idle(&self) -> Milliseconds;
-        }
-    }
-
-    pub fn default_config() -> WrappedRawInterfaceConfig<'a, Self> {
-        WrappedRawInterfaceConfig::new(
+    pub fn default_config(
+        clock: &'a C,
+    ) -> WrappedManagedInterfaceConfig<'a, Self, BootKeyboardReport, C> {
+        WrappedManagedInterfaceConfig::new(
             RawInterfaceBuilder::new(BOOT_KEYBOARD_REPORT_DESCRIPTOR)
                 .boot_device(InterfaceProtocol::Keyboard)
                 .description("Keyboard")
@@ -61,12 +62,19 @@ impl<'a, B: UsbBus> BootKeyboardInterface<'a, B> {
                 .with_out_endpoint(UsbPacketSize::Bytes8, Milliseconds(100))
                 .unwrap()
                 .build(),
+            clock,
             (),
         )
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a> for BootKeyboardInterface<'a, B> {
+impl<'a, B, C, TICK> InterfaceClass<'a> for BootKeyboardInterface<'a, B, C>
+where
+    B: UsbBus,
+    C: Clock<T = TICK>,
+    TICK: TimeInt,
+    u32: TryFrom<TICK>,
+{
     delegate! {
         to self.inner{
            fn report_descriptor(&self) -> &'a [u8];
@@ -85,9 +93,22 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for BootKeyboardInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> WrappedRawInterface<'a, B> for BootKeyboardInterface<'a, B> {
-    fn new(interface: RawInterface<'a, B>, _: ()) -> Self {
+impl<'a, B, C, TICK> WrappedManagedInterface<'a, B, C, BootKeyboardReport>
+    for BootKeyboardInterface<'a, B, C>
+where
+    B: UsbBus,
+    C: Clock<T = TICK>,
+    TICK: TimeInt,
+    u32: TryFrom<TICK>,
+{
+    fn new(interface: ManagedInterface<'a, B, C, BootKeyboardReport>, _: ()) -> Self {
         Self { inner: interface }
+    }
+
+    delegate! {
+        to self.inner {
+            fn tick(&self) -> Result<(), UsbHidError>;
+        }
     }
 }
 
@@ -106,7 +127,7 @@ pub struct KeyboardLedsReport {
     pub kana: bool,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Default, PackedStruct)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Default, PackedStruct)]
 #[packed_struct(endian = "lsb", bit_numbering = "msb0", size_bytes = "8")]
 pub struct BootKeyboardReport {
     #[packed_field(bits = "0")]
@@ -381,7 +402,13 @@ where
     TICK: TimeInt,
     u32: TryFrom<TICK>,
 {
-    pub fn write_keyboard_report<K: IntoIterator<Item = Keyboard>>(
+    delegate! {
+        to self.inner {
+            pub fn tick(&self) -> Result<(), UsbHidError>;
+        }
+    }
+
+    pub fn write_report<K: IntoIterator<Item = Keyboard>>(
         &self,
         keys: K,
     ) -> Result<(), UsbHidError> {

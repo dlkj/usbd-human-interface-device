@@ -1,47 +1,22 @@
 #![no_std]
 #![no_main]
 
-use core::convert::Infallible;
-
-use crate::hal::Timer;
-
 use adafruit_macropad::hal;
+use core::convert::Infallible;
 use cortex_m_rt::entry;
 use embedded_hal::digital::v2::*;
 use embedded_hal::prelude::*;
-use embedded_time::clock::Error;
-use embedded_time::duration::{Fraction, Milliseconds};
+use embedded_time::duration::Milliseconds;
 use embedded_time::rate::Hertz;
-use embedded_time::Instant;
 use hal::pac;
 use hal::Clock;
 use log::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_hid_devices::hid_class::prelude::*;
-use usbd_hid_devices::interface::managed::WrappedManagedInterface;
 use usbd_hid_devices::page::Keyboard;
 use usbd_hid_devices::UsbHidError;
 use usbd_hid_devices_example_rp2040::*;
-
-struct TimerClock<'a> {
-    timer: &'a Timer,
-}
-
-impl<'a> TimerClock<'a> {
-    pub fn new(timer: &'a Timer) -> Self {
-        Self { timer }
-    }
-}
-
-impl<'a> embedded_time::clock::Clock for TimerClock<'a> {
-    type T = u32;
-    const SCALING_FACTOR: Fraction = Fraction::new(1, 16_000_000u32);
-
-    fn try_now(&self) -> Result<Instant<Self>, Error> {
-        Ok(Instant::new(self.timer.get_counter_low()))
-    }
-}
 
 #[entry]
 fn main() -> ! {
@@ -161,7 +136,7 @@ fn main() -> ! {
         if input_count_down.wait().is_ok() {
             let keys = get_keys(keys);
 
-            match keyboard.interface().write_keyboard_report(keys) {
+            match keyboard.interface().write_report(keys) {
                 Err(UsbHidError::WouldBlock) => {}
                 Err(UsbHidError::Duplicate) => {}
                 Ok(_) => {}

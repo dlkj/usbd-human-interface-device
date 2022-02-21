@@ -5,6 +5,7 @@
 use core::cell::{Cell, RefCell};
 
 use crate::hal::spi::Enabled;
+use crate::hal::Timer;
 use crate::pac::SPI1;
 use adafruit_macropad::hal;
 use arrayvec::ArrayString;
@@ -22,7 +23,9 @@ use embedded_text::{
     style::{HeightMode, TextBoxStyleBuilder},
     TextBox,
 };
-use embedded_time::duration::Milliseconds;
+use embedded_time::clock::Error;
+use embedded_time::duration::{Fraction, Milliseconds};
+use embedded_time::Instant;
 use hal::gpio::DynPin;
 use hal::pac;
 use hal::Spi;
@@ -34,6 +37,25 @@ pub mod logger;
 pub const XTAL_FREQ_HZ: u32 = 12_000_000u32;
 pub const MAX_LOG_LEVEL: LevelFilter = LevelFilter::Debug;
 pub const DISPLAY_POLL: Milliseconds = Milliseconds(200);
+
+pub struct TimerClock<'a> {
+    timer: &'a Timer,
+}
+
+impl<'a> TimerClock<'a> {
+    pub fn new(timer: &'a Timer) -> Self {
+        Self { timer }
+    }
+}
+
+impl<'a> embedded_time::clock::Clock for TimerClock<'a> {
+    type T = u32;
+    const SCALING_FACTOR: Fraction = Fraction::new(1, 16_000_000u32);
+
+    fn try_now(&self) -> Result<Instant<Self>, Error> {
+        Ok(Instant::new(self.timer.get_counter_low()))
+    }
+}
 
 pub static LOGGER: logger::Logger = logger::Logger {
     buffer: Mutex::new(RefCell::new(ArrayString::new_const())),
