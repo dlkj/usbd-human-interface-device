@@ -4,20 +4,20 @@ use core::marker::PhantomData;
 use delegate::delegate;
 use embedded_time::duration::Milliseconds;
 use embedded_time::timer::param::{OneShot, Running};
-use embedded_time::{Clock, TimeInt, Timer};
+use embedded_time::{TimeInt, Timer};
 use log::error;
 use packed_struct::PackedStruct;
 use usb_device::bus::UsbBus;
 use usb_device::class_prelude::*;
 use usb_device::UsbError;
 
-use crate::interface::raw::{RawInterface, RawInterfaceConfig, WrappedRawInterface};
-use crate::interface::InterfaceClass;
+use crate::interface::raw::{RawInterface, RawInterfaceConfig};
 use crate::interface::InterfaceNumber;
 use crate::interface::{HidProtocol, UsbAllocatable};
+use crate::interface::{InterfaceClass, WrappedInterface};
 use crate::UsbHidError;
 
-pub struct IdleManager<'a, R, C: Clock> {
+pub struct IdleManager<'a, R, C: embedded_time::Clock> {
     clock: &'a C,
     last_report: Option<R>,
     current: Milliseconds,
@@ -25,12 +25,12 @@ pub struct IdleManager<'a, R, C: Clock> {
     timer: Option<Timer<'a, OneShot, Running, C, Milliseconds>>,
 }
 
-impl<'a, R, C, TICK> IdleManager<'a, R, C>
+impl<'a, R, C, Tick> IdleManager<'a, R, C>
 where
     R: Eq + Copy,
-    C: Clock<T = TICK>,
-    TICK: TimeInt,
-    u32: TryFrom<TICK>,
+    C: embedded_time::Clock<T = Tick>,
+    Tick: TimeInt,
+    u32: TryFrom<Tick>,
 {
     pub fn new(clock: &'a C, default: Milliseconds) -> Self {
         Self {
@@ -102,24 +102,18 @@ where
     }
 }
 
-pub trait WrappedManagedInterface<'a, B: UsbBus, C: Clock, Report, Config = ()>:
-    Sized + InterfaceClass<'a>
-{
-    fn new(interface: ManagedInterface<'a, B, C, Report>, config: Config) -> Self;
-    fn tick(&self) -> Result<(), UsbHidError>;
-}
-
-pub struct ManagedInterface<'a, B: UsbBus, C: Clock, R> {
+pub struct ManagedInterface<'a, B: UsbBus, Clock: embedded_time::Clock, R> {
     inner: RawInterface<'a, B>,
-    idle_manager: RefCell<IdleManager<'a, R, C>>,
+    idle_manager: RefCell<IdleManager<'a, R, Clock>>,
 }
 
-impl<'a, B: UsbBus, C: Clock, TICK, R, const LEN: usize> ManagedInterface<'a, B, C, R>
+impl<'a, B: UsbBus, Clock: embedded_time::Clock, Tick, R, const LEN: usize>
+    ManagedInterface<'a, B, Clock, R>
 where
     R: Copy + Eq + PackedStruct<ByteArray = [u8; LEN]>,
-    C: Clock<T = TICK>,
-    TICK: TimeInt,
-    u32: TryFrom<TICK>,
+    Clock: embedded_time::Clock<T = Tick>,
+    Tick: TimeInt,
+    u32: TryFrom<Tick>,
 {
     pub fn write_report(&self, report: &R) -> Result<(), UsbHidError> {
         if self.idle_manager.borrow().is_duplicate(report) {
@@ -170,12 +164,13 @@ where
     }
 }
 
-impl<'a, B: UsbBus, C: Clock, TICK, R> InterfaceClass<'a> for ManagedInterface<'a, B, C, R>
+impl<'a, B: UsbBus, C: embedded_time::Clock, Tick, R> InterfaceClass<'a>
+    for ManagedInterface<'a, B, C, R>
 where
     R: Copy + Eq,
-    C: Clock<T = TICK>,
-    TICK: TimeInt,
-    u32: TryFrom<TICK>,
+    C: embedded_time::Clock<T = Tick>,
+    Tick: TimeInt,
+    u32: TryFrom<Tick>,
 {
     delegate! {
         to self.inner{
@@ -206,13 +201,13 @@ where
     }
 }
 
-impl<'a, B: UsbBus, C: Clock, TICK, R> WrappedRawInterface<'a, B, &'a C>
-    for ManagedInterface<'a, B, C, R>
+impl<'a, B: UsbBus, C: embedded_time::Clock, Tick, R>
+    WrappedInterface<'a, B, RawInterface<'a, B>, &'a C> for ManagedInterface<'a, B, C, R>
 where
     R: Copy + Eq,
-    C: Clock<T = TICK>,
-    TICK: TimeInt,
-    u32: TryFrom<TICK>,
+    C: embedded_time::Clock<T = Tick>,
+    Tick: TimeInt,
+    u32: TryFrom<Tick>,
 {
     fn new(interface: RawInterface<'a, B>, config: &'a C) -> Self {
         let default_idle = interface.global_idle();
@@ -223,50 +218,34 @@ where
     }
 }
 
-pub struct WrappedManagedInterfaceConfig<'a, I, R, CLOCK, C = ()>
-where
-    CLOCK: Clock,
-    R: Copy + Eq,
-{
-    inner_config: RawInterfaceConfig<'a>,
-    clock: &'a CLOCK,
-    config: C,
-    interface: PhantomData<I>,
+pub struct ManagedInterfaceConfig<'a, Clock, R> {
+    clock: &'a Clock,
     report: PhantomData<R>,
+    inner_config: RawInterfaceConfig<'a>,
 }
 
-impl<'a, I, R, CLOCK, C> WrappedManagedInterfaceConfig<'a, I, R, CLOCK, C>
-where
-    R: Copy + Eq,
-    CLOCK: Clock,
-{
-    pub fn new(inner_config: RawInterfaceConfig<'a>, clock: &'a CLOCK, config: C) -> Self {
+impl<'a, Clock, R> ManagedInterfaceConfig<'a, Clock, R> {
+    pub fn new(inner_config: RawInterfaceConfig<'a>, clock: &'a Clock) -> Self {
         Self {
             inner_config,
             clock,
-            config,
-            interface: Default::default(),
             report: Default::default(),
         }
     }
 }
 
-impl<'a, I, R, B, CLOCK, TICK, C> UsbAllocatable<'a, B>
-    for WrappedManagedInterfaceConfig<'a, I, R, CLOCK, C>
+impl<'a, B, Clock, Tick, R> UsbAllocatable<'a, B> for ManagedInterfaceConfig<'a, Clock, R>
 where
-    I: WrappedManagedInterface<'a, B, CLOCK, R, C>,
     B: UsbBus + 'a,
+
+    Clock: embedded_time::clock::Clock<T = Tick>,
+    Tick: TimeInt,
+    u32: TryFrom<Tick>,
     R: Copy + Eq,
-    CLOCK: Clock<T = TICK>,
-    TICK: TimeInt,
-    u32: TryFrom<TICK>,
 {
-    type Allocated = I;
+    type Allocated = ManagedInterface<'a, B, Clock, R>;
 
     fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
-        I::new(
-            ManagedInterface::new(self.inner_config.allocate(usb_alloc), self.clock),
-            self.config,
-        )
+        ManagedInterface::new(self.inner_config.allocate(usb_alloc), self.clock)
     }
 }

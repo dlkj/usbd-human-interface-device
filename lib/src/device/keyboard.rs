@@ -8,24 +8,28 @@ use usb_device::class_prelude::*;
 use usb_device::UsbError;
 
 use crate::hid_class::prelude::*;
-use crate::interface::managed::{
-    ManagedInterface, WrappedManagedInterface, WrappedManagedInterfaceConfig,
-};
-use crate::interface::InterfaceClass;
+use crate::interface::managed::{ManagedInterface, ManagedInterfaceConfig};
+use crate::interface::{InterfaceClass, WrappedInterface, WrappedInterfaceConfig};
 use crate::page::Keyboard;
 use crate::UsbHidError;
 
-pub struct BootKeyboardInterface<'a, B: UsbBus, C: Clock> {
+pub struct BootKeyboardInterface<'a, B: UsbBus, C: embedded_time::Clock> {
     inner: ManagedInterface<'a, B, C, BootKeyboardReport>,
 }
 
-impl<'a, B, C, TICK> BootKeyboardInterface<'a, B, C>
+impl<'a, B, C, Tick> BootKeyboardInterface<'a, B, C>
 where
     B: UsbBus,
-    C: Clock<T = TICK>,
-    TICK: TimeInt,
-    u32: TryFrom<TICK>,
+    C: embedded_time::Clock<T = Tick>,
+    Tick: TimeInt,
+    u32: TryFrom<Tick>,
 {
+    delegate! {
+        to self.inner {
+            pub fn tick(&self) -> Result<(), UsbHidError>;
+        }
+    }
+
     pub fn write_report<K: IntoIterator<Item = Keyboard>>(
         &self,
         keys: K,
@@ -48,32 +52,34 @@ where
 
     pub fn default_config(
         clock: &'a C,
-    ) -> WrappedManagedInterfaceConfig<'a, Self, BootKeyboardReport, C> {
-        WrappedManagedInterfaceConfig::new(
-            RawInterfaceBuilder::new(BOOT_KEYBOARD_REPORT_DESCRIPTOR)
-                .boot_device(InterfaceProtocol::Keyboard)
-                .description("Keyboard")
-                .idle_default(Milliseconds(500))
-                .unwrap()
-                .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(10))
-                .unwrap()
-                //.without_out_endpoint()
-                //Shouldn't require a dedicated out endpoint, but leds are flaky without it
-                .with_out_endpoint(UsbPacketSize::Bytes8, Milliseconds(100))
-                .unwrap()
-                .build(),
-            clock,
+    ) -> WrappedInterfaceConfig<Self, ManagedInterfaceConfig<'a, C, BootKeyboardReport>> {
+        WrappedInterfaceConfig::new(
+            ManagedInterfaceConfig::new(
+                RawInterfaceBuilder::new(BOOT_KEYBOARD_REPORT_DESCRIPTOR)
+                    .boot_device(InterfaceProtocol::Keyboard)
+                    .description("Keyboard")
+                    .idle_default(Milliseconds(500))
+                    .unwrap()
+                    .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(10))
+                    .unwrap()
+                    //.without_out_endpoint()
+                    //Shouldn't require a dedicated out endpoint, but leds are flaky without it
+                    .with_out_endpoint(UsbPacketSize::Bytes8, Milliseconds(100))
+                    .unwrap()
+                    .build(),
+                clock,
+            ),
             (),
         )
     }
 }
 
-impl<'a, B, C, TICK> InterfaceClass<'a> for BootKeyboardInterface<'a, B, C>
+impl<'a, B, C, Tick> InterfaceClass<'a> for BootKeyboardInterface<'a, B, C>
 where
     B: UsbBus,
-    C: Clock<T = TICK>,
-    TICK: TimeInt,
-    u32: TryFrom<TICK>,
+    C: embedded_time::Clock<T = Tick>,
+    Tick: TimeInt,
+    u32: TryFrom<Tick>,
 {
     delegate! {
         to self.inner{
@@ -93,22 +99,16 @@ where
     }
 }
 
-impl<'a, B, C, TICK> WrappedManagedInterface<'a, B, C, BootKeyboardReport>
+impl<'a, B, C, Tick> WrappedInterface<'a, B, ManagedInterface<'a, B, C, BootKeyboardReport>>
     for BootKeyboardInterface<'a, B, C>
 where
     B: UsbBus,
-    C: Clock<T = TICK>,
-    TICK: TimeInt,
-    u32: TryFrom<TICK>,
+    C: embedded_time::Clock<T = Tick>,
+    Tick: TimeInt,
+    u32: TryFrom<Tick>,
 {
     fn new(interface: ManagedInterface<'a, B, C, BootKeyboardReport>, _: ()) -> Self {
         Self { inner: interface }
-    }
-
-    delegate! {
-        to self.inner {
-            fn tick(&self) -> Result<(), UsbHidError>;
-        }
     }
 }
 
@@ -391,16 +391,16 @@ impl NKROBootKeyboardReport {
     }
 }
 
-pub struct NKROBootKeyboardInterface<'a, B: UsbBus, C: Clock> {
+pub struct NKROBootKeyboardInterface<'a, B: UsbBus, C: embedded_time::Clock> {
     inner: ManagedInterface<'a, B, C, NKROBootKeyboardReport>,
 }
 
-impl<'a, B, C, TICK> NKROBootKeyboardInterface<'a, B, C>
+impl<'a, B, C, Tick> NKROBootKeyboardInterface<'a, B, C>
 where
     B: UsbBus,
-    C: Clock<T = TICK>,
-    TICK: TimeInt,
-    u32: TryFrom<TICK>,
+    C: embedded_time::Clock<T = Tick>,
+    Tick: TimeInt,
+    u32: TryFrom<Tick>,
 {
     delegate! {
         to self.inner {
@@ -430,30 +430,32 @@ where
 
     pub fn default_config(
         clock: &'a C,
-    ) -> WrappedManagedInterfaceConfig<'a, Self, NKROBootKeyboardReport, C> {
-        WrappedManagedInterfaceConfig::new(
-            RawInterfaceBuilder::new(NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR)
-                .description("NKRO Keyboard")
-                .boot_device(InterfaceProtocol::Keyboard)
-                .idle_default(Milliseconds(500))
-                .unwrap()
-                .in_endpoint(UsbPacketSize::Bytes32, Milliseconds(10))
-                .unwrap()
-                .with_out_endpoint(UsbPacketSize::Bytes8, Milliseconds(100))
-                .unwrap()
-                .build(),
-            clock,
+    ) -> WrappedInterfaceConfig<Self, ManagedInterfaceConfig<'a, C, NKROBootKeyboardReport>> {
+        WrappedInterfaceConfig::new(
+            ManagedInterfaceConfig::new(
+                RawInterfaceBuilder::new(NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR)
+                    .description("NKRO Keyboard")
+                    .boot_device(InterfaceProtocol::Keyboard)
+                    .idle_default(Milliseconds(500))
+                    .unwrap()
+                    .in_endpoint(UsbPacketSize::Bytes32, Milliseconds(10))
+                    .unwrap()
+                    .with_out_endpoint(UsbPacketSize::Bytes8, Milliseconds(100))
+                    .unwrap()
+                    .build(),
+                clock,
+            ),
             (),
         )
     }
 }
 
-impl<'a, B, C, TICK> InterfaceClass<'a> for NKROBootKeyboardInterface<'a, B, C>
+impl<'a, B, C, Tick> InterfaceClass<'a> for NKROBootKeyboardInterface<'a, B, C>
 where
     B: UsbBus,
-    C: Clock<T = TICK>,
-    TICK: TimeInt,
-    u32: TryFrom<TICK>,
+    C: embedded_time::Clock<T = Tick>,
+    Tick: TimeInt,
+    u32: TryFrom<Tick>,
 {
     delegate! {
         to self.inner{
@@ -473,22 +475,16 @@ where
     }
 }
 
-impl<'a, B, C, TICK> WrappedManagedInterface<'a, B, C, NKROBootKeyboardReport>
+impl<'a, B, C, Tick> WrappedInterface<'a, B, ManagedInterface<'a, B, C, NKROBootKeyboardReport>>
     for NKROBootKeyboardInterface<'a, B, C>
 where
-    B: UsbBus,
-    C: Clock<T = TICK>,
-    TICK: TimeInt,
-    u32: TryFrom<TICK>,
+    B: 'a + UsbBus,
+    C: 'a + Clock<T = Tick>,
+    Tick: TimeInt,
+    u32: TryFrom<Tick>,
 {
     fn new(interface: ManagedInterface<'a, B, C, NKROBootKeyboardReport>, _: ()) -> Self {
         Self { inner: interface }
-    }
-
-    delegate! {
-        to self.inner{
-            fn tick(&self) -> Result<(), UsbHidError>;
-        }
     }
 }
 

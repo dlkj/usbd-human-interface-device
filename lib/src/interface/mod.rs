@@ -1,3 +1,4 @@
+use core::marker::PhantomData;
 use frunk::{HCons, HNil, ToRef};
 use packed_struct::prelude::*;
 use usb_device::bus::{InterfaceNumber, StringIndex, UsbBus, UsbBusAllocator};
@@ -150,5 +151,44 @@ impl<'a, Head: InterfaceClass<'a> + 'a, Tail: InterfaceHList<'a>> InterfaceHList
         } else {
             self.tail.get_string(index, lang_id)
         }
+    }
+}
+
+pub trait WrappedInterface<'a, B, I, Config = ()>: Sized + InterfaceClass<'a>
+where
+    B: UsbBus,
+    I: InterfaceClass<'a>,
+{
+    fn new(interface: I, config: Config) -> Self;
+}
+
+pub struct WrappedInterfaceConfig<I, InnerConfig, Config = ()> {
+    pub inner_config: InnerConfig,
+    pub config: Config,
+    interface: PhantomData<I>,
+}
+
+impl<I, InnerConfig, Config> WrappedInterfaceConfig<I, InnerConfig, Config> {
+    pub fn new(inner_config: InnerConfig, config: Config) -> Self {
+        Self {
+            inner_config,
+            config,
+            interface: Default::default(),
+        }
+    }
+}
+
+impl<'a, B, I, InnerConfig, Config> UsbAllocatable<'a, B>
+    for WrappedInterfaceConfig<I, InnerConfig, Config>
+where
+    B: UsbBus + 'a,
+    InnerConfig: UsbAllocatable<'a, B>,
+    I: WrappedInterface<'a, B, InnerConfig::Allocated, Config>,
+    InnerConfig::Allocated: InterfaceClass<'a>,
+{
+    type Allocated = I;
+
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
+        I::new(self.inner_config.allocate(usb_alloc), self.config)
     }
 }

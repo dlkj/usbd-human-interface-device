@@ -8,8 +8,8 @@ use usb_device::class_prelude::*;
 use usb_device::{Result, UsbError};
 
 use crate::hid_class::prelude::*;
-use crate::interface::raw::{RawInterface, WrappedRawInterfaceConfig};
-use crate::interface::InterfaceClass;
+use crate::interface::raw::{RawInterface, RawInterfaceConfig};
+use crate::interface::{InterfaceClass, WrappedInterface, WrappedInterfaceConfig};
 use crate::page::Consumer;
 
 ///Consumer control report descriptor - Single `u16` consumer control usage code (2 bytes)
@@ -144,8 +144,8 @@ impl<'a, B: UsbBus> ConsumerControlInterface<'a, B> {
         self.inner.write_report(&data)
     }
 
-    pub fn default_config() -> WrappedRawInterfaceConfig<'a, Self> {
-        WrappedRawInterfaceConfig::new(
+    pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
+        WrappedInterfaceConfig::new(
             RawInterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
                 .description("Consumer Control")
                 .idle_default(Milliseconds(0))
@@ -178,7 +178,9 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for ConsumerControlInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> WrappedRawInterface<'a, B> for ConsumerControlInterface<'a, B> {
+impl<'a, B: UsbBus> WrappedInterface<'a, B, RawInterface<'a, B>>
+    for ConsumerControlInterface<'a, B>
+{
     fn new(interface: RawInterface<'a, B>, _: ()) -> Self {
         Self { inner: interface }
     }
@@ -197,8 +199,8 @@ impl<'a, B: UsbBus> ConsumerControlFixedInterface<'a, B> {
         self.inner.write_report(&data)
     }
 
-    pub fn default_config() -> WrappedRawInterfaceConfig<'a, Self> {
-        WrappedRawInterfaceConfig::new(
+    pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
+        WrappedInterfaceConfig::new(
             RawInterfaceBuilder::new(FIXED_FUNCTION_REPORT_DESCRIPTOR)
                 .description("Consumer Control")
                 .idle_default(Milliseconds(0))
@@ -231,7 +233,9 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for ConsumerControlFixedInterface<'a, B> 
     }
 }
 
-impl<'a, B: UsbBus> WrappedRawInterface<'a, B> for ConsumerControlFixedInterface<'a, B> {
+impl<'a, B: UsbBus> WrappedInterface<'a, B, RawInterface<'a, B>>
+    for ConsumerControlFixedInterface<'a, B>
+{
     fn new(interface: RawInterface<'a, B>, _: ()) -> Self {
         Self { inner: interface }
     }

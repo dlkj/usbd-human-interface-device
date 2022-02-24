@@ -9,8 +9,8 @@ use usb_device::bus::{InterfaceNumber, StringIndex, UsbBus};
 use usb_device::class_prelude::DescriptorWriter;
 
 use crate::hid_class::prelude::*;
-use crate::interface::raw::{RawInterface, WrappedRawInterface, WrappedRawInterfaceConfig};
-use crate::interface::InterfaceClass;
+use crate::interface::raw::{RawInterface, RawInterfaceConfig};
+use crate::interface::{InterfaceClass, WrappedInterface, WrappedInterfaceConfig};
 use crate::UsbHidError;
 
 /// HID Mouse report descriptor conforming to the Boot specification
@@ -132,8 +132,8 @@ impl<'a, B: UsbBus> BootMouseInterface<'a, B> {
             .map_err(UsbHidError::from)
     }
 
-    pub fn default_config() -> WrappedRawInterfaceConfig<'a, Self> {
-        WrappedRawInterfaceConfig::new(
+    pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
+        WrappedInterfaceConfig::new(
             RawInterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR)
                 .boot_device(InterfaceProtocol::Mouse)
                 .description("Mouse")
@@ -167,7 +167,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for BootMouseInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> WrappedRawInterface<'a, B> for BootMouseInterface<'a, B> {
+impl<'a, B: UsbBus> WrappedInterface<'a, B, RawInterface<'a, B>> for BootMouseInterface<'a, B> {
     fn new(interface: RawInterface<'a, B>, _: ()) -> Self {
         Self { inner: interface }
     }
@@ -188,8 +188,8 @@ impl<'a, B: UsbBus> WheelMouseInterface<'a, B> {
             .map_err(UsbHidError::from)
     }
 
-    pub fn default_config() -> WrappedRawInterfaceConfig<'a, Self> {
-        WrappedRawInterfaceConfig::new(
+    pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
+        WrappedInterfaceConfig::new(
             RawInterfaceBuilder::new(WHEEL_MOUSE_REPORT_DESCRIPTOR)
                 .boot_device(InterfaceProtocol::Mouse)
                 .description("Wheel Mouse")
@@ -223,7 +223,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for WheelMouseInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> WrappedRawInterface<'a, B> for WheelMouseInterface<'a, B> {
+impl<'a, B: UsbBus> WrappedInterface<'a, B, RawInterface<'a, B>> for WheelMouseInterface<'a, B> {
     fn new(interface: RawInterface<'a, B>, _: ()) -> Self {
         Self { inner: interface }
     }

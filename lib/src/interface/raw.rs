@@ -4,7 +4,6 @@ use crate::hid_class::descriptor::{
 use crate::hid_class::{BuilderResult, UsbHidBuilderError, UsbPacketSize};
 use crate::interface::{InterfaceClass, UsbAllocatable};
 use core::cell::RefCell;
-use core::marker::PhantomData;
 use embedded_time::duration::Milliseconds;
 use embedded_time::fixed_point::FixedPoint;
 use heapless::Vec;
@@ -263,32 +262,6 @@ impl<'a, B: UsbBus> RawInterface<'a, B> {
     }
 }
 
-pub struct WrappedRawInterfaceConfig<'a, I, C = ()> {
-    inner_config: RawInterfaceConfig<'a>,
-    config: C,
-    interface: PhantomData<I>,
-}
-
-impl<'a, I, C> WrappedRawInterfaceConfig<'a, I, C> {
-    pub fn new(inner_config: RawInterfaceConfig<'a>, config: C) -> Self {
-        Self {
-            inner_config,
-            config,
-            interface: Default::default(),
-        }
-    }
-}
-
-impl<'a, I: WrappedRawInterface<'a, B, C>, B: UsbBus + 'a, C> UsbAllocatable<'a, B>
-    for WrappedRawInterfaceConfig<'a, I, C>
-{
-    type Allocated = I;
-
-    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
-        I::new(self.inner_config.allocate(usb_alloc), self.config)
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EndpointConfig {
     pub poll_interval: u8,
@@ -381,8 +354,4 @@ impl<'a> RawInterfaceBuilder<'a> {
     pub fn build(self) -> RawInterfaceConfig<'a> {
         self.config
     }
-}
-
-pub trait WrappedRawInterface<'a, B: UsbBus, C = ()>: Sized + InterfaceClass<'a> {
-    fn new(interface: RawInterface<'a, B>, config: C) -> Self;
 }
