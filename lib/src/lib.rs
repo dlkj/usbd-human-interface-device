@@ -14,6 +14,7 @@ pub mod device;
 pub mod hid_class;
 pub mod interface;
 pub mod page;
+pub mod prelude;
 
 #[derive(Debug)]
 pub enum UsbHidError {

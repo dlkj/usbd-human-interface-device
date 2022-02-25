@@ -24,10 +24,9 @@ use usb_device::prelude::*;
 use usbd_hid_devices::device::consumer::{ConsumerControlInterface, MultipleConsumerReport};
 use usbd_hid_devices::device::keyboard::NKROBootKeyboardInterface;
 use usbd_hid_devices::device::mouse::{WheelMouseInterface, WheelMouseReport};
-use usbd_hid_devices::hid_class::prelude::*;
 use usbd_hid_devices::page::Consumer;
 use usbd_hid_devices::page::Keyboard;
-use usbd_hid_devices::UsbHidError;
+use usbd_hid_devices::prelude::*;
 
 use usbd_hid_devices_example_rp2040::*;
 
@@ -64,8 +63,8 @@ fn main() -> ! {
         &mut pac.RESETS,
         &mut watchdog,
     )
-        .ok()
-        .unwrap();
+    .ok()
+    .unwrap();
 
     static mut CLOCK: Option<SyncTimerClock> = None;
     let clock = unsafe {
@@ -152,7 +151,7 @@ fn main() -> ! {
             .replace(Some(pins.gpio13.into_push_pull_output()));
     });
 
-    let key_pins: &[&dyn InputPin<Error=core::convert::Infallible>] = &[
+    let key_pins: &[&dyn InputPin<Error = core::convert::Infallible>] = &[
         &pins.gpio1.into_pull_up_input(),
         &pins.gpio2.into_pull_up_input(),
         &pins.gpio3.into_pull_up_input(),
@@ -372,7 +371,7 @@ fn get_consumer_codes(keys: &[&dyn InputPin<Error = Infallible>]) -> [Consumer; 
 
 fn update_mouse_report(
     mut report: WheelMouseReport,
-    keys: &[&dyn InputPin<Error=core::convert::Infallible>],
+    keys: &[&dyn InputPin<Error = core::convert::Infallible>],
 ) -> WheelMouseReport {
     if keys[0].is_low().unwrap() {
         report.buttons |= 0x1; //Left

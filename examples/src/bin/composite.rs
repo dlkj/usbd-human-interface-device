@@ -18,10 +18,9 @@ use usb_device::prelude::*;
 use usbd_hid_devices::device::consumer::{ConsumerControlInterface, MultipleConsumerReport};
 use usbd_hid_devices::device::keyboard::NKROBootKeyboardInterface;
 use usbd_hid_devices::device::mouse::{WheelMouseInterface, WheelMouseReport};
-use usbd_hid_devices::hid_class::prelude::*;
 use usbd_hid_devices::page::Consumer;
 use usbd_hid_devices::page::Keyboard;
-use usbd_hid_devices::UsbHidError;
+use usbd_hid_devices::prelude::*;
 
 use usbd_hid_devices_example_rp2040::*;
 

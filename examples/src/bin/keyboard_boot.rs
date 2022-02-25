@@ -14,9 +14,8 @@ use hal::Clock;
 use log::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_hid_devices::hid_class::prelude::*;
 use usbd_hid_devices::page::Keyboard;
-use usbd_hid_devices::UsbHidError;
+use usbd_hid_devices::prelude::*;
 
 use usbd_hid_devices_example_rp2040::*;
 
