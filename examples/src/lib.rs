@@ -37,6 +37,7 @@ pub mod logger;
 pub const XTAL_FREQ_HZ: u32 = 12_000_000u32;
 pub const MAX_LOG_LEVEL: LevelFilter = LevelFilter::Debug;
 pub const DISPLAY_POLL: Milliseconds = Milliseconds(200);
+pub const SCALING_FACTOR: Fraction = Fraction::new(1, 1_000_000u32);
 
 pub struct TimerClock<'a> {
     timer: &'a Timer,
@@ -50,10 +51,32 @@ impl<'a> TimerClock<'a> {
 
 impl<'a> embedded_time::clock::Clock for TimerClock<'a> {
     type T = u32;
-    const SCALING_FACTOR: Fraction = Fraction::new(1, 16_000_000u32);
+    const SCALING_FACTOR: Fraction = SCALING_FACTOR;
 
     fn try_now(&self) -> Result<Instant<Self>, Error> {
         Ok(Instant::new(self.timer.get_counter_low()))
+    }
+}
+
+pub struct SyncTimerClock {
+    timer: Mutex<Timer>,
+}
+
+impl SyncTimerClock {
+    pub fn new(timer: Timer) -> Self {
+        Self {
+            timer: Mutex::new(timer),
+        }
+    }
+}
+
+impl<'a> embedded_time::clock::Clock for SyncTimerClock {
+    type T = u32;
+
+    const SCALING_FACTOR: Fraction = SCALING_FACTOR;
+
+    fn try_now(&self) -> Result<Instant<Self>, Error> {
+        cortex_m::interrupt::free(|cs| Ok(Instant::new(self.timer.borrow(cs).get_counter_low())))
     }
 }
 
@@ -61,7 +84,9 @@ pub static LOGGER: logger::Logger = logger::Logger {
     buffer: Mutex::new(RefCell::new(ArrayString::new_const())),
     updated: Mutex::new(Cell::new(false)),
 };
+
 type DisplaySpiInt = SpiInterface<Spi<hal::spi::Enabled, pac::SPI1, 8_u8>, DynPin, DynPin>;
+
 static OLED_DISPLAY: Mutex<RefCell<Option<GraphicsMode<DisplaySpiInt>>>> =
     Mutex::new(RefCell::new(None));
 

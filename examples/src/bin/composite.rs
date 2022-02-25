@@ -161,7 +161,7 @@ fn main() -> ! {
             hal::rom_data::reset_to_usb_boot(0x1 << 13, 0x0);
         }
 
-        if keyboard_mouse_poll.wait().is_ok() && usb_dev.state() == UsbDeviceState::Configured {
+        if keyboard_mouse_poll.wait().is_ok() {
             let keys = get_keyboard_keys(key_pins);
 
             let keyboard = composite.interface::<NKROBootKeyboardInterface<'_, _, _>, _>();
@@ -193,7 +193,7 @@ fn main() -> ! {
             }
         }
 
-        if consumer_poll.wait().is_ok() && usb_dev.state() == UsbDeviceState::Configured {
+        if consumer_poll.wait().is_ok() {
             let codes = get_consumer_codes(key_pins);
             let consumer_report = MultipleConsumerReport {
                 codes: [
