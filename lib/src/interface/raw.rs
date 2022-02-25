@@ -93,8 +93,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for RawInterface<'a, B> {
     fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'static str> {
         self.description_index
             .filter(|&i| i == index)
-            .map(|_| self.config.description)
-            .flatten()
+            .and(self.config.description)
     }
     fn reset(&mut self) {
         self.protocol = HidProtocol::Report;
