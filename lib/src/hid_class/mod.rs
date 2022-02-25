@@ -170,7 +170,6 @@ where
     }
 
     fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&str> {
-        //todo - work this backward to allow strings with an 'a lifetime
         self.interfaces.get_string(index, lang_id)
     }
 

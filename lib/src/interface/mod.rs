@@ -52,10 +52,10 @@ where
 }
 
 pub trait InterfaceClass<'a> {
-    fn report_descriptor(&self) -> &'a [u8];
+    fn report_descriptor(&self) -> &'_ [u8];
     fn id(&self) -> InterfaceNumber;
     fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-    fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'static str>;
+    fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'_ str>;
     fn reset(&mut self);
     fn set_report(&mut self, data: &[u8]) -> usb_device::Result<()>;
     fn get_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize>;
@@ -90,7 +90,7 @@ pub trait InterfaceHList<'a>: ToRef<'a> {
     fn get_id(&self, id: u8) -> Option<&dyn InterfaceClass<'a>>;
     fn reset(&mut self);
     fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'static str>;
+    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str>;
 }
 
 impl<'a> InterfaceHList<'a> for HNil {
@@ -144,7 +144,7 @@ impl<'a, Head: InterfaceClass<'a> + 'a, Tail: InterfaceHList<'a>> InterfaceHList
         self.tail.write_descriptors(writer)
     }
     #[inline(always)]
-    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'static str> {
+    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str> {
         let s = self.head.get_string(index, lang_id);
         if s.is_some() {
             s

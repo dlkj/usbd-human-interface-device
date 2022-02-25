@@ -151,10 +151,10 @@ impl<'a, B: UsbBus> BootMouseInterface<'a, B> {
 impl<'a, B: UsbBus> InterfaceClass<'a> for BootMouseInterface<'a, B> {
     delegate! {
         to self.inner{
-           fn report_descriptor(&self) -> &'a [u8];
+           fn report_descriptor(&self) -> &'_ [u8];
            fn id(&self) -> InterfaceNumber;
            fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-           fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'static str>;
+           fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'_ str>;
            fn reset(&mut self);
            fn set_report(&mut self, data: &[u8]) -> usb_device::Result<()>;
            fn get_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize>;
@@ -207,10 +207,10 @@ impl<'a, B: UsbBus> WheelMouseInterface<'a, B> {
 impl<'a, B: UsbBus> InterfaceClass<'a> for WheelMouseInterface<'a, B> {
     delegate! {
         to self.inner{
-           fn report_descriptor(&self) -> &'a [u8];
+           fn report_descriptor(&self) -> &'_ [u8];
            fn id(&self) -> InterfaceNumber;
            fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-           fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'static str>;
+           fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'_ str>;
            fn reset(&mut self);
            fn set_report(&mut self, data: &[u8]) -> usb_device::Result<()>;
            fn get_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize>;

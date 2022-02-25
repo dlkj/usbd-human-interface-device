@@ -174,10 +174,10 @@ where
 {
     delegate! {
         to self.inner{
-           fn report_descriptor(&self) -> &'a [u8];
+           fn report_descriptor(&self) -> &'_ [u8];
            fn id(&self) -> InterfaceNumber;
            fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-           fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'static str>;
+           fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'_ str>;
            fn set_report(&mut self, data: &[u8]) -> usb_device::Result<()>;
            fn get_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize>;
            fn get_report_ack(&mut self) -> usb_device::Result<()>;

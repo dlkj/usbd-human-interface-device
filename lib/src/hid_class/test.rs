@@ -30,7 +30,7 @@ struct TestUsbBusInner {
 }
 
 impl<'a, F> TestUsbBus<'a, F> {
-    fn new(read_data: &'a [&'a [u8]], write_val: F) -> Self {
+    fn new(read_data: &'a [&'_ [u8]], write_val: F) -> Self {
         TestUsbBus {
             next_ep_index: 0,
             read_data,

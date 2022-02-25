@@ -12,11 +12,10 @@ use usb_device::bus::{InterfaceNumber, StringIndex, UsbBus, UsbBusAllocator};
 use usb_device::class_prelude::{DescriptorWriter, EndpointIn, EndpointOut};
 use usb_device::UsbError;
 
-//todo revisit lifetime for InterfaceConfig. Change to static?
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RawInterfaceConfig<'a> {
     pub report_descriptor: &'a [u8],
-    pub description: Option<&'static str>,
+    pub description: Option<&'a str>,
     pub protocol: InterfaceProtocol,
     pub idle_default: u8,
     pub out_endpoint: Option<EndpointConfig>,
@@ -62,7 +61,7 @@ impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for RawInterfaceConfig<'a> {
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a> for RawInterface<'a, B> {
-    fn report_descriptor(&self) -> &'a [u8] {
+    fn report_descriptor(&self) -> &'_ [u8] {
         self.config.report_descriptor
     }
 
@@ -90,7 +89,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for RawInterface<'a, B> {
 
         Ok(())
     }
-    fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'static str> {
+    fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'_ str> {
         self.description_index
             .filter(|&i| i == index)
             .and(self.config.description)
