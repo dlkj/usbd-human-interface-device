@@ -13,7 +13,8 @@ use log::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_hid_devices::device::mouse::WheelMouseReport;
-use usbd_hid_devices::hid_class::prelude::*;
+use usbd_hid_devices::prelude::*;
+
 use usbd_hid_devices_example_rp2040::*;
 
 #[entry]
@@ -137,7 +138,7 @@ fn main() -> ! {
                 || report.horizontal_wheel != 0
             {
                 match mouse.interface().write_report(&report) {
-                    Err(UsbError::WouldBlock) => {}
+                    Err(UsbHidError::WouldBlock) => {}
                     Ok(_) => {
                         last_buttons = report.buttons;
                         report = WheelMouseReport::default()

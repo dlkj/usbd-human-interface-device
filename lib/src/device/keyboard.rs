@@ -1,28 +1,42 @@
 //!HID keyboards
 
-use crate::hid_class::interface::{InterfaceClass, RawInterface, WrappedInterfaceConfig};
 use delegate::delegate;
 use embedded_time::duration::Milliseconds;
-use log::error;
+use embedded_time::{Clock, TimeInt};
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
-use usb_device::Result;
 use usb_device::UsbError;
 
 use crate::hid_class::prelude::*;
+use crate::interface::managed::{ManagedInterface, ManagedInterfaceConfig};
+use crate::interface::{InterfaceClass, WrappedInterface, WrappedInterfaceConfig};
 use crate::page::Keyboard;
+use crate::UsbHidError;
 
-pub struct BootKeyboardInterface<'a, B: UsbBus> {
-    inner: RawInterface<'a, B>,
+pub struct BootKeyboardInterface<'a, B: UsbBus, C: embedded_time::Clock> {
+    inner: ManagedInterface<'a, B, C, BootKeyboardReport>,
 }
 
-impl<'a, B: UsbBus> BootKeyboardInterface<'a, B> {
-    pub fn write_report(&self, report: &BootKeyboardReport) -> usb_device::Result<usize> {
-        let data = report.pack().map_err(|e| {
-            error!("Error packing BootKeyboardReport: {:?}", e);
-            UsbError::ParseError
-        })?;
-        self.inner.write_report(&data)
+impl<'a, B, C, Tick> BootKeyboardInterface<'a, B, C>
+where
+    B: UsbBus,
+    C: embedded_time::Clock<T = Tick>,
+    Tick: TimeInt,
+    u32: TryFrom<Tick>,
+{
+    delegate! {
+        to self.inner {
+            pub fn tick(&self) -> Result<(), UsbHidError>;
+        }
+    }
+
+    pub fn write_report<K: IntoIterator<Item = Keyboard>>(
+        &self,
+        keys: K,
+    ) -> Result<(), UsbHidError> {
+        self.inner
+            .write_report(&BootKeyboardReport::new(keys))
+            .map(|_| ())
     }
 
     pub fn read_report(&self) -> usb_device::Result<KeyboardLedsReport> {
@@ -36,24 +50,47 @@ impl<'a, B: UsbBus> BootKeyboardInterface<'a, B> {
         }
     }
 
-    delegate! {
-        to self.inner{
-            pub fn global_idle(&self) -> Milliseconds;
-        }
+    pub fn default_config(
+        clock: &'a C,
+    ) -> WrappedInterfaceConfig<Self, ManagedInterfaceConfig<'a, C, BootKeyboardReport>> {
+        WrappedInterfaceConfig::new(
+            ManagedInterfaceConfig::new(
+                RawInterfaceBuilder::new(BOOT_KEYBOARD_REPORT_DESCRIPTOR)
+                    .boot_device(InterfaceProtocol::Keyboard)
+                    .description("Keyboard")
+                    .idle_default(Milliseconds(500))
+                    .unwrap()
+                    .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(10))
+                    .unwrap()
+                    //.without_out_endpoint()
+                    //Shouldn't require a dedicated out endpoint, but leds are flaky without it
+                    .with_out_endpoint(UsbPacketSize::Bytes8, Milliseconds(100))
+                    .unwrap()
+                    .build(),
+                clock,
+            ),
+            (),
+        )
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a> for BootKeyboardInterface<'a, B> {
+impl<'a, B, C, Tick> InterfaceClass<'a> for BootKeyboardInterface<'a, B, C>
+where
+    B: UsbBus,
+    C: embedded_time::Clock<T = Tick>,
+    Tick: TimeInt,
+    u32: TryFrom<Tick>,
+{
     delegate! {
         to self.inner{
-           fn report_descriptor(&self) -> &'a [u8];
+           fn report_descriptor(&self) -> &'_ [u8];
            fn id(&self) -> InterfaceNumber;
            fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-           fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'static str>;
+           fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'_ str>;
            fn reset(&mut self);
-           fn set_report(&mut self, data: &[u8]) -> Result<()>;
-           fn get_report(&mut self, data: &mut [u8]) -> Result<usize>;
-           fn get_report_ack(&mut self) -> Result<()>;
+           fn set_report(&mut self, data: &[u8]) -> usb_device::Result<()>;
+           fn get_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize>;
+           fn get_report_ack(&mut self) -> usb_device::Result<()>;
            fn set_idle(&mut self, report_id: u8, value: u8);
            fn get_idle(&self, report_id: u8) -> u8;
            fn set_protocol(&mut self, protocol: HidProtocol);
@@ -62,25 +99,15 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for BootKeyboardInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> WrappedInterface<'a, B> for BootKeyboardInterface<'a, B> {
-    fn default_config() -> WrappedInterfaceConfig<'a, Self> {
-        WrappedInterfaceConfig::new(
-            InterfaceBuilder::new(BOOT_KEYBOARD_REPORT_DESCRIPTOR)
-                .boot_device(InterfaceProtocol::Keyboard)
-                .description("Keyboard")
-                .idle_default(Milliseconds(500))
-                .unwrap()
-                .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(10))
-                .unwrap()
-                //.without_out_endpoint()
-                //Shouldn't require a dedicated out endpoint, but leds are flaky without it
-                .with_out_endpoint(UsbPacketSize::Bytes8, Milliseconds(100))
-                .unwrap()
-                .build(),
-        )
-    }
-
-    fn new(interface: RawInterface<'a, B>) -> Self {
+impl<'a, B, C, Tick> WrappedInterface<'a, B, ManagedInterface<'a, B, C, BootKeyboardReport>>
+    for BootKeyboardInterface<'a, B, C>
+where
+    B: UsbBus,
+    C: embedded_time::Clock<T = Tick>,
+    Tick: TimeInt,
+    u32: TryFrom<Tick>,
+{
+    fn new(interface: ManagedInterface<'a, B, C, BootKeyboardReport>, _: ()) -> Self {
         Self { inner: interface }
     }
 }
@@ -100,7 +127,7 @@ pub struct KeyboardLedsReport {
     pub kana: bool,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, PackedStruct)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Default, PackedStruct)]
 #[packed_struct(endian = "lsb", bit_numbering = "msb0", size_bytes = "8")]
 pub struct BootKeyboardReport {
     #[packed_field(bits = "0")]
@@ -125,17 +152,7 @@ pub struct BootKeyboardReport {
 
 impl BootKeyboardReport {
     pub fn new<K: IntoIterator<Item = Keyboard>>(keys: K) -> Self {
-        let mut report = Self {
-            left_ctrl: false,
-            left_shift: false,
-            left_alt: false,
-            left_gui: false,
-            right_ctrl: false,
-            right_shift: false,
-            right_alt: false,
-            right_gui: false,
-            keys: [Keyboard::NoEventIndicated; 6],
-        };
+        let mut report = Self::default();
 
         let mut error = false;
         let mut i = 0;
@@ -280,7 +297,7 @@ pub const NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR: &[u8] = &[
     0xc0                            // End Collection
 ];
 
-#[derive(Clone, Copy, Debug, PartialEq, PackedStruct)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Default, PackedStruct)]
 #[packed_struct(endian = "lsb", bit_numbering = "msb0", size_bytes = "25")]
 pub struct NKROBootKeyboardReport {
     #[packed_field(bits = "0")]
@@ -308,18 +325,7 @@ pub struct NKROBootKeyboardReport {
 
 impl NKROBootKeyboardReport {
     pub fn new<K: IntoIterator<Item = Keyboard>>(keys: K) -> Self {
-        let mut report = Self {
-            left_ctrl: false,
-            left_shift: false,
-            left_alt: false,
-            left_gui: false,
-            right_ctrl: false,
-            right_shift: false,
-            right_alt: false,
-            right_gui: false,
-            boot_keys: [Keyboard::NoEventIndicated; 6],
-            nkro_keys: [0; 17],
-        };
+        let mut report = Self::default();
 
         let mut boot_keys_error = false;
         let mut i = 0;
@@ -385,17 +391,30 @@ impl NKROBootKeyboardReport {
     }
 }
 
-pub struct NKROBootKeyboardInterface<'a, B: UsbBus> {
-    inner: RawInterface<'a, B>,
+pub struct NKROBootKeyboardInterface<'a, B: UsbBus, C: embedded_time::Clock> {
+    inner: ManagedInterface<'a, B, C, NKROBootKeyboardReport>,
 }
 
-impl<'a, B: UsbBus> NKROBootKeyboardInterface<'a, B> {
-    pub fn write_report(&self, report: &NKROBootKeyboardReport) -> usb_device::Result<usize> {
-        let data = report.pack().map_err(|e| {
-            error!("Error packing BootKeyboardReport: {:?}", e);
-            UsbError::ParseError
-        })?;
-        self.inner.write_report(&data)
+impl<'a, B, C, Tick> NKROBootKeyboardInterface<'a, B, C>
+where
+    B: UsbBus,
+    C: embedded_time::Clock<T = Tick>,
+    Tick: TimeInt,
+    u32: TryFrom<Tick>,
+{
+    delegate! {
+        to self.inner {
+            pub fn tick(&self) -> Result<(), UsbHidError>;
+        }
+    }
+
+    pub fn write_report<K: IntoIterator<Item = Keyboard>>(
+        &self,
+        keys: K,
+    ) -> Result<(), UsbHidError> {
+        self.inner
+            .write_report(&NKROBootKeyboardReport::new(keys))
+            .map(|_| ())
     }
 
     pub fn read_report(&self) -> usb_device::Result<KeyboardLedsReport> {
@@ -409,49 +428,62 @@ impl<'a, B: UsbBus> NKROBootKeyboardInterface<'a, B> {
         }
     }
 
-    delegate! {
-        to self.inner{
-            pub fn global_idle(&self) -> Milliseconds;
-        }
-    }
-}
-
-impl<'a, B: UsbBus> InterfaceClass<'a> for NKROBootKeyboardInterface<'a, B> {
-    delegate! {
-        to self.inner{
-           fn report_descriptor(&self) -> &'a [u8];
-           fn id(&self) -> InterfaceNumber;
-           fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-           fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'static str>;
-           fn reset(&mut self);
-           fn set_report(&mut self, data: &[u8]) -> Result<()>;
-           fn get_report(&mut self, data: &mut [u8]) -> Result<usize>;
-           fn get_report_ack(&mut self) -> Result<()>;
-           fn set_idle(&mut self, report_id: u8, value: u8);
-           fn get_idle(&self, report_id: u8) -> u8;
-           fn set_protocol(&mut self, protocol: HidProtocol);
-           fn get_protocol(&self) -> HidProtocol;
-        }
-    }
-}
-
-impl<'a, B: UsbBus> WrappedInterface<'a, B> for NKROBootKeyboardInterface<'a, B> {
-    fn default_config() -> WrappedInterfaceConfig<'a, Self> {
+    pub fn default_config(
+        clock: &'a C,
+    ) -> WrappedInterfaceConfig<Self, ManagedInterfaceConfig<'a, C, NKROBootKeyboardReport>> {
         WrappedInterfaceConfig::new(
-            InterfaceBuilder::new(NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR)
-                .description("NKRO Keyboard")
-                .boot_device(InterfaceProtocol::Keyboard)
-                .idle_default(Milliseconds(500))
-                .unwrap()
-                .in_endpoint(UsbPacketSize::Bytes32, Milliseconds(10))
-                .unwrap()
-                .with_out_endpoint(UsbPacketSize::Bytes8, Milliseconds(100))
-                .unwrap()
-                .build(),
+            ManagedInterfaceConfig::new(
+                RawInterfaceBuilder::new(NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR)
+                    .description("NKRO Keyboard")
+                    .boot_device(InterfaceProtocol::Keyboard)
+                    .idle_default(Milliseconds(500))
+                    .unwrap()
+                    .in_endpoint(UsbPacketSize::Bytes32, Milliseconds(10))
+                    .unwrap()
+                    .with_out_endpoint(UsbPacketSize::Bytes8, Milliseconds(100))
+                    .unwrap()
+                    .build(),
+                clock,
+            ),
+            (),
         )
     }
+}
 
-    fn new(interface: RawInterface<'a, B>) -> Self {
+impl<'a, B, C, Tick> InterfaceClass<'a> for NKROBootKeyboardInterface<'a, B, C>
+where
+    B: UsbBus,
+    C: embedded_time::Clock<T = Tick>,
+    Tick: TimeInt,
+    u32: TryFrom<Tick>,
+{
+    delegate! {
+        to self.inner{
+            fn report_descriptor(&self) -> &'_ [u8];
+            fn id(&self) -> InterfaceNumber;
+            fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
+            fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'_ str>;
+            fn set_report(&mut self, data: &[u8]) -> usb_device::Result<()>;
+            fn get_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize>;
+            fn get_report_ack(&mut self) -> usb_device::Result<()>;
+            fn get_idle(&self, report_id: u8) -> u8;
+            fn set_protocol(&mut self, protocol: HidProtocol);
+            fn get_protocol(&self) -> HidProtocol;
+            fn reset(&mut self);
+            fn set_idle(&mut self, report_id: u8, value: u8);
+        }
+    }
+}
+
+impl<'a, B, C, Tick> WrappedInterface<'a, B, ManagedInterface<'a, B, C, NKROBootKeyboardReport>>
+    for NKROBootKeyboardInterface<'a, B, C>
+where
+    B: 'a + UsbBus,
+    C: 'a + Clock<T = Tick>,
+    Tick: TimeInt,
+    u32: TryFrom<Tick>,
+{
+    fn new(interface: ManagedInterface<'a, B, C, NKROBootKeyboardReport>, _: ()) -> Self {
         Self { inner: interface }
     }
 }

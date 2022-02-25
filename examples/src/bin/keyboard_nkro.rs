@@ -1,25 +1,20 @@
 #![no_std]
 #![no_main]
 
-use core::convert::Infallible;
-
 use adafruit_macropad::hal;
+use core::convert::Infallible;
 use cortex_m_rt::entry;
 use embedded_hal::digital::v2::*;
 use embedded_hal::prelude::*;
 use embedded_time::duration::Milliseconds;
 use embedded_time::rate::Hertz;
 use hal::pac;
-use hal::timer::CountDown;
 use hal::Clock;
 use log::*;
-
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_hid_devices::device::keyboard::NKROBootKeyboardReport;
-
-use usbd_hid_devices::hid_class::prelude::*;
 use usbd_hid_devices::page::Keyboard;
+use usbd_hid_devices::prelude::*;
 
 use usbd_hid_devices_example_rp2040::*;
 
@@ -74,6 +69,8 @@ fn main() -> ! {
 
     let button = pins.gpio0.into_pull_up_input();
 
+    let clock = TimerClock::new(&timer);
+
     init_logger(oled_spi, oled_dc.into(), oled_cs.into(), &button);
     info!("Starting up...");
 
@@ -88,7 +85,7 @@ fn main() -> ! {
 
     let mut keyboard = UsbHidClassBuilder::new()
         .add_interface(
-            usbd_hid_devices::device::keyboard::NKROBootKeyboardInterface::default_config(),
+            usbd_hid_devices::device::keyboard::NKROBootKeyboardInterface::default_config(&clock),
         )
         .build(&usb_bus);
 
@@ -121,12 +118,11 @@ fn main() -> ! {
 
     led_pin.set_low().ok();
 
-    let mut last_keys = None;
-
     let mut input_count_down = timer.count_down();
     input_count_down.start(Milliseconds(10));
 
-    let mut idle_count_down = reset_idle(&timer, keyboard.interface().global_idle());
+    let mut tick_count_down = timer.count_down();
+    tick_count_down.start(Milliseconds(1));
 
     let mut display_poll = timer.count_down();
     display_poll.start(DISPLAY_POLL);
@@ -138,32 +134,27 @@ fn main() -> ! {
 
         //Poll the keys every 10ms
         if input_count_down.wait().is_ok() {
-            if idle_count_down
-                .as_mut()
-                .map(|c| c.wait().is_ok())
-                .unwrap_or(false)
-            {
-                //Expire on idle
-                last_keys = None;
-            }
-
             let keys = get_keys(keys);
 
-            if last_keys.map(|k| k != keys).unwrap_or(true) {
-                match keyboard
-                    .interface()
-                    .write_report(&NKROBootKeyboardReport::new(keys))
-                {
-                    Err(UsbError::WouldBlock) => {}
-                    Ok(_) => {
-                        last_keys = Some(keys);
-                        idle_count_down = reset_idle(&timer, keyboard.interface().global_idle());
-                    }
-                    Err(e) => {
-                        panic!("Failed to write keyboard report: {:?}", e)
-                    }
-                };
-            }
+            match keyboard.interface().write_report(keys) {
+                Err(UsbHidError::WouldBlock) => {}
+                Err(UsbHidError::Duplicate) => {}
+                Ok(_) => {}
+                Err(e) => {
+                    panic!("Failed to write keyboard report: {:?}", e)
+                }
+            };
+        }
+
+        //Tick once per ms
+        if tick_count_down.wait().is_ok() {
+            match keyboard.interface().tick() {
+                Err(UsbHidError::WouldBlock) => {}
+                Ok(_) => {}
+                Err(e) => {
+                    panic!("Failed to process keyboard tick: {:?}", e)
+                }
+            };
         }
 
         if usb_dev.poll(&mut [&mut keyboard]) {
@@ -175,7 +166,6 @@ fn main() -> ! {
                     panic!("Failed to read keyboard report: {:?}", e)
                 }
                 Ok(leds) => {
-                    //send scroll lock to the led
                     led_pin.set_state(PinState::from(leds.num_lock)).ok();
                 }
             }
@@ -184,16 +174,6 @@ fn main() -> ! {
         if display_poll.wait().is_ok() {
             log::logger().flush();
         }
-    }
-}
-
-fn reset_idle(timer: &hal::Timer, idle: Milliseconds) -> Option<CountDown> {
-    if idle <= Milliseconds(0_u32) {
-        None
-    } else {
-        let mut count_down = timer.count_down();
-        count_down.start(idle);
-        Some(count_down)
     }
 }
 

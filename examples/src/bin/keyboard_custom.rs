@@ -17,7 +17,6 @@ use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_hid_devices::device::keyboard::{BootKeyboardReport, KeyboardLedsReport};
-
 use usbd_hid_devices::hid_class::prelude::*;
 use usbd_hid_devices::page::Keyboard;
 
@@ -126,7 +125,7 @@ fn main() -> ! {
 
     let mut keyboard = UsbHidClassBuilder::new()
         .add_interface(
-            InterfaceBuilder::new(LOGITECH_GAMING_KEYBOARD_REPORT_DESCRIPTOR)
+            RawInterfaceBuilder::new(LOGITECH_GAMING_KEYBOARD_REPORT_DESCRIPTOR)
                 .description("Custom Keyboard")
                 .idle_default(Milliseconds(500))
                 .unwrap()
