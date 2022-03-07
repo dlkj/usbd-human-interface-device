@@ -711,7 +711,7 @@ pub enum Keyboard {
     Keypad8 = 0x60,
     Keypad9 = 0x61,
     Keypad0 = 0x62,
-    Keypad = 0x63,
+    KeypadDot = 0x63,
     NonUSBackslash = 0x64,
     Application = 0x65,
     Power = 0x66,
