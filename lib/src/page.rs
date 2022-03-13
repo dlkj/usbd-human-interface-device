@@ -3,6 +3,9 @@
 //! See Universal Serial Bus (USB) HID Usage Tables Version 1.12
 //! <https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>
 
+use hash32::{Hash, Hasher};
+use num_enum::FromPrimitive;
+use num_enum::IntoPrimitive;
 use packed_struct::prelude::*;
 
 // Notes for converting .upg files to rust enum
@@ -16,9 +19,22 @@ use packed_struct::prelude::*;
 ///
 /// See [Universal Serial Bus (USB) HID Usage Tables Version 1.12](<https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>):
 /// Section 11 LED Page (0x08)
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, PrimitiveEnum)]
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    PrimitiveEnum,
+    Hash,
+    IntoPrimitive,
+    FromPrimitive,
+)]
 #[repr(u8)]
 pub enum Leds {
+    #[num_enum(default)]
     Undefined = 0x00,
     NumLock = 0x01,
     CapsLock = 0x02,
@@ -98,13 +114,42 @@ pub enum Leds {
     //0x4C-0xFFFF Reserved
 }
 
+impl Default for Leds {
+    fn default() -> Self {
+        Self::Undefined
+    }
+}
+
+impl Hash for Leds {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        let x: u8 = (*self).into();
+        state.write(&x.to_le_bytes());
+    }
+}
+
 /// Consumer usage page
 ///
 /// See [Universal Serial Bus (USB) HID Usage Tables Version 1.12](<https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>):
 /// Section 15 Consumer Page (0x0C)
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, PrimitiveEnum)]
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    PrimitiveEnum,
+    Hash,
+    IntoPrimitive,
+    FromPrimitive,
+)]
 #[repr(u16)]
 pub enum Consumer {
+    #[num_enum(default)]
     Unassigned = 0x00,
     ConsumerControl = 0x01,
     NumericKeyPad = 0x02,
@@ -491,7 +536,17 @@ pub enum Consumer {
 
 impl Default for Consumer {
     fn default() -> Self {
-        Consumer::Unassigned
+        Self::Unassigned
+    }
+}
+
+impl Hash for Consumer {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        let x: u16 = (*self).into();
+        state.write(&x.to_le_bytes());
     }
 }
 
@@ -499,9 +554,12 @@ impl Default for Consumer {
 ///
 /// See [Universal Serial Bus (USB) HID Usage Tables Version 1.12](<https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>):
 /// Section 4 Desktop Page (0x01)
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, PrimitiveEnum)]
+#[derive(
+    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, PrimitiveEnum, IntoPrimitive, FromPrimitive,
+)]
 #[repr(u8)]
 pub enum Desktop {
+    #[num_enum(default)]
     Undefined = 0x00,
     Pointer = 0x01,
     Mouse = 0x02,
@@ -562,13 +620,32 @@ pub enum Desktop {
     //0x94-0xFFFF Reserved
 }
 
+impl Default for Desktop {
+    fn default() -> Self {
+        Self::Undefined
+    }
+}
+
+impl Hash for Desktop {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        let x: u8 = (*self).into();
+        state.write(&x.to_le_bytes());
+    }
+}
+
 /// Game Controls usage page
 ///
 /// See [Universal Serial Bus (USB) HID Usage Tables Version 1.12](<https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>):
 /// Section 4 Game Controls Page (0x05)
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, PrimitiveEnum)]
+#[derive(
+    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, PrimitiveEnum, IntoPrimitive, FromPrimitive,
+)]
 #[repr(u8)]
 pub enum Game {
+    #[num_enum(default)]
     Undefined = 0x00,
     Game3DController = 0x01,
     PinballDevice = 0x02,
@@ -602,6 +679,22 @@ pub enum Game {
     //0x3A-0xFFFF Reserved
 }
 
+impl Default for Game {
+    fn default() -> Self {
+        Self::Undefined
+    }
+}
+
+impl Hash for Game {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        let x: u8 = (*self).into();
+        state.write(&x.to_le_bytes());
+    }
+}
+
 /// Keyboard usage page
 ///
 /// See [Universal Serial Bus (USB) HID Usage Tables Version 1.12](<https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>):
@@ -609,9 +702,12 @@ pub enum Game {
 ///
 /// Naming from the specification has been preserved where possible but some names
 /// have been shortened or transliterated to be valid rust identifiers
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, PrimitiveEnum)]
+#[derive(
+    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, PrimitiveEnum, IntoPrimitive, FromPrimitive,
+)]
 #[repr(u8)]
 pub enum Keyboard {
+    #[num_enum(default)]
     NoEventIndicated = 0x00,
     ErrorRollOver = 0x01,
     POSTFail = 0x02,
@@ -791,7 +887,17 @@ pub enum Keyboard {
 
 impl Default for Keyboard {
     fn default() -> Self {
-        Keyboard::NoEventIndicated
+        Self::NoEventIndicated
+    }
+}
+
+impl Hash for Keyboard {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        let x: u8 = (*self).into();
+        state.write(&x.to_le_bytes());
     }
 }
 
@@ -799,9 +905,12 @@ impl Default for Keyboard {
 ///
 /// See [Universal Serial Bus (USB) HID Usage Tables Version 1.12](<https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>):
 /// Section 5 Simulation Controls Page (0x02)
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, PrimitiveEnum)]
+#[derive(
+    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, PrimitiveEnum, IntoPrimitive, FromPrimitive,
+)]
 #[repr(u8)]
 pub enum Simulation {
+    #[num_enum(default)]
     Undefined = 0x00,
     FlightSimulationDevice = 0x01,
     AutomobileSimulationDevice = 0x02,
@@ -860,13 +969,32 @@ pub enum Simulation {
     //0xD1-0xFFFF Reserved
 }
 
+impl Default for Simulation {
+    fn default() -> Self {
+        Self::Undefined
+    }
+}
+
+impl Hash for Simulation {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        let x: u8 = (*self).into();
+        state.write(&x.to_le_bytes());
+    }
+}
+
 /// Telephony Device usage page
 ///
 /// See [Universal Serial Bus (USB) HID Usage Tables Version 1.12](<https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>):
 /// Section 14 Telephony Device  Page (0x0B)
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, PrimitiveEnum)]
+#[derive(
+    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, PrimitiveEnum, IntoPrimitive, FromPrimitive,
+)]
 #[repr(u8)]
 pub enum Telephony {
+    #[num_enum(default)]
     Unassigned = 0x00,
     Phone = 0x01,
     AnsweringMachine = 0x02,
@@ -939,4 +1067,19 @@ pub enum Telephony {
     PhoneKeyC = 0xBE,
     PhoneKeyD = 0xBF,
     //0xC0-0xFFFF Reserved
+}
+impl Default for Telephony {
+    fn default() -> Self {
+        Self::Unassigned
+    }
+}
+
+impl Hash for Telephony {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        let x: u8 = (*self).into();
+        state.write(&x.to_le_bytes());
+    }
 }
