@@ -295,6 +295,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "hash32-derive"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "59d2aba832b60be25c1b169146b27c64115470981b128ed84c8db18c1b03c6ff"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "heapless"
 version = "0.7.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -332,9 +343,9 @@ dependencies = [
 
 [[package]]
 name = "log"
-version = "0.4.14"
+version = "0.4.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51b9bbe6c47d51fc3e1a9b945965946b4c44142ab8792c50835a980d362c2710"
+checksum = "6389c490849ff5bc16be905ae24bc913a9c8892e19b2341dbc175e14c341c2b8"
 dependencies = [
  "cfg-if",
 ]
@@ -702,8 +713,11 @@ dependencies = [
  "delegate",
  "embedded-time",
  "frunk",
+ "hash32",
+ "hash32-derive",
  "heapless",
  "log",
+ "num_enum",
  "packed_struct",
  "usb-device",
 ]

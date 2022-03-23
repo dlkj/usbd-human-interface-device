@@ -23,7 +23,7 @@ embedded-time = "0.12.0"
 embedded-graphics = "0.7.1"
 embedded-text = {version = "0.5.0", default-features = false }
 arrayvec = { version = "0.7.2", default-features = false }
-log = "0.4.14"
+log = "0.4.16"
 nb = "1.0"
 panic-persist = { version = "0.3", features = ["utf8"] }
 packed_struct = { version = "0.10", default-features = false }
