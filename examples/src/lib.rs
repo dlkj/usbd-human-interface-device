@@ -1,4 +1,4 @@
-//! # HID USB Examples for usbd-hid-devices
+//! # HID USB Examples for usbd-human-interface-device
 
 #![no_std]
 

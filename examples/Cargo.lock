@@ -707,7 +707,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6be90410d4772074ea49525e2e753b65920b94b57eee21a6ef7b6a6fe6296245"
 
 [[package]]
-name = "usbd-hid-devices"
+name = "usbd-human-interface-device"
 version = "0.1.0"
 dependencies = [
  "delegate",
@@ -723,7 +723,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "usbd-hid-devices-example-rp2040"
+name = "usbd-human-interface-device-example-rp2040"
 version = "0.1.0"
 dependencies = [
  "adafruit-macropad",
@@ -742,7 +742,7 @@ dependencies = [
  "rp2040-boot2",
  "sh1106",
  "usb-device",
- "usbd-hid-devices",
+ "usbd-human-interface-device",
 ]
 
 [[package]]

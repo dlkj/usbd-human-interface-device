@@ -12,12 +12,12 @@ use hal::Clock;
 use log::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_hid_devices::device::consumer::MultipleConsumerReport;
-use usbd_hid_devices::prelude::*;
+use usbd_human_interface_device::device::consumer::MultipleConsumerReport;
+use usbd_human_interface_device::prelude::*;
 
-use usbd_hid_devices::page::Consumer;
+use usbd_human_interface_device::page::Consumer;
 
-use usbd_hid_devices_example_rp2040::*;
+use usbd_human_interface_device_example_rp2040::*;
 
 #[entry]
 fn main() -> ! {
@@ -84,13 +84,13 @@ fn main() -> ! {
 
     let mut consumer = UsbHidClassBuilder::new()
         .add_interface(
-            usbd_hid_devices::device::consumer::ConsumerControlInterface::default_config(),
+            usbd_human_interface_device::device::consumer::ConsumerControlInterface::default_config(),
         )
         .build(&usb_bus);
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("usbd-hid-devices")
+        .manufacturer("usbd-human-interface-device")
         .product("Consumer Control")
         .serial_number("TEST")
         .supports_remote_wakeup(false)

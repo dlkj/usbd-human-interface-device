@@ -209,7 +209,7 @@ fn descriptor_ordering_satisfies_boot_spec() {
         .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("usbd-hid-devices")
+        .manufacturer("usbd-human-interface-device")
         .product("Test Hid Device")
         .serial_number("TEST")
         .device_class(USB_CLASS_HID)
@@ -257,7 +257,7 @@ fn get_protocol_default_to_report() {
         .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("usbd-hid-devices")
+        .manufacturer("usbd-human-interface-device")
         .product("Test Hid Device")
         .serial_number("TEST")
         .device_class(USB_CLASS_HID)
@@ -319,7 +319,7 @@ fn set_protocol() {
         .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("usbd-hid-devices")
+        .manufacturer("usbd-human-interface-device")
         .product("Test Hid Device")
         .serial_number("TEST")
         .device_class(USB_CLASS_HID)
@@ -381,7 +381,7 @@ fn get_protocol_default_post_reset() {
         .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("usbd-hid-devices")
+        .manufacturer("usbd-human-interface-device")
         .product("Test Hid Device")
         .serial_number("TEST")
         .device_class(USB_CLASS_HID)
@@ -441,7 +441,7 @@ fn get_global_idle_default() {
         .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("usbd-hid-devices")
+        .manufacturer("usbd-human-interface-device")
         .product("Test Hid Device")
         .serial_number("TEST")
         .device_class(USB_CLASS_HID)
@@ -510,7 +510,7 @@ fn set_global_idle() {
         .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("usbd-hid-devices")
+        .manufacturer("usbd-human-interface-device")
         .product("Test Hid Device")
         .serial_number("TEST")
         .device_class(USB_CLASS_HID)
@@ -580,7 +580,7 @@ fn get_global_idle_default_post_reset() {
         .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("usbd-hid-devices")
+        .manufacturer("usbd-human-interface-device")
         .product("Test Hid Device")
         .serial_number("TEST")
         .device_class(USB_CLASS_HID)
@@ -641,7 +641,7 @@ fn get_report_idle_default() {
         .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("usbd-hid-devices")
+        .manufacturer("usbd-human-interface-device")
         .product("Test Hid Device")
         .serial_number("TEST")
         .device_class(USB_CLASS_HID)
@@ -728,7 +728,7 @@ fn set_report_idle() {
         .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("usbd-hid-devices")
+        .manufacturer("usbd-human-interface-device")
         .product("Test Hid Device")
         .serial_number("TEST")
         .device_class(USB_CLASS_HID)
@@ -800,7 +800,7 @@ fn get_report_idle_default_post_reset() {
         .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("usbd-hid-devices")
+        .manufacturer("usbd-human-interface-device")
         .product("Test Hid Device")
         .serial_number("TEST")
         .device_class(USB_CLASS_HID)

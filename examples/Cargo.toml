@@ -1,15 +1,15 @@
 [package]
-name = "usbd-hid-devices-example-rp2040"
+name = "usbd-human-interface-device-example-rp2040"
 version = "0.1.0"
 edition = "2021"
 authors = ["DLKJ"]
-description = "Example using the rust usbd-hid-devices library on the Raspberry Pi RP2040/Pico"
+description = "Example using the rust usbd-human-interface-device library on the Raspberry Pi RP2040/Pico"
 license = "MIT"
 
 [workspace]
 
 [dependencies]
-usbd-hid-devices = { path = ".." }
+usbd-human-interface-device = { path = ".." }
 cortex-m = "0.7"
 cortex-m-rt = "0.7"
 usb-device= "0.2"

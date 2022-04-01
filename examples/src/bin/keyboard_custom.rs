@@ -16,11 +16,11 @@ use log::*;
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_hid_devices::device::keyboard::{BootKeyboardReport, KeyboardLedsReport};
-use usbd_hid_devices::hid_class::prelude::*;
-use usbd_hid_devices::page::Keyboard;
+use usbd_human_interface_device::device::keyboard::{BootKeyboardReport, KeyboardLedsReport};
+use usbd_human_interface_device::hid_class::prelude::*;
+use usbd_human_interface_device::page::Keyboard;
 
-use usbd_hid_devices_example_rp2040::*;
+use usbd_human_interface_device_example_rp2040::*;
 
 #[entry]
 fn main() -> ! {
@@ -139,7 +139,7 @@ fn main() -> ! {
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("usbd-hid-devices")
+        .manufacturer("usbd-human-interface-device")
         .product("Custom Keyboard")
         .serial_number("TEST")
         .supports_remote_wakeup(false)

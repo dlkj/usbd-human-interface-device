@@ -21,14 +21,14 @@ use log::*;
 use pac::interrupt;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_hid_devices::device::consumer::{ConsumerControlInterface, MultipleConsumerReport};
-use usbd_hid_devices::device::keyboard::NKROBootKeyboardInterface;
-use usbd_hid_devices::device::mouse::{WheelMouseInterface, WheelMouseReport};
-use usbd_hid_devices::page::Consumer;
-use usbd_hid_devices::page::Keyboard;
-use usbd_hid_devices::prelude::*;
+use usbd_human_interface_device::device::consumer::{ConsumerControlInterface, MultipleConsumerReport};
+use usbd_human_interface_device::device::keyboard::NKROBootKeyboardInterface;
+use usbd_human_interface_device::device::mouse::{WheelMouseInterface, WheelMouseReport};
+use usbd_human_interface_device::page::Consumer;
+use usbd_human_interface_device::page::Keyboard;
+use usbd_human_interface_device::prelude::*;
 
-use usbd_hid_devices_example_rp2040::*;
+use usbd_human_interface_device_example_rp2040::*;
 
 type UsbDevices = (
     UsbDevice<'static, hal::usb::UsbBus>,
@@ -127,18 +127,18 @@ fn main() -> ! {
 
     let composite = UsbHidClassBuilder::new()
         .add_interface(
-            usbd_hid_devices::device::keyboard::NKROBootKeyboardInterface::default_config(clock),
+            usbd_human_interface_device::device::keyboard::NKROBootKeyboardInterface::default_config(clock),
         )
-        .add_interface(usbd_hid_devices::device::mouse::WheelMouseInterface::default_config())
+        .add_interface(usbd_human_interface_device::device::mouse::WheelMouseInterface::default_config())
         .add_interface(
-            usbd_hid_devices::device::consumer::ConsumerControlInterface::default_config(),
+            usbd_human_interface_device::device::consumer::ConsumerControlInterface::default_config(),
         )
         //Build
         .build(usb_alloc);
 
     //https://pid.codes
     let usb_dev = UsbDeviceBuilder::new(usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("usbd-hid-devices")
+        .manufacturer("usbd-human-interface-device")
         .product("Keyboard, Mouse & Consumer")
         .serial_number("TEST")
         .supports_remote_wakeup(false)

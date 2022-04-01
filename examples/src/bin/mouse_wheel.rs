@@ -12,10 +12,10 @@ use hal::Clock;
 use log::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_hid_devices::device::mouse::WheelMouseReport;
-use usbd_hid_devices::prelude::*;
+use usbd_human_interface_device::device::mouse::WheelMouseReport;
+use usbd_human_interface_device::prelude::*;
 
-use usbd_hid_devices_example_rp2040::*;
+use usbd_human_interface_device_example_rp2040::*;
 
 #[entry]
 fn main() -> ! {
@@ -81,12 +81,12 @@ fn main() -> ! {
     ));
 
     let mut mouse = UsbHidClassBuilder::new()
-        .add_interface(usbd_hid_devices::device::mouse::WheelMouseInterface::default_config())
+        .add_interface(usbd_human_interface_device::device::mouse::WheelMouseInterface::default_config())
         .build(&usb_bus);
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("usbd-hid-devices")
+        .manufacturer("usbd-human-interface-device")
         .product("Wheel Mouse")
         .serial_number("TEST")
         .supports_remote_wakeup(false)

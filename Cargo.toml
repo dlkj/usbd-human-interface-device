@@ -1,14 +1,14 @@
 [package]
-name = "usbd-hid-devices"
+name = "usbd-human-interface-device"
 version = "0.1.0"
 edition = "2021"
-description = "Batteries included embeded devices USB Hid library for usb-device"
+description = "Batteries included embedded USB HID library for usb-device. Includes concrete Keyboard (boot and NKRO), Mouse and Consumer Control implementations as well as support for building your own HID classes."
 keywords = ["no-std", "hid", "usb-device"]
 categories = [] #TODO
 authors = ["DLKJ"]
-repository = "https://github.com/dlkj/usbd-hid-devices"
-homepage = "https://github.com/dlkj/usbd-hid-devices"
-documentation = "https://docs.rs/usbd-hid-devices" #TODO
+repository = "https://github.com/dlkj/usbd-human-interface-device"
+homepage = "https://github.com/dlkj/usbd-human-interface-device"
+documentation = "https://docs.rs/usbd-human-interface-device"
 license = "MIT"
 
 [dependencies]

@@ -5,7 +5,7 @@
 //!
 //! ```
 //! # #![allow(unused_imports)]
-//! use usbd_hid_devices::hid_class::prelude::*;
+//! use usbd_human_interface_device::hid_class::prelude::*;
 //! ```
 
 pub use super::{
