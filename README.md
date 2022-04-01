@@ -22,7 +22,6 @@ should work but has not been verified.
 use usbd_human_interface_device::page::Keyboard;
 use usbd_human_interface_device::device::keyboard::{KeyboardLedsReport, NKROBootKeyboardInterface};
 use usbd_human_interface_device::prelude::*;
-use usbd_human_interface_device::prelude::*;
 
 
 let usb_alloc = UsbBusAllocator::new(usb_bus);
