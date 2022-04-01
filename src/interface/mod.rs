@@ -1,3 +1,4 @@
+//! Abstract Human Interface Device Interfaces
 use core::marker::PhantomData;
 use frunk::{HCons, HNil, ToRef};
 use packed_struct::prelude::*;

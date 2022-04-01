@@ -13,6 +13,7 @@ use crate::interface::{InterfaceClass, WrappedInterface, WrappedInterfaceConfig}
 use crate::page::Keyboard;
 use crate::UsbHidError;
 
+/// Interface implementing the HID boot keyboard specification
 pub struct BootKeyboardInterface<'a, B: UsbBus, C: embedded_time::Clock> {
     inner: ManagedInterface<'a, B, C, BootKeyboardReport>,
 }
@@ -112,6 +113,7 @@ where
     }
 }
 
+/// Report indicating the currently lit keyboard LEDs
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, PackedStruct)]
 #[packed_struct(endian = "lsb", bit_numbering = "lsb0", size_bytes = "1")]
 pub struct KeyboardLedsReport {
@@ -127,6 +129,7 @@ pub struct KeyboardLedsReport {
     pub kana: bool,
 }
 
+/// Report implementing the HID boot keyboard specification
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Default, PackedStruct)]
 #[packed_struct(endian = "lsb", bit_numbering = "msb0", size_bytes = "8")]
 pub struct BootKeyboardReport {
@@ -252,6 +255,11 @@ pub const BOOT_KEYBOARD_REPORT_DESCRIPTOR: &[u8] = &[
     0xC0, // End Collection
 ];
 
+/// HID Keyboard report descriptor implementing an NKRO keyboard as a bitmap appended to the boot
+/// keyboard report format.
+///
+/// This is compatible with the HID boot specification but key data must be duplicated across both
+/// the array and bitmap sections of the report
 //25 bytes
 //byte 0 - modifiers
 //byte 1 - reserved 0s
@@ -297,6 +305,11 @@ pub const NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR: &[u8] = &[
     0xc0                            // End Collection
 ];
 
+/// Report implementing an NKRO keyboard as a bitmap appended to the boot
+/// keyboard report format
+///
+/// This is compatible with the HID boot specification but key data must be duplicated across both
+/// the [NKROBootKeyboardReport::boot_keys] and [NKROBootKeyboardReport::nkro_keys] fields
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Default, PackedStruct)]
 #[packed_struct(endian = "lsb", bit_numbering = "msb0", size_bytes = "25")]
 pub struct NKROBootKeyboardReport {
@@ -391,6 +404,7 @@ impl NKROBootKeyboardReport {
     }
 }
 
+/// Interface implementing a NKRO keyboard compatible with the HID boot keyboard specification
 pub struct NKROBootKeyboardInterface<'a, B: UsbBus, C: embedded_time::Clock> {
     inner: ManagedInterface<'a, B, C, NKROBootKeyboardReport>,
 }
@@ -488,6 +502,9 @@ where
     }
 }
 
+/// HID Keyboard report descriptor implementing an NKRO keyboard as a bitmap.
+/// 
+/// N.B. This is not compatible with the HID boot specification
 //18 bytes - derived from https://learn.adafruit.com/custom-hid-devices-in-circuitpython/n-key-rollover-nkro-hid-device
 //First byte modifiers, 17 byte key bit array
 #[rustfmt::skip]

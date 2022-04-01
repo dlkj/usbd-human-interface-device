@@ -85,7 +85,9 @@ fn main() -> ! {
 
     let mut keyboard = UsbHidClassBuilder::new()
         .add_interface(
-            usbd_human_interface_device::device::keyboard::BootKeyboardInterface::default_config(&clock),
+            usbd_human_interface_device::device::keyboard::BootKeyboardInterface::default_config(
+                &clock,
+            ),
         )
         .build(&usb_bus);
 

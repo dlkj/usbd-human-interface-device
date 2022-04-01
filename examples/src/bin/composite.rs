@@ -15,7 +15,9 @@ use hal::Clock;
 use log::*;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_human_interface_device::device::consumer::{ConsumerControlInterface, MultipleConsumerReport};
+use usbd_human_interface_device::device::consumer::{
+    ConsumerControlInterface, MultipleConsumerReport,
+};
 use usbd_human_interface_device::device::keyboard::NKROBootKeyboardInterface;
 use usbd_human_interface_device::device::mouse::{WheelMouseInterface, WheelMouseReport};
 use usbd_human_interface_device::page::Consumer;
