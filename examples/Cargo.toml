@@ -17,7 +17,7 @@ cortex-m-rt = "0.7.0"
 usb-device= "0.2.8"
 sh1106 = "0.4.0"
 embedded-hal = { version = "0.2.7", features=["unproven"] }
-adafruit-macropad = { version = "0.1.0" }
+adafruit-macropad = { version = "0.2.0" }
 rp2040-boot2 = { version = "0.2.0" }
 embedded-time = "0.12.0"
 embedded-graphics = "0.7.1"
