@@ -20,8 +20,10 @@ should work but has not been verified.
 
 ```rust,no_run
 use usbd_human_interface_device::page::Keyboard;
-use usbd_human_interface_device::device::keyboard::NKROBootKeyboardInterface;
+use usbd_human_interface_device::device::keyboard::{KeyboardLedsReport, NKROBootKeyboardInterface};
 use usbd_human_interface_device::prelude::*;
+use usbd_human_interface_device::prelude::*;
+
 
 let usb_alloc = UsbBusAllocator::new(usb_bus);
 
@@ -42,7 +44,7 @@ loop {
     let keys = if pin.is_high().unwrap() {
             &[Keyboard::A]
         } else {
-            &[]
+            &[Keyboard::NoEventIndicated]
     };
     
     keyboard.interface().write_report(keys).ok();
