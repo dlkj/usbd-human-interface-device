@@ -3,27 +3,25 @@ name = "usbd-hid-devices-example-rp2040"
 version = "0.1.0"
 edition = "2021"
 authors = ["DLKJ"]
-homepage = "https://github.com/dlkj/usbd-hid-devices-example-rp2040"
-repository = "https://github.com/dlkj/usbd-hid-devices-example-rp2040"
 description = "Example using the rust usbd-hid-devices library on the Raspberry Pi RP2040/Pico"
 license = "MIT"
 
 [workspace]
 
 [dependencies]
-usbd-hid-devices = { path = "../lib" }
-cortex-m = "0.7.4"
-cortex-m-rt = "0.7.0"
-usb-device= "0.2.8"
-sh1106 = "0.4.0"
-embedded-hal = { version = "0.2.7", features=["unproven"] }
-adafruit-macropad = { version = "0.2.0" }
-rp2040-boot2 = { version = "0.2.0" }
-embedded-time = "0.12.0"
-embedded-graphics = "0.7.1"
-embedded-text = {version = "0.5.0", default-features = false }
-arrayvec = { version = "0.7.2", default-features = false }
-log = "0.4.16"
+usbd-hid-devices = { path = ".." }
+cortex-m = "0.7"
+cortex-m-rt = "0.7"
+usb-device= "0.2"
+sh1106 = "0.4"
+embedded-hal = { version = "0.2", features=["unproven"] }
+adafruit-macropad = { version = "0.2" }
+rp2040-boot2 = { version = "0.2" }
+embedded-time = "0.12"
+embedded-graphics = "0.7"
+embedded-text = {version = "0.5", default-features = false }
+arrayvec = { version = "0.7", default-features = false }
+log = "0.4"
 nb = "1.0"
 panic-persist = { version = "0.3", features = ["utf8"] }
 packed_struct = { version = "0.10", default-features = false }
