@@ -294,6 +294,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hash32"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2baa98978c170759522ad6ebb567aeb29a62e1867551f39ae2e5b749fbd5cc21"
+dependencies = [
+ "byteorder",
+]
+
+[[package]]
 name = "hash32-derive"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -311,7 +320,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "80d9655b43f21008d1d6f6ae33ba8bfbaf1ef954f19ea3023e1bcf8e06b4e909"
 dependencies = [
  "atomic-polyfill",
- "hash32",
+ "hash32 0.2.1",
  "rustc_version 0.4.0",
  "spin",
  "stable_deref_trait",
@@ -729,7 +738,7 @@ dependencies = [
  "delegate",
  "embedded-time",
  "frunk",
- "hash32",
+ "hash32 0.3.0",
  "hash32-derive",
  "heapless",
  "log",
