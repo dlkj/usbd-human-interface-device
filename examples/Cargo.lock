@@ -294,17 +294,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hash32-derive"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59d2aba832b60be25c1b169146b27c64115470981b128ed84c8db18c1b03c6ff"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "heapless"
 version = "0.7.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -729,8 +718,6 @@ dependencies = [
  "delegate",
  "embedded-time",
  "frunk",
- "hash32",
- "hash32-derive",
  "heapless",
  "log",
  "num_enum",
