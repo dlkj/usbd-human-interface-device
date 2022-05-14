@@ -19,7 +19,7 @@ packed_struct = { version = "0.10", default-features = false }
 heapless = "0.7"
 frunk = { version = "0.4", default-features = false }
 delegate = "0.6"
-hash32 = "0.2"
+hash32 = "0.3"
 hash32-derive = "0.1"
 num_enum = { version = "0.5", default-features = false }
 
