@@ -9,7 +9,6 @@ use crate::hid_class::prelude::*;
 use crate::interface::raw::{RawInterface, RawInterfaceConfig};
 use crate::interface::{InterfaceClass, WrappedInterface, WrappedInterfaceConfig};
 use crate::UsbHidError;
-use core::ops::{Deref, DerefMut};
 
 /// HID Mouse report descriptor conforming to the Boot specification
 ///
@@ -40,35 +39,13 @@ pub const FIDO_REPORT_DESCRIPTOR: &[u8] = &[
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[repr(C, align(8))]
 pub struct FidoMsg {
-    pub cmd: u8,
-    pub bcnt: u8,
-    pub data: [u8; 62],
+    pub packet: [u8; 64]
 }
 impl Default for FidoMsg {
     fn default() -> FidoMsg {
-        FidoMsg { cmd: 0, bcnt: 0, data: [0u8; 62] }
+        FidoMsg { packet: [0u8; 64] }
     }
 }
-impl Deref for FidoMsg {
-    type Target = [u8];
-    fn deref(&self) -> &[u8] {
-        unsafe {
-            core::slice::from_raw_parts(
-                self as *const FidoMsg as *const u8, core::mem::size_of::<FidoMsg>()
-            ) as &[u8]
-        }
-    }
-}
-impl DerefMut for FidoMsg {
-    fn deref_mut(&mut self) -> &mut [u8] {
-        unsafe {
-            core::slice::from_raw_parts_mut(
-                self as *mut FidoMsg as *mut u8, core::mem::size_of::<FidoMsg>())
-                as &mut [u8]
-        }
-    }
-}
-
 
 pub struct FidoInterface<'a, B: UsbBus> {
     inner: RawInterface<'a, B>,
@@ -77,13 +54,13 @@ pub struct FidoInterface<'a, B: UsbBus> {
 impl<'a, B: UsbBus> FidoInterface<'a, B> {
     pub fn write_report(&self, report: &FidoMsg) -> Result<(), UsbHidError> {
         self.inner
-            .write_report(report.deref())
+            .write_report(&report.packet)
             .map(|_| ())
             .map_err(UsbHidError::from)
     }
     pub fn read_report(&self) -> usb_device::Result<FidoMsg> {
         let mut report = FidoMsg::default();
-        match self.inner.read_report(&mut report.deref_mut()) {
+        match self.inner.read_report(&mut report.packet) {
             Err(e) => Err(e),
             Ok(_) => Ok(report),
         }
