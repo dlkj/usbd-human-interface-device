@@ -33,28 +33,28 @@ pub const FIDO_REPORT_DESCRIPTOR: &[u8] = &[
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[repr(C, align(8))]
-pub struct FidoMsg {
+pub struct RawFidoMsg {
     pub packet: [u8; 64]
 }
-impl Default for FidoMsg {
-    fn default() -> FidoMsg {
-        FidoMsg { packet: [0u8; 64] }
+impl Default for RawFidoMsg {
+    fn default() -> RawFidoMsg {
+        RawFidoMsg { packet: [0u8; 64] }
     }
 }
 
-pub struct FidoInterface<'a, B: UsbBus> {
+pub struct RawFidoInterface<'a, B: UsbBus> {
     inner: RawInterface<'a, B>,
 }
 
-impl<'a, B: UsbBus> FidoInterface<'a, B> {
-    pub fn write_report(&self, report: &FidoMsg) -> Result<(), UsbHidError> {
+impl<'a, B: UsbBus> RawFidoInterface<'a, B> {
+    pub fn write_report(&self, report: &RawFidoMsg) -> Result<(), UsbHidError> {
         self.inner
             .write_report(&report.packet)
             .map(|_| ())
             .map_err(UsbHidError::from)
     }
-    pub fn read_report(&self) -> usb_device::Result<FidoMsg> {
-        let mut report = FidoMsg::default();
+    pub fn read_report(&self) -> usb_device::Result<RawFidoMsg> {
+        let mut report = RawFidoMsg::default();
         match self.inner.read_report(&mut report.packet) {
             Err(e) => Err(e),
             Ok(_) => Ok(report),
@@ -77,7 +77,7 @@ impl<'a, B: UsbBus> FidoInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a> for FidoInterface<'a, B> {
+impl<'a, B: UsbBus> InterfaceClass<'a> for RawFidoInterface<'a, B> {
     delegate! {
         to self.inner{
            fn report_descriptor(&self) -> &'_ [u8];
@@ -96,7 +96,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for FidoInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> WrappedInterface<'a, B, RawInterface<'a, B>> for FidoInterface<'a, B> {
+impl<'a, B: UsbBus> WrappedInterface<'a, B, RawInterface<'a, B>> for RawFidoInterface<'a, B> {
     fn new(interface: RawInterface<'a, B>, _: ()) -> Self {
         Self { inner: interface }
     }
