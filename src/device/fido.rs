@@ -10,16 +10,11 @@ use crate::interface::raw::{RawInterface, RawInterfaceConfig};
 use crate::interface::{InterfaceClass, WrappedInterface, WrappedInterfaceConfig};
 use crate::UsbHidError;
 
-/// HID Mouse report descriptor conforming to the Boot specification
-///
-/// This aims to be compatible with BIOS and other reduced functionality USB hosts
-///
-/// This is defined in Appendix B.2 & E.10 of [Device Class Definition for Human
-/// Interface Devices (Hid) Version 1.11](<https://www.usb.org/sites/default/files/hid1_11.pdf>)
+/// FIDO report descriptor.
 #[rustfmt::skip]
 pub const FIDO_REPORT_DESCRIPTOR: &[u8] = &[
     0x06, 0xD0, 0xF1, // Usage Page (FIDO),
-    0x09, 0x01, // Usage (Mouse),
+    0x09, 0x01, // Usage (U2F Authenticator Device)
     0xA1, 0x01, // Collection (Application),
     0x09, 0x20, //   Usage (Data In),
     0x15, 0x00, //       Logical Minimum(0),
