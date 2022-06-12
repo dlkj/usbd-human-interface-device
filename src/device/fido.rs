@@ -1,4 +1,4 @@
-//! HID FIDO
+//! HID FIDO Universal 2nd Factor (U2F)
 use crate::hid_class::descriptor::HidProtocol;
 use delegate::delegate;
 use embedded_time::duration::Milliseconds;
@@ -10,7 +10,10 @@ use crate::interface::raw::{RawInterface, RawInterfaceConfig};
 use crate::interface::{InterfaceClass, WrappedInterface, WrappedInterfaceConfig};
 use crate::UsbHidError;
 
-/// FIDO report descriptor.
+/// Raw FIDO report descriptor.
+/// 
+/// See the [FIDO U2F HID Protocol Specification](https://fidoalliance.org/specs/fido-u2f-v1.2-ps-20170411/fido-u2f-hid-protocol-v1.2-ps-20170411.html)
+/// for protocol detail
 #[rustfmt::skip]
 pub const FIDO_REPORT_DESCRIPTOR: &[u8] = &[
     0x06, 0xD0, 0xF1, // Usage Page (FIDO),
@@ -34,7 +37,7 @@ pub const FIDO_REPORT_DESCRIPTOR: &[u8] = &[
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[repr(C, align(8))]
 pub struct RawFidoMsg {
-    pub packet: [u8; 64]
+    pub packet: [u8; 64],
 }
 impl Default for RawFidoMsg {
     fn default() -> RawFidoMsg {
@@ -71,7 +74,7 @@ impl<'a, B: UsbBus> RawFidoInterface<'a, B> {
                 .unwrap()
                 .with_out_endpoint(UsbPacketSize::Bytes64, Milliseconds(5))
                 .unwrap()
-            .build(),
+                .build(),
             (),
         )
     }
