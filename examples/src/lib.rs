@@ -70,7 +70,7 @@ impl SyncTimerClock {
     }
 }
 
-impl<'a> embedded_time::clock::Clock for SyncTimerClock {
+impl embedded_time::clock::Clock for SyncTimerClock {
     type T = u32;
 
     const SCALING_FACTOR: Fraction = SCALING_FACTOR;
