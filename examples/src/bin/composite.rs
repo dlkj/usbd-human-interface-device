@@ -117,7 +117,6 @@ fn main() -> ! {
         .manufacturer("usbd-human-interface-device")
         .product("Keyboard, Mouse & Consumer")
         .serial_number("TEST")
-        .supports_remote_wakeup(false)
         .build();
 
     let mut led_pin = pins.gpio13.into_push_pull_output();

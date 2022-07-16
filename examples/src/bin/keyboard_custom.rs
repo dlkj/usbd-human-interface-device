@@ -142,7 +142,6 @@ fn main() -> ! {
         .manufacturer("usbd-human-interface-device")
         .product("Custom Keyboard")
         .serial_number("TEST")
-        .supports_remote_wakeup(false)
         .build();
 
     //GPIO pins

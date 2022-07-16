@@ -143,7 +143,6 @@ fn main() -> ! {
         .manufacturer("usbd-human-interface-device")
         .product("Keyboard, Mouse & Consumer")
         .serial_number("TEST")
-        .supports_remote_wakeup(false)
         .build();
 
     cortex_m::interrupt::free(|cs| {

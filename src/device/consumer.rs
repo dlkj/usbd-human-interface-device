@@ -108,8 +108,6 @@ impl<'a, B: UsbBus> ConsumerControlInterface<'a, B> {
         WrappedInterfaceConfig::new(
             RawInterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
                 .description("Consumer Control")
-                .idle_default(Milliseconds(0))
-                .unwrap()
                 .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(50))
                 .unwrap()
                 .without_out_endpoint()
@@ -163,8 +161,6 @@ impl<'a, B: UsbBus> ConsumerControlFixedInterface<'a, B> {
         WrappedInterfaceConfig::new(
             RawInterfaceBuilder::new(FIXED_FUNCTION_REPORT_DESCRIPTOR)
                 .description("Consumer Control")
-                .idle_default(Milliseconds(0))
-                .unwrap()
                 .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(50))
                 .unwrap()
                 .without_out_endpoint()

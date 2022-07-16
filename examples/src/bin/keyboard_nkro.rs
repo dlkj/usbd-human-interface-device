@@ -94,7 +94,6 @@ fn main() -> ! {
         .manufacturer("usbd-human-interface-device")
         .product("NKRO Keyboard")
         .serial_number("TEST")
-        .supports_remote_wakeup(false)
         .max_packet_size_0(8)
         .build();
 

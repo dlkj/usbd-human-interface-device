@@ -90,7 +90,6 @@ fn main() -> ! {
         .manufacturer("usbd-human-interface-device")
         .product("Consumer Control")
         .serial_number("TEST")
-        .supports_remote_wakeup(false)
         .build();
 
     //GPIO pins
