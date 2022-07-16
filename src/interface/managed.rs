@@ -3,8 +3,6 @@ use core::marker::PhantomData;
 
 use delegate::delegate;
 use embedded_time::duration::Milliseconds;
-use embedded_time::timer::param::{OneShot, Running};
-use embedded_time::{TimeInt, Timer};
 use log::error;
 use packed_struct::PackedStruct;
 use usb_device::bus::UsbBus;
@@ -17,103 +15,73 @@ use crate::interface::{HidProtocol, UsbAllocatable};
 use crate::interface::{InterfaceClass, WrappedInterface};
 use crate::UsbHidError;
 
-pub struct IdleManager<'a, R, C: embedded_time::Clock> {
-    clock: &'a C,
+pub struct IdleManager<R> {
     last_report: Option<R>,
-    current: Milliseconds,
-    default: Milliseconds,
-    timer: Option<Timer<'a, OneShot, Running, C, Milliseconds>>,
+    current: Milliseconds<u32>,
+    default: Milliseconds<u32>,
+    since_last_report: Milliseconds<u32>,
 }
 
-impl<'a, R, C, Tick> IdleManager<'a, R, C>
+impl<R> IdleManager<R>
 where
     R: Eq + Copy,
-    C: embedded_time::Clock<T = Tick>,
-    Tick: TimeInt,
-    u32: TryFrom<Tick>,
 {
-    pub fn new(clock: &'a C, default: Milliseconds) -> Self {
+    pub fn new(default: Milliseconds<u32>) -> Self {
         Self {
-            clock,
             last_report: None,
             current: default,
             default,
-            timer: None,
+            since_last_report: Milliseconds(0),
         }
     }
 
     pub fn reset(&mut self) {
         self.last_report = None;
-        self.timer = None;
         self.current = self.default;
+        self.since_last_report = Milliseconds(0);
     }
 
     pub fn report_written(&mut self, report: R) {
         self.last_report = Some(report);
-        self.reset_timer();
-    }
-
-    pub fn reset_timer(&mut self) {
-        if self.current == Milliseconds(0u32) {
-            self.timer = None
-        } else {
-            self.timer = Some(self.clock.new_timer(self.current).start().unwrap())
-        }
+        self.since_last_report = Milliseconds(0);
     }
 
     pub fn set_duration(&mut self, duration: Milliseconds) {
         self.current = duration;
-
-        if let Some(t) = self.timer.as_ref() {
-            let elapsed = t.elapsed().unwrap();
-            if elapsed > self.current {
-                //sending a report is now overdue, set a zero time timer
-                self.timer = Some(self.clock.new_timer(Milliseconds(0)).start().unwrap())
-            } else {
-                //carry over elapsed time
-                let c = self.current;
-                let milliseconds = c - elapsed;
-                let remaining = milliseconds;
-                self.timer = Some(
-                    self.clock
-                        .new_timer::<Milliseconds>(remaining)
-                        .start()
-                        .unwrap(),
-                )
-            }
-        } else {
-            self.reset_timer();
-        }
     }
 
     pub fn is_duplicate(&self, report: &R) -> bool {
         self.last_report.as_ref() == Some(report)
     }
 
-    pub fn is_idle_expired(&self) -> bool {
-        self.timer
-            .as_ref()
-            .map(|t| t.is_expired().unwrap())
-            .unwrap_or_default()
+    pub fn tick(&mut self) -> bool {
+        if self.current == Milliseconds(0u32) {
+            self.since_last_report = Milliseconds(0);
+            return false;
+        }
+
+        if self.since_last_report >= self.current {
+            self.since_last_report = Milliseconds(0);
+            true
+        } else {
+            self.since_last_report = self.since_last_report + Milliseconds(1u32);
+            false
+        }
     }
 
-    pub fn last_report(&self) -> Option<&R> {
-        self.last_report.as_ref()
+    pub fn last_report(&self) -> Option<R> {
+        self.last_report
     }
 }
 
-pub struct ManagedInterface<'a, B: UsbBus, Clock: embedded_time::Clock, R> {
+pub struct ManagedInterface<'a, B: UsbBus, R> {
     inner: RawInterface<'a, B>,
-    idle_manager: RefCell<IdleManager<'a, R, Clock>>,
+    idle_manager: RefCell<IdleManager<R>>,
 }
 
-impl<'a, B: UsbBus, Clock: embedded_time::Clock, Tick, R, const LEN: usize>
-    ManagedInterface<'a, B, Clock, R>
+impl<'a, B: UsbBus, R, const LEN: usize> ManagedInterface<'a, B, R>
 where
     R: Copy + Eq + PackedStruct<ByteArray = [u8; LEN]>,
-    Clock: embedded_time::Clock<T = Tick>,
-    Tick: TimeInt,
-    u32: TryFrom<Tick>,
 {
     pub fn write_report(&self, report: &R) -> Result<(), UsbHidError> {
         if self.idle_manager.borrow().is_duplicate(report) {
@@ -134,9 +102,10 @@ where
         }
     }
 
+    /// Call every 1ms / at 1 KHz
     pub fn tick(&self) -> Result<(), UsbHidError> {
         let mut idle_manager = self.idle_manager.borrow_mut();
-        if !(idle_manager.is_idle_expired()) {
+        if !(idle_manager.tick()) {
             Ok(())
         } else if let Some(r) = idle_manager.last_report() {
             let data = r.pack().map_err(|e| {
@@ -145,7 +114,7 @@ where
             })?;
             match self.inner.write_report(&data) {
                 Ok(n) => {
-                    idle_manager.reset_timer();
+                    idle_manager.report_written(r);
                     Ok(n)
                 }
                 Err(UsbError::WouldBlock) => Err(UsbHidError::WouldBlock),
@@ -164,13 +133,9 @@ where
     }
 }
 
-impl<'a, B: UsbBus, C: embedded_time::Clock, Tick, R> InterfaceClass<'a>
-    for ManagedInterface<'a, B, C, R>
+impl<'a, B: UsbBus, R> InterfaceClass<'a> for ManagedInterface<'a, B, R>
 where
     R: Copy + Eq,
-    C: embedded_time::Clock<T = Tick>,
-    Tick: TimeInt,
-    u32: TryFrom<Tick>,
 {
     delegate! {
         to self.inner{
@@ -201,51 +166,42 @@ where
     }
 }
 
-impl<'a, B: UsbBus, C: embedded_time::Clock, Tick, R>
-    WrappedInterface<'a, B, RawInterface<'a, B>, &'a C> for ManagedInterface<'a, B, C, R>
+impl<'a, B: UsbBus, R> WrappedInterface<'a, B, RawInterface<'a, B>, ()>
+    for ManagedInterface<'a, B, R>
 where
     R: Copy + Eq,
-    C: embedded_time::Clock<T = Tick>,
-    Tick: TimeInt,
-    u32: TryFrom<Tick>,
 {
-    fn new(interface: RawInterface<'a, B>, config: &'a C) -> Self {
+    fn new(interface: RawInterface<'a, B>, _config: ()) -> Self {
         let default_idle = interface.global_idle();
         Self {
             inner: interface,
-            idle_manager: RefCell::new(IdleManager::new(config, default_idle)),
+            idle_manager: RefCell::new(IdleManager::new(default_idle)),
         }
     }
 }
 
-pub struct ManagedInterfaceConfig<'a, Clock, R> {
-    clock: &'a Clock,
+pub struct ManagedInterfaceConfig<'a, R> {
     report: PhantomData<R>,
     inner_config: RawInterfaceConfig<'a>,
 }
 
-impl<'a, Clock, R> ManagedInterfaceConfig<'a, Clock, R> {
-    pub fn new(inner_config: RawInterfaceConfig<'a>, clock: &'a Clock) -> Self {
+impl<'a, R> ManagedInterfaceConfig<'a, R> {
+    pub fn new(inner_config: RawInterfaceConfig<'a>) -> Self {
         Self {
             inner_config,
-            clock,
             report: Default::default(),
         }
     }
 }
 
-impl<'a, B, Clock, Tick, R> UsbAllocatable<'a, B> for ManagedInterfaceConfig<'a, Clock, R>
+impl<'a, B, R> UsbAllocatable<'a, B> for ManagedInterfaceConfig<'a, R>
 where
     B: UsbBus + 'a,
-
-    Clock: embedded_time::clock::Clock<T = Tick>,
-    Tick: TimeInt,
-    u32: TryFrom<Tick>,
     R: Copy + Eq,
 {
-    type Allocated = ManagedInterface<'a, B, Clock, R>;
+    type Allocated = ManagedInterface<'a, B, R>;
 
     fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
-        ManagedInterface::new(self.inner_config.allocate(usb_alloc), self.clock)
+        ManagedInterface::new(self.inner_config.allocate(usb_alloc), ())
     }
 }
