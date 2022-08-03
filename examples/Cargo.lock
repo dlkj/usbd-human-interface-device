@@ -721,9 +721,9 @@ checksum = "957e51f3646910546462e67d5f7599b9e4fb8acdd304b087a6494730f9eebf04"
 
 [[package]]
 name = "usb-device"
-version = "0.2.8"
+version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6be90410d4772074ea49525e2e753b65920b94b57eee21a6ef7b6a6fe6296245"
+checksum = "1f6cc3adc849b5292b4075fc0d5fdcf2f24866e88e336dd27a8943090a520508"
 
 [[package]]
 name = "usbd-human-interface-device"
