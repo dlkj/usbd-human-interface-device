@@ -34,7 +34,7 @@ pub const FIDO_REPORT_DESCRIPTOR: &[u8] = &[
     0xC0,       // End Collection
 ];
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(C, align(8))]
 pub struct RawFidoMsg {
     pub packet: [u8; 64],

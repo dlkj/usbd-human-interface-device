@@ -28,7 +28,7 @@ pub const MULTIPLE_CODE_REPORT_DESCRIPTOR: &[u8] = &[
     0xC0, // End Collection
 ];
 
-#[derive(Clone, Copy, Debug, PartialEq, Default, PackedStruct)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Default, PackedStruct)]
 #[packed_struct(endian = "lsb", size_bytes = "8")]
 pub struct MultipleConsumerReport {
     #[packed_field(ty = "enum", element_size_bytes = "2")]
@@ -72,7 +72,7 @@ pub const FIXED_FUNCTION_REPORT_DESCRIPTOR: &[u8] = &[
     0xC0, //        End Collection
 ];
 
-#[derive(Clone, Copy, Debug, PartialEq, PackedStruct)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PackedStruct)]
 #[packed_struct(endian = "lsb", bit_numbering = "lsb0", size_bytes = "1")]
 pub struct FixedFunctionReport {
     #[packed_field(bits = "0")]
