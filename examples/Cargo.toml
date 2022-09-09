@@ -10,22 +10,20 @@ license = "MIT"
 
 [dependencies]
 usbd-human-interface-device = { path = ".." }
-cortex-m = "0.7"
-cortex-m-rt = "0.7"
 usb-device= "0.2"
-sh1106 = "0.4"
-embedded-hal = { version = "0.2", features=["unproven"] }
-adafruit-macropad = { version = "0.3" }
-rp2040-boot2 = { version = "0.2" }
-embedded-time = "0.12"
-embedded-graphics = "0.7"
-embedded-text = {version = "0.5", default-features = false }
-arrayvec = { version = "0.7", default-features = false }
-log = "0.4"
-nb = "1.0"
-panic-persist = { version = "0.3", features = ["utf8"] }
 packed_struct = { version = "0.10", default-features = false }
 frunk = { version = "0.4", default-features = false }
+
+cortex-m = "0.7"
+cortex-m-rt = "0.7"
+embedded-hal = { version = "0.2", features = ["unproven"] }
+embedded-time = "0.12"
+
+defmt = "0.3"
+defmt-rtt = "0.3"
+panic-probe = { version = "0.3", features = ["print-defmt"] }
+
+rp-pico = "0.4"
 
 # cargo build/run
 [profile.dev]
@@ -33,7 +31,6 @@ codegen-units = 1
 debug = 2
 debug-assertions = true
 incremental = false
-#NB USB may fail to init on windows if otp-level is not set
 opt-level = 3
 overflow-checks = true
 

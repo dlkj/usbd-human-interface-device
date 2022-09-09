@@ -3,24 +3,24 @@
 
 use core::convert::Infallible;
 
-use adafruit_macropad::hal;
-use cortex_m_rt::entry;
+use bsp::entry;
+use bsp::hal;
+use defmt::*;
+use defmt_rtt as _;
 use embedded_hal::digital::v2::*;
 use embedded_hal::prelude::*;
 use embedded_time::duration::Milliseconds;
-use embedded_time::rate::Hertz;
 use hal::pac;
 use hal::timer::CountDown;
-use hal::Clock;
-use log::*;
 use packed_struct::prelude::*;
+use panic_probe as _;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_human_interface_device::device::keyboard::{BootKeyboardReport, KeyboardLedsReport};
 use usbd_human_interface_device::hid_class::prelude::*;
 use usbd_human_interface_device::page::Keyboard;
 
-use usbd_human_interface_device_example_rp2040::*;
+use rp_pico as bsp;
 
 #[entry]
 fn main() -> ! {
@@ -28,7 +28,7 @@ fn main() -> ! {
 
     let mut watchdog = hal::Watchdog::new(pac.WATCHDOG);
     let clocks = hal::clocks::init_clocks_and_plls(
-        XTAL_FREQ_HZ,
+        bsp::XOSC_CRYSTAL_FREQ,
         pac.XOSC,
         pac.CLOCKS,
         pac.PLL_SYS,
@@ -49,32 +49,7 @@ fn main() -> ! {
         &mut pac.RESETS,
     );
 
-    //display
-    // These are implicitly used by the spi driver if they are in the correct mode
-    let _spi_sclk = pins.gpio26.into_mode::<hal::gpio::FunctionSpi>();
-    let _spi_mosi = pins.gpio27.into_mode::<hal::gpio::FunctionSpi>();
-    let _spi_miso = pins.gpio28.into_mode::<hal::gpio::FunctionSpi>();
-    let spi = hal::spi::Spi::<_, _, 8>::new(pac.SPI1);
-
-    // Display control pins
-    let oled_dc = pins.gpio24.into_push_pull_output();
-    let oled_cs = pins.gpio22.into_push_pull_output();
-    let mut oled_reset = pins.gpio23.into_push_pull_output();
-
-    oled_reset.set_high().ok(); //disable screen reset
-
-    // Exchange the uninitialised SPI driver for an initialised one
-    let oled_spi = spi.init(
-        &mut pac.RESETS,
-        clocks.peripheral_clock.freq(),
-        Hertz::new(16_000_000u32),
-        &embedded_hal::spi::MODE_0,
-    );
-
-    let button = pins.gpio0.into_pull_up_input();
-
-    init_logger(oled_spi, oled_dc.into(), oled_cs.into(), &button);
-    info!("Starting up...");
+    info!("Starting");
 
     //USB
     let usb_bus = UsbBusAllocator::new(hal::usb::UsbBus::new(
@@ -171,14 +146,7 @@ fn main() -> ! {
 
     let mut idle_count_down = reset_idle(&timer, keyboard.interface().global_idle());
 
-    let mut display_poll = timer.count_down();
-    display_poll.start(DISPLAY_POLL);
-
     loop {
-        if button.is_low().unwrap() {
-            hal::rom_data::reset_to_usb_boot(0x1 << 13, 0x0);
-        }
-
         //Poll the keys every 10ms
         if input_count_down.wait().is_ok() {
             if idle_count_down
@@ -203,7 +171,7 @@ fn main() -> ! {
                         idle_count_down = reset_idle(&timer, keyboard.interface().global_idle());
                     }
                     Err(e) => {
-                        panic!("Failed to write keyboard report: {:?}", e)
+                        core::panic!("Failed to write keyboard report: {:?}", e)
                     }
                 };
             }
@@ -216,7 +184,7 @@ fn main() -> ! {
                     //do nothing
                 }
                 Err(e) => {
-                    panic!("Failed to read keyboard report: {:?}", e)
+                    core::panic!("Failed to read keyboard report: {:?}", e)
                 }
                 Ok(_) => {
                     //send scroll lock to the led
@@ -227,10 +195,6 @@ fn main() -> ! {
                         .ok();
                 }
             }
-        }
-
-        if display_poll.wait().is_ok() {
-            log::logger().flush();
         }
     }
 }
