@@ -11,24 +11,25 @@ usbd-human-interface-device
 
 
 Batteries included embedded USB HID library for [usb-device](https://crates.io/crates/usb-device). Includes concrete
-Keyboard (boot and NKRO), Mouse and Consumer Control implementations as well as support for building your own HID classes.
+Keyboard (boot and NKRO), Mouse and Consumer Control implementations as well as support for building your own HID
+classes.
 
-This library has been tested on the RP2040 but should work on any platform supported by [usb-device](https://crates.io/crates/usb-device).
+This library has been tested on the RP2040 but should work on any platform supported by
+[usb-device](https://crates.io/crates/usb-device).
 
-Devices created with this library should work with any USB host. It has been tested on Windows, Linux and Android. MacOS
-should work but has not been verified.
+Devices created with this library should work with any USB host. It has been tested on Windows, Linux, MacOS and
+Android.
 
 ```rust,no_run
 use usbd_human_interface_device::page::Keyboard;
 use usbd_human_interface_device::device::keyboard::{KeyboardLedsReport, NKROBootKeyboardInterface};
 use usbd_human_interface_device::prelude::*;
 
-
 let usb_alloc = UsbBusAllocator::new(usb_bus);
 
 let mut keyboard = UsbHidClassBuilder::new()
     .add_interface(
-        NKROBootKeyboardInterface::default_config(&clock),
+        NKROBootKeyboardInterface::default_config(),
     )
     .build(&usb_alloc);
 
@@ -38,8 +39,10 @@ let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
     .serial_number("TEST")
     .build();
 
-loop {
+let mut tick_timer = timer.count_down();
+tick_timer.start(Milliseconds(1u32));
 
+loop {
     let keys = if pin.is_high().unwrap() {
             &[Keyboard::A]
         } else {
@@ -47,7 +50,11 @@ loop {
     };
     
     keyboard.interface().write_report(keys).ok();
-    keyboard.interface().tick().unwrap();
+
+    //tick once per ms
+    if tick_timer.wait().is_ok() {
+        keyboard.interface().tick().unwrap();
+    }
     
     if usb_dev.poll(&mut [&mut keyboard]) {
         match keyboard.interface().read_report() {
@@ -56,6 +63,7 @@ loop {
                 update_leds(l);
             }
             _ => {}
+
         }
     }
 }
@@ -84,10 +92,8 @@ Roadmap
 -------
 
 * Examples and testing for other microcontroller families
-* Testing on MacOS
 * Support for host device remote wakeup
-* Consumer Control implementation supporting scalar values
-* Implementation of common Game and Simulation devices
+* Example implementation of common game and simulation devices
 
 Contact
 -------
