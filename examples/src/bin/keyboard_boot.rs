@@ -9,10 +9,8 @@ use cortex_m::prelude::*;
 use defmt::*;
 use defmt_rtt as _;
 use embedded_hal::digital::v2::*;
-use embedded_time::duration::{Fraction, Milliseconds};
-use embedded_time::Instant;
+use embedded_time::duration::Milliseconds;
 use hal::pac;
-use hal::Timer;
 use panic_probe as _;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
@@ -20,25 +18,6 @@ use usbd_human_interface_device::page::Keyboard;
 use usbd_human_interface_device::prelude::*;
 
 use rp_pico as bsp;
-
-pub struct TimerClock<'a> {
-    timer: &'a Timer,
-}
-
-impl<'a> TimerClock<'a> {
-    pub fn new(timer: &'a Timer) -> Self {
-        Self { timer }
-    }
-}
-
-impl<'a> embedded_time::clock::Clock for TimerClock<'a> {
-    type T = u32;
-    const SCALING_FACTOR: Fraction = Fraction::new(1, 1_000_000u32);
-
-    fn try_now(&self) -> Result<Instant<Self>, embedded_time::clock::Error> {
-        Ok(Instant::new(self.timer.get_counter_low()))
-    }
-}
 
 #[entry]
 fn main() -> ! {
@@ -58,7 +37,6 @@ fn main() -> ! {
     .unwrap();
 
     let timer = hal::Timer::new(pac.TIMER, &mut pac.RESETS);
-    let clock = TimerClock::new(&timer);
 
     let sio = hal::Sio::new(pac.SIO);
     let pins = hal::gpio::Pins::new(
@@ -81,9 +59,7 @@ fn main() -> ! {
 
     let mut keyboard = UsbHidClassBuilder::new()
         .add_interface(
-            usbd_human_interface_device::device::keyboard::BootKeyboardInterface::default_config(
-                &clock,
-            ),
+            usbd_human_interface_device::device::keyboard::BootKeyboardInterface::default_config(),
         )
         .build(&usb_bus);
 

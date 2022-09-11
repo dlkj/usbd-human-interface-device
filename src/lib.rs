@@ -12,7 +12,7 @@
 //! # use core::todo;
 //! # use embedded_time::{Clock, Instant};
 //! # use embedded_time::clock::Error;
-//! # use embedded_time::duration::Fraction;
+//! # use embedded_time::duration::{Fraction, Milliseconds};
 //! # use usb_device::bus::PollResult;
 //! use usbd_human_interface_device::page::Keyboard;
 //! use usbd_human_interface_device::device::keyboard::{KeyboardLedsReport, NKROBootKeyboardInterface};
@@ -72,23 +72,29 @@
 //! #     }}
 //! #
 //! # let usb_bus = DummyUsbBus{};
-//! # let clock = DummyClock{};
 //! # let pin: &dyn InputPin = todo!();
 //! # let update_leds: fn(KeyboardLedsReport) = todo!();
 //! #
-//! # struct DummyClock;
+//! # struct CountDown;
 //! #
-//! # impl Clock for DummyClock{type T = u32;const SCALING_FACTOR: Fraction = Fraction::new(1,1);
+//! # impl CountDown{
+//! #     fn start(&mut self, count: Milliseconds){}
+//! #     fn wait(&mut self) -> Result<(), ()>{ todo!() }
+//! # }
 //! #
-//! # fn try_now(&self) -> Result<Instant<Self>, Error> {
+//! # struct Timer;
+//! # impl Timer {
+//! #    fn count_down(&self) -> CountDown {
 //! #        todo!()
-//! #    }}
-//!
+//! #    }
+//! # }
+//! # let timer: Timer = todo!();
+//! #
 //! let usb_alloc = UsbBusAllocator::new(usb_bus);
 //!
 //! let mut keyboard = UsbHidClassBuilder::new()
 //!     .add_interface(
-//!         NKROBootKeyboardInterface::default_config(&clock),
+//!         NKROBootKeyboardInterface::default_config(),
 //!     )
 //!     .build(&usb_alloc);
 //!
@@ -98,8 +104,10 @@
 //!     .serial_number("TEST")
 //!     .build();
 //!
-//! loop {
+//! let mut tick_timer = timer.count_down();
+//! tick_timer.start(Milliseconds(1u32));
 //!
+//! loop {
 //!     let keys = if pin.is_high().unwrap() {
 //!             &[Keyboard::A]
 //!         } else {
@@ -107,7 +115,11 @@
 //!     };
 //!     
 //!     keyboard.interface().write_report(keys).ok();
-//!     keyboard.interface().tick().unwrap();
+//!
+//!     //tick once per ms
+//!     if tick_timer.wait().is_ok() {
+//!         keyboard.interface().tick().unwrap();
+//!     }
 //!     
 //!     if usb_dev.poll(&mut [&mut keyboard]) {
 //!         match keyboard.interface().read_report() {
@@ -116,6 +128,7 @@
 //!                 update_leds(l);
 //!             }
 //!             _ => {}
+//!
 //!         }
 //!     }
 //! }
