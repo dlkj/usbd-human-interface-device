@@ -23,6 +23,7 @@ where
 {
     delegate! {
         to self.inner {
+            /// Call every 1ms / at 1 KHz
             pub fn tick(&self) -> Result<(), UsbHidError>;
         }
     }
@@ -403,6 +404,7 @@ where
 {
     delegate! {
         to self.inner {
+            /// Call every 1ms / at 1 KHz
             pub fn tick(&self) -> Result<(), UsbHidError>;
         }
     }

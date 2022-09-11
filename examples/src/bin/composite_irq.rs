@@ -8,17 +8,15 @@ use core::default::Default;
 use bsp::entry;
 use bsp::hal;
 use cortex_m::interrupt::Mutex;
+use cortex_m::prelude::*;
 use defmt::*;
 use defmt_rtt as _;
 use embedded_hal::digital::v2::*;
-use embedded_time::duration::{Fraction, Milliseconds};
-use embedded_time::Clock;
-use embedded_time::Instant;
+use embedded_time::duration::Milliseconds;
 use frunk::HList;
 use hal::gpio::bank0::*;
 use hal::gpio::{Output, Pin, PushPull};
 use hal::pac;
-use hal::Timer;
 use pac::interrupt;
 use panic_probe as _;
 use usb_device::class_prelude::*;
@@ -41,7 +39,7 @@ type UsbDevices = (
         HList!(
             ConsumerControlInterface<'static, hal::usb::UsbBus>,
             WheelMouseInterface<'static, hal::usb::UsbBus>,
-            NKROBootKeyboardInterface<'static, hal::usb::UsbBus, SyncTimerClock>,
+            NKROBootKeyboardInterface<'static, hal::usb::UsbBus>,
         ),
     >,
 );
@@ -52,28 +50,6 @@ static USBCTRL: Mutex<Cell<Option<LedPin>>> = Mutex::new(Cell::new(None));
 
 const KEYBOARD_MOUSE_POLL: Milliseconds = Milliseconds(10);
 const CONSUMER_POLL: Milliseconds = Milliseconds(50);
-
-pub struct SyncTimerClock {
-    timer: Mutex<Timer>,
-}
-
-impl SyncTimerClock {
-    pub fn new(timer: Timer) -> Self {
-        Self {
-            timer: Mutex::new(timer),
-        }
-    }
-}
-
-impl embedded_time::clock::Clock for SyncTimerClock {
-    type T = u32;
-
-    const SCALING_FACTOR: Fraction = Fraction::new(1, 1_000_000u32);
-
-    fn try_now(&self) -> Result<Instant<Self>, embedded_time::clock::Error> {
-        cortex_m::interrupt::free(|cs| Ok(Instant::new(self.timer.borrow(cs).get_counter_low())))
-    }
-}
 
 #[entry]
 fn main() -> ! {
@@ -92,15 +68,7 @@ fn main() -> ! {
     .ok()
     .unwrap();
 
-    static mut CLOCK: Option<SyncTimerClock> = None;
-    let clock = unsafe {
-        CLOCK = Some(SyncTimerClock::new(hal::Timer::new(
-            pac.TIMER,
-            &mut pac.RESETS,
-        )));
-        CLOCK.as_ref().unwrap()
-    };
-
+    let timer = hal::Timer::new(pac.TIMER, &mut pac.RESETS);
     let sio = hal::Sio::new(pac.SIO);
     let pins = hal::gpio::Pins::new(
         pac.IO_BANK0,
@@ -128,7 +96,7 @@ fn main() -> ! {
 
     let composite = UsbHidClassBuilder::new()
         .add_interface(
-            usbd_human_interface_device::device::keyboard::NKROBootKeyboardInterface::default_config(clock),
+            usbd_human_interface_device::device::keyboard::NKROBootKeyboardInterface::default_config(),
         )
         .add_interface(usbd_human_interface_device::device::mouse::WheelMouseInterface::default_config())
         .add_interface(
@@ -166,27 +134,18 @@ fn main() -> ! {
         &pins.gpio12.into_pull_up_input(),
     ];
 
-    let mut keyboard_mouse_input_timer = clock
-        .new_timer(KEYBOARD_MOUSE_POLL)
-        .into_periodic()
-        .start()
-        .unwrap();
+    let mut keyboard_mouse_input_timer = timer.count_down();
+    keyboard_mouse_input_timer.start(KEYBOARD_MOUSE_POLL);
 
     let mut last_mouse_buttons = 0;
     let mut mouse_report = WheelMouseReport::default();
 
-    let mut consumer_input_timer = clock
-        .new_timer(CONSUMER_POLL)
-        .into_periodic()
-        .start()
-        .unwrap();
+    let mut consumer_input_timer = timer.count_down();
+    consumer_input_timer.start(CONSUMER_POLL);
     let mut last_consumer_report = MultipleConsumerReport::default();
 
-    let mut tick_timer = clock
-        .new_timer(Milliseconds(1u32))
-        .into_periodic()
-        .start()
-        .unwrap();
+    let mut tick_timer = timer.count_down();
+    tick_timer.start(Milliseconds(1u32));
 
     // Enable the USB interrupt
     unsafe {
@@ -194,14 +153,14 @@ fn main() -> ! {
     };
 
     loop {
-        if keyboard_mouse_input_timer.period_complete().unwrap() {
+        if keyboard_mouse_input_timer.wait().is_ok() {
             cortex_m::interrupt::free(|cs| {
                 let mut usb_ref = IRQ_SHARED.borrow(cs).borrow_mut();
                 let (_, ref mut composite) = usb_ref.as_mut().unwrap();
 
                 let keys = get_keyboard_keys(key_pins);
 
-                let keyboard = composite.interface::<NKROBootKeyboardInterface<'_, _, _>, _>();
+                let keyboard = composite.interface::<NKROBootKeyboardInterface<'_, _>, _>();
                 match keyboard.write_report(&keys) {
                     Err(UsbHidError::WouldBlock) => {}
                     Err(UsbHidError::Duplicate) => {}
@@ -231,7 +190,7 @@ fn main() -> ! {
             });
         }
 
-        if consumer_input_timer.period_complete().unwrap() {
+        if consumer_input_timer.wait().is_ok() {
             cortex_m::interrupt::free(|cs| {
                 let mut usb_ref = IRQ_SHARED.borrow(cs).borrow_mut();
                 let (_, ref mut composite) = usb_ref.as_mut().unwrap();
@@ -262,14 +221,14 @@ fn main() -> ! {
         }
 
         //Tick once per ms
-        if tick_timer.period_complete().unwrap() {
+        if tick_timer.wait().is_ok() {
             cortex_m::interrupt::free(|cs| {
                 let mut usb_ref = IRQ_SHARED.borrow(cs).borrow_mut();
                 let (_, ref mut composite) = usb_ref.as_mut().unwrap();
 
                 //Process any managed functionality
                 match composite
-                    .interface::<NKROBootKeyboardInterface<'_, _, _>, _>()
+                    .interface::<NKROBootKeyboardInterface<'_, _>, _>()
                     .tick()
                 {
                     Err(UsbHidError::WouldBlock) => {}
@@ -302,7 +261,7 @@ fn USBCTRL_IRQ() {
 
         let (ref mut usb_device, ref mut composite) = usb_ref.as_mut().unwrap();
         if usb_device.poll(&mut [composite]) {
-            let keyboard = composite.interface::<NKROBootKeyboardInterface<'_, _, _>, _>();
+            let keyboard = composite.interface::<NKROBootKeyboardInterface<'_, _>, _>();
             match keyboard.read_report() {
                 Err(UsbError::WouldBlock) => {}
                 Err(e) => {

@@ -10,10 +10,8 @@ use defmt::*;
 use defmt_rtt as _;
 use embedded_hal::digital::v2::*;
 use embedded_hal::prelude::_embedded_hal_timer_CountDown;
-use embedded_time::duration::{Fraction, Milliseconds};
-use embedded_time::Instant;
+use embedded_time::duration::Milliseconds;
 use hal::pac;
-use hal::Timer;
 use panic_probe as _;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
@@ -33,25 +31,6 @@ const KEYBOARD_MOUSE_POLL: Milliseconds = Milliseconds(10);
 const CONSUMER_POLL: Milliseconds = Milliseconds(50);
 const WRITE_PENDING_POLL: Milliseconds = Milliseconds(10);
 
-pub struct TimerClock<'a> {
-    timer: &'a Timer,
-}
-
-impl<'a> TimerClock<'a> {
-    pub fn new(timer: &'a Timer) -> Self {
-        Self { timer }
-    }
-}
-
-impl<'a> embedded_time::clock::Clock for TimerClock<'a> {
-    type T = u32;
-    const SCALING_FACTOR: Fraction = Fraction::new(1, 1_000_000u32);
-
-    fn try_now(&self) -> Result<Instant<Self>, embedded_time::clock::Error> {
-        Ok(Instant::new(self.timer.get_counter_low()))
-    }
-}
-
 #[entry]
 fn main() -> ! {
     let mut pac = pac::Peripherals::take().unwrap();
@@ -70,8 +49,6 @@ fn main() -> ! {
     .unwrap();
 
     let timer = hal::Timer::new(pac.TIMER, &mut pac.RESETS);
-
-    let clock = TimerClock::new(&timer);
 
     let sio = hal::Sio::new(pac.SIO);
     let pins = hal::gpio::Pins::new(
@@ -100,7 +77,7 @@ fn main() -> ! {
 
     let mut composite = UsbHidClassBuilder::new()
         .add_interface(
-            usbd_human_interface_device::device::keyboard::NKROBootKeyboardInterface::default_config(&clock),
+            usbd_human_interface_device::device::keyboard::NKROBootKeyboardInterface::default_config(),
         )
         .add_interface(usbd_human_interface_device::device::mouse::WheelMouseInterface::default_config())
         .add_interface(
@@ -154,7 +131,7 @@ fn main() -> ! {
         if keyboard_mouse_poll.wait().is_ok() {
             let keys = get_keyboard_keys(key_pins);
 
-            let keyboard = composite.interface::<NKROBootKeyboardInterface<'_, _, _>, _>();
+            let keyboard = composite.interface::<NKROBootKeyboardInterface<'_, _>, _>();
             match keyboard.write_report(&keys) {
                 Err(UsbHidError::WouldBlock) => {}
                 Err(UsbHidError::Duplicate) => {}
@@ -211,7 +188,7 @@ fn main() -> ! {
         //Tick once per ms
         if tick_count_down.wait().is_ok() {
             match composite
-                .interface::<NKROBootKeyboardInterface<'_, _, _>, _>()
+                .interface::<NKROBootKeyboardInterface<'_, _>, _>()
                 .tick()
             {
                 Err(UsbHidError::WouldBlock) => {}
@@ -223,7 +200,7 @@ fn main() -> ! {
         }
 
         if usb_dev.poll(&mut [&mut composite]) {
-            let keyboard = composite.interface::<NKROBootKeyboardInterface<'_, _, _>, _>();
+            let keyboard = composite.interface::<NKROBootKeyboardInterface<'_, _>, _>();
             match keyboard.read_report() {
                 Err(UsbError::WouldBlock) => {}
                 Err(e) => {
