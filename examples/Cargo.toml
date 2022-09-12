@@ -23,7 +23,7 @@ defmt = "0.3"
 defmt-rtt = "0.3"
 panic-probe = { version = "0.3", features = ["print-defmt"] }
 
-rp-pico = "0.4"
+rp-pico = "0.5"
 
 # cargo build/run
 [profile.dev]
