@@ -10,6 +10,8 @@ use defmt_rtt as _;
 use embedded_hal::digital::v2::*;
 use embedded_hal::prelude::*;
 use embedded_time::duration::Milliseconds;
+use embedded_time::fixed_point::FixedPoint;
+use fugit::ExtU32;
 use hal::pac;
 use hal::timer::CountDown;
 use packed_struct::prelude::*;
@@ -142,7 +144,7 @@ fn main() -> ! {
     let mut last_keys = None;
 
     let mut input_count_down = timer.count_down();
-    input_count_down.start(Milliseconds(10));
+    input_count_down.start(10.millis());
 
     let mut idle_count_down = reset_idle(&timer, keyboard.interface().global_idle());
 
@@ -204,7 +206,7 @@ fn reset_idle(timer: &hal::Timer, idle: Milliseconds) -> Option<CountDown> {
         None
     } else {
         let mut count_down = timer.count_down();
-        count_down.start(idle);
+        count_down.start(idle.integer().millis());
         Some(count_down)
     }
 }

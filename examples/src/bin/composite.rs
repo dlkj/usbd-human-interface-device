@@ -10,7 +10,8 @@ use defmt::*;
 use defmt_rtt as _;
 use embedded_hal::digital::v2::*;
 use embedded_hal::prelude::_embedded_hal_timer_CountDown;
-use embedded_time::duration::Milliseconds;
+use fugit::ExtU32;
+use fugit::MicrosDurationU32;
 use hal::pac;
 use panic_probe as _;
 use usb_device::class_prelude::*;
@@ -27,9 +28,9 @@ use usbd_human_interface_device::prelude::*;
 
 use rp_pico as bsp;
 
-const KEYBOARD_MOUSE_POLL: Milliseconds = Milliseconds(10);
-const CONSUMER_POLL: Milliseconds = Milliseconds(50);
-const WRITE_PENDING_POLL: Milliseconds = Milliseconds(10);
+const KEYBOARD_MOUSE_POLL: MicrosDurationU32 = MicrosDurationU32::millis(10);
+const CONSUMER_POLL: MicrosDurationU32 = MicrosDurationU32::millis(50);
+const WRITE_PENDING_POLL: MicrosDurationU32 = MicrosDurationU32::millis(10);
 
 #[entry]
 fn main() -> ! {
@@ -125,7 +126,7 @@ fn main() -> ! {
     write_pending_poll.start(WRITE_PENDING_POLL);
 
     let mut tick_count_down = timer.count_down();
-    tick_count_down.start(Milliseconds(1));
+    tick_count_down.start(1.millis());
 
     loop {
         if keyboard_mouse_poll.wait().is_ok() {
