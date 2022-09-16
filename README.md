@@ -10,15 +10,20 @@ usbd-human-interface-device
 [![docs.rs](https://docs.rs/usbd-human-interface-device/badge.svg)](https://docs.rs/usbd-human-interface-device)
 
 
-Batteries included embedded USB HID library for [usb-device](https://crates.io/crates/usb-device). Includes concrete
-Keyboard (boot and NKRO), Mouse and Consumer Control implementations as well as support for building your own HID
-classes.
+Batteries included embedded USB HID library for [`usb-device`](https://crates.io/crates/usb-device).
+Includes concrete Keyboard (boot and NKRO), Mouse and Consumer Control implementations as well as
+support for building your own HID classes.
 
 This library has been tested on the RP2040 but should work on any platform supported by
-[usb-device](https://crates.io/crates/usb-device).
+[`usb-device`](https://crates.io/crates/usb-device).
 
-Devices created with this library should work with any USB host. It has been tested on Windows, Linux, MacOS and
-Android.
+Devices created with this library should work with any USB host. It has been tested on Windows,
+Linux, MacOS and Android.
+
+**Note:** Managed interfaces that support HID idle, such as
+[`NKROBootKeyboardInterface`](https://docs.rs/usbd-human-interface-device/latest/usbd_human_interface_device/device/keyboard/struct.NKROBootKeyboardInterface.html)
+and [`BootKeyboardInterface`](https://docs.rs/usbd-human-interface-device/latest/usbd_human_interface_device/device/keyboard/struct.BootKeyboardInterface.html),
+require their `tick()` method calling every 1ms/at 1kHz.
 
 ```rust,no_run
 use usbd_human_interface_device::page::Keyboard;
@@ -40,7 +45,7 @@ let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
     .build();
 
 let mut tick_timer = timer.count_down();
-tick_timer.start(Milliseconds(1u32));
+tick_timer.start(1.millis());
 
 loop {
     let keys = if pin.is_high().unwrap() {
@@ -51,7 +56,7 @@ loop {
     
     keyboard.interface().write_report(keys).ok();
 
-    //tick once per ms
+    //tick once per ms/at 1kHz
     if tick_timer.wait().is_ok() {
         keyboard.interface().tick().unwrap();
     }
@@ -84,8 +89,8 @@ Features
 Examples
 --------
 
-See [examples](https://github.com/dlkj/usbd-human-interface-device/tree/main/examples/src/bin) for demonstration of how
-to use this library on the RP2040 (Raspberry Pi Pico)
+See [examples](https://github.com/dlkj/usbd-human-interface-device/tree/main/examples/src/bin) for
+demonstration of how to use this library on the RP2040 (Raspberry Pi Pico)
 
 
 Roadmap

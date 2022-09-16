@@ -13,6 +13,8 @@ use crate::page::Keyboard;
 use crate::UsbHidError;
 
 /// Interface implementing the HID boot keyboard specification
+///
+/// **Note:** This is a managed interfaces that support HID idle, [BootKeyboardInterface::tick()] must be called every 1ms/at 1kHz.
 pub struct BootKeyboardInterface<'a, B: UsbBus> {
     inner: ManagedInterface<'a, B, BootKeyboardReport>,
 }
@@ -394,6 +396,8 @@ impl NKROBootKeyboardReport {
 }
 
 /// Interface implementing a NKRO keyboard compatible with the HID boot keyboard specification
+///
+/// **Note:** This is a managed interfaces that support HID idle, [NKROBootKeyboardInterface::tick()] must be called every 1ms/ at 1kHz.
 pub struct NKROBootKeyboardInterface<'a, B: UsbBus> {
     inner: ManagedInterface<'a, B, NKROBootKeyboardReport>,
 }

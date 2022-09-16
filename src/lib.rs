@@ -1,19 +1,22 @@
-//! Batteries included embedded USB HID library for [usb-device](https://crates.io/crates/usb-device). Includes concrete
-//! Keyboard (boot and NKRO), Mouse and Consumer Control implementations as well as support for building your own HID classes.
+//! Batteries included embedded USB HID library for [`usb-device`](https://crates.io/crates/usb-device).
+//! Includes concrete Keyboard (boot and NKRO), Mouse and Consumer Control implementations as well as
+//! support for building your own HID classes.
 //!
-//! This library has been tested on the RP2040 but should work on any platform supported by [usb-device](https://crates.io/crates/usb-device).
+//! This library has been tested on the RP2040 but should work on any platform supported by
+//! [`usb-device`](https://crates.io/crates/usb-device).
 //!
-//! Devices created with this library should work with any USB host. It has been tested on Windows, Linux and Android. MacOS
-//! should work but has not been verified.
+//! Devices created with this library should work with any USB host. It has been tested on Windows,
+//! Linux, MacOS and Android.
+//!
+//! **Note:** Managed interfaces that support HID idle, such as [`device::keyboard::NKROBootKeyboardInterface`] and
+//! [`device::keyboard::BootKeyboardInterface`], require their `tick()` method calling every 1ms/at 1kHz.
 //!
 //! ```rust, no_run
 //! # use core::option::Option;
 //! # use core::result::Result;
 //! # use core::todo;
-//! # use embedded_time::{Clock, Instant};
-//! # use embedded_time::clock::Error;
-//! # use embedded_time::duration::{Fraction, Milliseconds};
 //! # use usb_device::bus::PollResult;
+//! # use fugit::{ExtU32, MillisDurationU32};
 //! use usbd_human_interface_device::page::Keyboard;
 //! use usbd_human_interface_device::device::keyboard::{KeyboardLedsReport, NKROBootKeyboardInterface};
 //! use usbd_human_interface_device::prelude::*;
@@ -78,7 +81,7 @@
 //! # struct CountDown;
 //! #
 //! # impl CountDown{
-//! #     fn start(&mut self, count: Milliseconds){}
+//! #     fn start(&mut self, count: MillisDurationU32){}
 //! #     fn wait(&mut self) -> Result<(), ()>{ todo!() }
 //! # }
 //! #
@@ -89,7 +92,7 @@
 //! #    }
 //! # }
 //! # let timer: Timer = todo!();
-//! #
+//!
 //! let usb_alloc = UsbBusAllocator::new(usb_bus);
 //!
 //! let mut keyboard = UsbHidClassBuilder::new()
@@ -105,7 +108,7 @@
 //!     .build();
 //!
 //! let mut tick_timer = timer.count_down();
-//! tick_timer.start(Milliseconds(1u32));
+//! tick_timer.start(1.millis());
 //!
 //! loop {
 //!     let keys = if pin.is_high().unwrap() {
@@ -116,7 +119,7 @@
 //!     
 //!     keyboard.interface().write_report(keys).ok();
 //!
-//!     //tick once per ms
+//!     //tick once per ms/at 1kHz
 //!     if tick_timer.wait().is_ok() {
 //!         keyboard.interface().tick().unwrap();
 //!     }
@@ -149,8 +152,8 @@
 //! Examples
 //! --------
 //!
-//! See [examples](https://github.com/dlkj/usbd-human-interface-device/tree/main/examples/src/bin) for demonstration of how
-//! to use this library on the RP2040 (Raspberry Pi Pico)!
+//! See [examples](https://github.com/dlkj/usbd-human-interface-device/tree/main/examples/src/bin) for
+//! demonstration of how to use this library on the RP2040 (Raspberry Pi Pico)
 
 #![no_std]
 

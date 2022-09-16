@@ -54,6 +54,7 @@ where
         self.last_report.as_ref() == Some(report)
     }
 
+    /// Call every 1ms / at 1 KHz
     pub fn tick(&mut self) -> bool {
         if self.current == Milliseconds(0u32) {
             self.since_last_report = Milliseconds(0);
@@ -89,7 +90,7 @@ where
             Err(UsbHidError::Duplicate)
         } else {
             let data = report.pack().map_err(|e| {
-                error!("Error packing BootKeyboardReport: {:?}", e);
+                error!("Error packing report: {:?}", e);
                 UsbHidError::SerializationError
             })?;
 
@@ -109,7 +110,7 @@ where
             Ok(())
         } else if let Some(r) = idle_manager.last_report() {
             let data = r.pack().map_err(|e| {
-                error!("Error packing BootKeyboardReport: {:?}", e);
+                error!("Error packing report: {:?}", e);
                 UsbHidError::SerializationError
             })?;
             match self.inner.write_report(&data) {
