@@ -6,7 +6,7 @@ use bsp::hal;
 use defmt_rtt as _;
 use embedded_hal::digital::v2::*;
 use embedded_hal::prelude::*;
-use embedded_time::duration::Milliseconds;
+use fugit::ExtU32;
 use hal::pac;
 use panic_probe as _;
 use usb_device::class_prelude::*;
@@ -89,7 +89,7 @@ fn main() -> ! {
     let mut report = WheelMouseReport::default();
 
     let mut input_count_down = timer.count_down();
-    input_count_down.start(Milliseconds(10));
+    input_count_down.start(10.millis());
 
     loop {
         //Poll the keys every 10ms

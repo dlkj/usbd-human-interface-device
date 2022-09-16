@@ -7,7 +7,7 @@ use defmt::*;
 use defmt_rtt as _;
 use embedded_hal::digital::v2::*;
 use embedded_hal::prelude::*;
-use embedded_time::duration::Milliseconds;
+use fugit::ExtU32;
 use hal::pac;
 use panic_probe as _;
 
@@ -89,7 +89,7 @@ fn main() -> ! {
     led_pin.set_low().ok();
 
     let mut input_count_down = timer.count_down();
-    input_count_down.start(Milliseconds(50));
+    input_count_down.start(50.millis());
 
     let mut last = get_report(keys);
 

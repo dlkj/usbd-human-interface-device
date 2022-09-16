@@ -12,8 +12,8 @@ use cortex_m::prelude::*;
 use defmt::*;
 use defmt_rtt as _;
 use embedded_hal::digital::v2::*;
-use embedded_time::duration::Milliseconds;
 use frunk::HList;
+use fugit::{ExtU32, MicrosDurationU32};
 use hal::gpio::bank0::*;
 use hal::gpio::{Output, Pin, PushPull};
 use hal::pac;
@@ -48,8 +48,8 @@ type LedPin = Pin<Gpio13, Output<PushPull>>;
 static IRQ_SHARED: Mutex<RefCell<Option<UsbDevices>>> = Mutex::new(RefCell::new(None));
 static USBCTRL: Mutex<Cell<Option<LedPin>>> = Mutex::new(Cell::new(None));
 
-const KEYBOARD_MOUSE_POLL: Milliseconds = Milliseconds(10);
-const CONSUMER_POLL: Milliseconds = Milliseconds(50);
+const KEYBOARD_MOUSE_POLL: MicrosDurationU32 = MicrosDurationU32::millis(10);
+const CONSUMER_POLL: MicrosDurationU32 = MicrosDurationU32::millis(50);
 
 #[entry]
 fn main() -> ! {
@@ -145,7 +145,7 @@ fn main() -> ! {
     let mut last_consumer_report = MultipleConsumerReport::default();
 
     let mut tick_timer = timer.count_down();
-    tick_timer.start(Milliseconds(1u32));
+    tick_timer.start(1.millis());
 
     // Enable the USB interrupt
     unsafe {
