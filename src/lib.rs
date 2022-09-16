@@ -152,7 +152,7 @@
 //! Examples
 //! --------
 //!
-//! See [examples](https://github.com/dlkj/usbd-human-interface-device/tree/main/examples/src/bin) for
+//! See [examples](https://github.com/dlkj/usbd-human-interface-device/tree/main/examples) for
 //! demonstration of how to use this library on the RP2040 (Raspberry Pi Pico)
 
 #![no_std]

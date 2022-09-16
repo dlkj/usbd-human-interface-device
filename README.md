@@ -89,14 +89,15 @@ Features
 Examples
 --------
 
-See [examples](https://github.com/dlkj/usbd-human-interface-device/tree/main/examples/src/bin) for
+See [examples](https://github.com/dlkj/usbd-human-interface-device/tree/main/examples) for
 demonstration of how to use this library on the RP2040 (Raspberry Pi Pico)
 
 
 Roadmap
 -------
 
-* Examples and testing for other microcontroller families
+* Examples and testing for other microcontroller such as the SAM D2x family.
+* Example using with [RTIC](https://rtic.rs)
 * Support for host device remote wakeup
 * Example implementation of common game and simulation devices
 
