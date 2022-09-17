@@ -1,7 +1,7 @@
 //!HID keyboards
 
 use delegate::delegate;
-use embedded_time::duration::Milliseconds;
+use fugit::ExtU32;
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
 use usb_device::UsbError;
@@ -57,13 +57,13 @@ where
                 RawInterfaceBuilder::new(BOOT_KEYBOARD_REPORT_DESCRIPTOR)
                     .boot_device(InterfaceProtocol::Keyboard)
                     .description("Keyboard")
-                    .idle_default(Milliseconds(500))
+                    .idle_default(500.millis())
                     .unwrap()
-                    .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(10))
+                    .in_endpoint(UsbPacketSize::Bytes8, 10.millis())
                     .unwrap()
                     //.without_out_endpoint()
                     //Shouldn't require a dedicated out endpoint, but leds are flaky without it
-                    .with_out_endpoint(UsbPacketSize::Bytes8, Milliseconds(100))
+                    .with_out_endpoint(UsbPacketSize::Bytes8, 100.millis())
                     .unwrap()
                     .build(),
             ),
@@ -440,11 +440,11 @@ where
                 RawInterfaceBuilder::new(NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR)
                     .description("NKRO Keyboard")
                     .boot_device(InterfaceProtocol::Keyboard)
-                    .idle_default(Milliseconds(500))
+                    .idle_default(500.millis())
                     .unwrap()
-                    .in_endpoint(UsbPacketSize::Bytes32, Milliseconds(10))
+                    .in_endpoint(UsbPacketSize::Bytes32, 10.millis())
                     .unwrap()
-                    .with_out_endpoint(UsbPacketSize::Bytes8, Milliseconds(100))
+                    .with_out_endpoint(UsbPacketSize::Bytes8, 100.millis())
                     .unwrap()
                     .build(),
             ),

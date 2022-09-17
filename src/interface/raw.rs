@@ -4,8 +4,7 @@ use crate::hid_class::descriptor::{
 use crate::hid_class::{BuilderResult, UsbHidBuilderError, UsbPacketSize};
 use crate::interface::{InterfaceClass, UsbAllocatable};
 use core::cell::RefCell;
-use embedded_time::duration::Milliseconds;
-use embedded_time::fixed_point::FixedPoint;
+use fugit::{ExtU32, MillisDurationU32};
 use heapless::Vec;
 use log::{error, info, trace, warn};
 use usb_device::bus::{InterfaceNumber, StringIndex, UsbBus, UsbBusAllocator};
@@ -194,16 +193,16 @@ impl<'a, B: UsbBus> RawInterface<'a, B> {
     pub fn protocol(&self) -> HidProtocol {
         self.protocol
     }
-    pub fn global_idle(&self) -> Milliseconds {
-        Milliseconds((self.global_idle as u32) * 4)
+    pub fn global_idle(&self) -> MillisDurationU32 {
+        ((self.global_idle as u32) * 4).millis()
     }
-    pub fn report_idle(&self, report_id: u8) -> Option<Milliseconds> {
+    pub fn report_idle(&self, report_id: u8) -> Option<MillisDurationU32> {
         if report_id == 0 {
             None
         } else {
             self.report_idle
                 .get(&report_id)
-                .map(|&i| Milliseconds((i as u32) * 4))
+                .map(|&i| ((i as u32) * 4).millis())
         }
     }
     pub fn write_report(&self, data: &[u8]) -> usb_device::Result<usize> {
@@ -294,13 +293,11 @@ impl<'a> RawInterfaceBuilder<'a> {
         self
     }
 
-    pub fn idle_default<D: Into<Milliseconds>>(mut self, duration: D) -> BuilderResult<Self> {
-        let d_ms = duration.into();
-
-        if d_ms == Milliseconds(0_u32) {
+    pub fn idle_default(mut self, duration: MillisDurationU32) -> BuilderResult<Self> {
+        if duration.ticks() == 0 {
             self.config.idle_default = 0;
         } else {
-            let scaled_duration = d_ms.integer() / 4;
+            let scaled_duration = duration.to_millis() / 4;
 
             if scaled_duration == 0 {
                 //round up for 1-3ms
@@ -321,11 +318,11 @@ impl<'a> RawInterfaceBuilder<'a> {
     pub fn with_out_endpoint(
         mut self,
         max_packet_size: UsbPacketSize,
-        poll_interval: Milliseconds,
+        poll_interval: MillisDurationU32,
     ) -> BuilderResult<Self> {
         self.config.out_endpoint = Some(EndpointConfig {
             max_packet_size,
-            poll_interval: u8::try_from(poll_interval.integer())
+            poll_interval: u8::try_from(poll_interval.to_millis())
                 .map_err(|_| UsbHidBuilderError::ValueOverflow)?,
         });
         Ok(self)
@@ -339,11 +336,11 @@ impl<'a> RawInterfaceBuilder<'a> {
     pub fn in_endpoint(
         mut self,
         max_packet_size: UsbPacketSize,
-        poll_interval: Milliseconds,
+        poll_interval: MillisDurationU32,
     ) -> BuilderResult<Self> {
         self.config.in_endpoint = EndpointConfig {
             max_packet_size,
-            poll_interval: u8::try_from(poll_interval.integer())
+            poll_interval: u8::try_from(poll_interval.to_millis())
                 .map_err(|_| UsbHidBuilderError::ValueOverflow)?,
         };
         Ok(self)

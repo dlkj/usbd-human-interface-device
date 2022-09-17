@@ -1,7 +1,7 @@
 //! HID FIDO Universal 2nd Factor (U2F)
 use crate::hid_class::descriptor::HidProtocol;
 use delegate::delegate;
-use embedded_time::duration::Milliseconds;
+use fugit::ExtU32;
 use usb_device::bus::{InterfaceNumber, StringIndex, UsbBus};
 use usb_device::class_prelude::DescriptorWriter;
 
@@ -68,9 +68,9 @@ impl<'a, B: UsbBus> RawFidoInterface<'a, B> {
         WrappedInterfaceConfig::new(
             RawInterfaceBuilder::new(FIDO_REPORT_DESCRIPTOR)
                 .description("U2F Token")
-                .in_endpoint(UsbPacketSize::Bytes64, Milliseconds(5))
+                .in_endpoint(UsbPacketSize::Bytes64, 5.millis())
                 .unwrap()
-                .with_out_endpoint(UsbPacketSize::Bytes64, Milliseconds(5))
+                .with_out_endpoint(UsbPacketSize::Bytes64, 5.millis())
                 .unwrap()
                 .build(),
             (),

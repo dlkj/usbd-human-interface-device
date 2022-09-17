@@ -2,7 +2,7 @@
 use crate::hid_class::descriptor::HidProtocol;
 use core::default::Default;
 use delegate::delegate;
-use embedded_time::duration::Milliseconds;
+use fugit::ExtU32;
 use log::error;
 use packed_struct::prelude::*;
 use usb_device::bus::{InterfaceNumber, StringIndex, UsbBus};
@@ -137,7 +137,7 @@ impl<'a, B: UsbBus> BootMouseInterface<'a, B> {
             RawInterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR)
                 .boot_device(InterfaceProtocol::Mouse)
                 .description("Mouse")
-                .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(10))
+                .in_endpoint(UsbPacketSize::Bytes8, 10.millis())
                 .unwrap()
                 .without_out_endpoint()
                 .build(),
@@ -191,7 +191,7 @@ impl<'a, B: UsbBus> WheelMouseInterface<'a, B> {
             RawInterfaceBuilder::new(WHEEL_MOUSE_REPORT_DESCRIPTOR)
                 .boot_device(InterfaceProtocol::Mouse)
                 .description("Wheel Mouse")
-                .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(10))
+                .in_endpoint(UsbPacketSize::Bytes8, 10.millis())
                 .unwrap()
                 .without_out_endpoint()
                 .build(),
