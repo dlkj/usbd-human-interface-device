@@ -138,7 +138,7 @@ impl<B: UsbBus, I> UsbHidClass<B, I> {
                 let mut buffer = [0; 9];
                 buffer[0] = buffer.len() as u8;
                 buffer[1] = DescriptorType::Hid as u8;
-                (&mut buffer[2..]).copy_from_slice(&interface.hid_descriptor_body());
+                (buffer[2..]).copy_from_slice(&interface.hid_descriptor_body());
                 match transfer.accept_with(&buffer) {
                     Err(e) => {
                         error!("Failed to send Hid descriptor - {:?}", e);
