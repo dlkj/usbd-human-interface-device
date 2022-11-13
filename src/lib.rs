@@ -112,18 +112,18 @@
 //!
 //! loop {
 //!     let keys = if pin.is_high().unwrap() {
-//!             &[Keyboard::A]
+//!             [Keyboard::A]
 //!         } else {
-//!             &[Keyboard::NoEventIndicated]
+//!             [Keyboard::NoEventIndicated]
 //!     };
-//!     
+//!
 //!     keyboard.interface().write_report(keys).ok();
 //!
 //!     //tick once per ms/at 1kHz
 //!     if tick_timer.wait().is_ok() {
 //!         keyboard.interface().tick().unwrap();
 //!     }
-//!     
+//!
 //!     if usb_dev.poll(&mut [&mut keyboard]) {
 //!         match keyboard.interface().read_report() {
 //!

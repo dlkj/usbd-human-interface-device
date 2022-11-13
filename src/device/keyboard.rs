@@ -30,7 +30,7 @@ where
         }
     }
 
-    pub fn write_report<'b, K: IntoIterator<Item = &'b Keyboard>>(
+    pub fn write_report<K: IntoIterator<Item = Keyboard>>(
         &self,
         keys: K,
     ) -> Result<(), UsbHidError> {
@@ -145,7 +145,7 @@ pub struct BootKeyboardReport {
 }
 
 impl BootKeyboardReport {
-    pub fn new<'a, K: IntoIterator<Item = &'a Keyboard>>(keys: K) -> Self {
+    pub fn new<K: IntoIterator<Item = Keyboard>>(keys: K) -> Self {
         let mut report = Self::default();
 
         let mut error = false;
@@ -181,7 +181,7 @@ impl BootKeyboardReport {
                     if !error {
                         error = true;
                         i = report.keys.len();
-                        report.keys.fill(*k);
+                        report.keys.fill(k);
                     }
                 }
                 _ => {
@@ -190,7 +190,7 @@ impl BootKeyboardReport {
                     }
 
                     if i < report.keys.len() {
-                        report.keys[i] = *k;
+                        report.keys[i] = k;
                         i += 1;
                     } else {
                         error = true;
@@ -205,7 +205,7 @@ impl BootKeyboardReport {
 }
 
 /// HID Keyboard report descriptor conforming to the Boot specification
-/// 
+///
 /// This aims to be compatible with BIOS and other reduced functionality USB hosts
 ///
 /// This is defined in Appendix B.1 & E.6 of [Device Class Definition for Human
@@ -328,7 +328,7 @@ pub struct NKROBootKeyboardReport {
 }
 
 impl NKROBootKeyboardReport {
-    pub fn new<'a, K: IntoIterator<Item = &'a Keyboard>>(keys: K) -> Self {
+    pub fn new<K: IntoIterator<Item = Keyboard>>(keys: K) -> Self {
         let mut report = Self::default();
 
         let mut boot_keys_error = false;
@@ -361,18 +361,18 @@ impl NKROBootKeyboardReport {
                 }
                 Keyboard::NoEventIndicated => {}
                 Keyboard::ErrorRollOver | Keyboard::POSTFail | Keyboard::ErrorUndefine => {
-                    report.nkro_keys[0] |= 1 << *k as u8;
+                    report.nkro_keys[0] |= 1 << k as u8;
 
                     if !boot_keys_error {
                         boot_keys_error = true;
                         i = report.boot_keys.len();
-                        report.boot_keys.fill(*k);
+                        report.boot_keys.fill(k);
                     }
                 }
                 _ => {
-                    if (*k as usize) < report.nkro_keys.len() * 8 {
-                        let byte = (*k as usize) / 8;
-                        let bit = (*k as u8) % 8;
+                    if (k as usize) < report.nkro_keys.len() * 8 {
+                        let byte = (k as usize) / 8;
+                        let bit = (k as u8) % 8;
                         report.nkro_keys[byte] |= 1 << bit;
                     }
 
@@ -381,7 +381,7 @@ impl NKROBootKeyboardReport {
                     }
 
                     if i < report.boot_keys.len() {
-                        report.boot_keys[i] = *k;
+                        report.boot_keys[i] = k;
                         i += 1;
                     } else {
                         boot_keys_error = true;
@@ -413,7 +413,7 @@ where
         }
     }
 
-    pub fn write_report<'b, K: IntoIterator<Item = &'b Keyboard>>(
+    pub fn write_report<K: IntoIterator<Item = Keyboard>>(
         &self,
         keys: K,
     ) -> Result<(), UsbHidError> {
@@ -486,7 +486,7 @@ where
 }
 
 /// HID Keyboard report descriptor implementing an NKRO keyboard as a bitmap.
-/// 
+///
 /// N.B. This is not compatible with the HID boot specification
 //18 bytes - derived from https://learn.adafruit.com/custom-hid-devices-in-circuitpython/n-key-rollover-nkro-hid-device
 //First byte modifiers, 17 byte key bit array
@@ -575,7 +575,7 @@ mod test {
 
     #[test]
     fn boot_keyboard_report_mixed() {
-        let bytes = BootKeyboardReport::new(&[
+        let bytes = BootKeyboardReport::new([
             Keyboard::LeftAlt,
             Keyboard::A,
             Keyboard::B,
@@ -603,7 +603,7 @@ mod test {
 
     #[test]
     fn boot_keyboard_report_keys() {
-        let bytes = BootKeyboardReport::new(&[
+        let bytes = BootKeyboardReport::new([
             Keyboard::A,
             Keyboard::B,
             Keyboard::C,
@@ -631,7 +631,7 @@ mod test {
 
     #[test]
     fn boot_keyboard_report_rollover() {
-        let bytes = BootKeyboardReport::new(&[
+        let bytes = BootKeyboardReport::new([
             Keyboard::LeftAlt,
             Keyboard::A,
             Keyboard::B,

@@ -161,7 +161,7 @@ fn main() -> ! {
                 let keys = get_keyboard_keys(key_pins);
 
                 let keyboard = composite.interface::<NKROBootKeyboardInterface<'_, _>, _>();
-                match keyboard.write_report(&keys) {
+                match keyboard.write_report(keys) {
                     Err(UsbHidError::WouldBlock) => {}
                     Err(UsbHidError::Duplicate) => {}
                     Ok(_) => {}

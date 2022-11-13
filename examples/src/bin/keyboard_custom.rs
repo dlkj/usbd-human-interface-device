@@ -165,7 +165,7 @@ fn main() -> ! {
             if last_keys.map(|k| k != keys).unwrap_or(true) {
                 match keyboard
                     .interface()
-                    .write_report(&BootKeyboardReport::new(&keys).pack().unwrap())
+                    .write_report(&BootKeyboardReport::new(keys).pack().unwrap())
                 {
                     Err(UsbError::WouldBlock) => {}
                     Ok(_) => {
