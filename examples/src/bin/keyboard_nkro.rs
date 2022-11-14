@@ -101,7 +101,7 @@ fn main() -> ! {
         if input_count_down.wait().is_ok() {
             let keys = get_keys(keys);
 
-            match keyboard.interface().write_report(&keys) {
+            match keyboard.interface().write_report(keys) {
                 Err(UsbHidError::WouldBlock) => {}
                 Err(UsbHidError::Duplicate) => {}
                 Ok(_) => {}
