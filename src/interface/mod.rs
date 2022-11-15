@@ -68,10 +68,7 @@ pub trait InterfaceClass<'a> {
     fn hid_descriptor_body(&self) -> [u8; 7] {
         let descriptor_len = self.report_descriptor().len();
         if descriptor_len > u16::MAX as usize {
-            panic!(
-                "Report descriptor length {:X} too long to fit in u16",
-                descriptor_len
-            );
+            panic!("Report descriptor too long");
         } else {
             HidDescriptorBody {
                 bcd_hid: SPEC_VERSION_1_11,
@@ -81,6 +78,7 @@ pub trait InterfaceClass<'a> {
                 descriptor_length: descriptor_len as u16,
             }
             .pack()
+            .map_err(drop) // Avoid pulling all the core::fmt code into final binary
             .expect("Failed to pack HidDescriptor")
         }
     }
