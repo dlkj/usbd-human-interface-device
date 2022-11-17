@@ -9,9 +9,8 @@ use defmt::*;
 use defmt_rtt as _;
 use embedded_hal::digital::v2::*;
 use embedded_hal::prelude::*;
-use embedded_time::duration::Milliseconds;
-use embedded_time::fixed_point::FixedPoint;
 use fugit::ExtU32;
+use fugit::MillisDurationU32;
 use hal::pac;
 use hal::timer::CountDown;
 use packed_struct::prelude::*;
@@ -104,11 +103,11 @@ fn main() -> ! {
         .add_interface(
             RawInterfaceBuilder::new(LOGITECH_GAMING_KEYBOARD_REPORT_DESCRIPTOR)
                 .description("Custom Keyboard")
-                .idle_default(Milliseconds(500))
+                .idle_default(500.millis())
                 .unwrap()
-                .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(10))
+                .in_endpoint(UsbPacketSize::Bytes8, 10.millis())
                 .unwrap()
-                .with_out_endpoint(UsbPacketSize::Bytes8, Milliseconds(100))
+                .with_out_endpoint(UsbPacketSize::Bytes8, 100.millis())
                 .unwrap()
                 .build(),
         )
@@ -201,12 +200,12 @@ fn main() -> ! {
     }
 }
 
-fn reset_idle(timer: &hal::Timer, idle: Milliseconds) -> Option<CountDown> {
-    if idle <= Milliseconds(0_u32) {
+fn reset_idle(timer: &hal::Timer, idle: MillisDurationU32) -> Option<CountDown> {
+    if idle.ticks() == 0 {
         None
     } else {
         let mut count_down = timer.count_down();
-        count_down.start(idle.integer().millis());
+        count_down.start(idle.convert());
         Some(count_down)
     }
 }

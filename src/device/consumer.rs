@@ -1,7 +1,7 @@
 //!HID consumer control devices
 
 use delegate::delegate;
-use embedded_time::duration::Milliseconds;
+use fugit::ExtU32;
 use log::error;
 use packed_struct::prelude::*;
 use usb_device::class_prelude::*;
@@ -108,7 +108,7 @@ impl<'a, B: UsbBus> ConsumerControlInterface<'a, B> {
         WrappedInterfaceConfig::new(
             RawInterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
                 .description("Consumer Control")
-                .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(50))
+                .in_endpoint(UsbPacketSize::Bytes8, 50.millis())
                 .unwrap()
                 .without_out_endpoint()
                 .build(),
@@ -161,7 +161,7 @@ impl<'a, B: UsbBus> ConsumerControlFixedInterface<'a, B> {
         WrappedInterfaceConfig::new(
             RawInterfaceBuilder::new(FIXED_FUNCTION_REPORT_DESCRIPTOR)
                 .description("Consumer Control")
-                .in_endpoint(UsbPacketSize::Bytes8, Milliseconds(50))
+                .in_endpoint(UsbPacketSize::Bytes8, 50.millis())
                 .unwrap()
                 .without_out_endpoint()
                 .build(),

@@ -2,7 +2,7 @@ use core::cell::RefCell;
 use core::marker::PhantomData;
 
 use delegate::delegate;
-use embedded_time::duration::Milliseconds;
+use fugit::{ExtU32, MillisDurationU32};
 use log::error;
 use packed_struct::PackedStruct;
 use usb_device::bus::UsbBus;
@@ -17,37 +17,37 @@ use crate::UsbHidError;
 
 pub struct IdleManager<R> {
     last_report: Option<R>,
-    current: Milliseconds<u32>,
-    default: Milliseconds<u32>,
-    since_last_report: Milliseconds<u32>,
+    current_timeout: MillisDurationU32,
+    default_timeout: MillisDurationU32,
+    since_last_report: MillisDurationU32,
 }
 
 impl<R> IdleManager<R>
 where
     R: Eq + Copy,
 {
-    pub fn new(default: Milliseconds<u32>) -> Self {
+    pub fn new(default: MillisDurationU32) -> Self {
         Self {
             last_report: None,
-            current: default,
-            default,
-            since_last_report: Milliseconds(0),
+            current_timeout: default,
+            default_timeout: default,
+            since_last_report: 0.millis(),
         }
     }
 
     pub fn reset(&mut self) {
         self.last_report = None;
-        self.current = self.default;
-        self.since_last_report = Milliseconds(0);
+        self.current_timeout = self.default_timeout;
+        self.since_last_report = 0.millis();
     }
 
     pub fn report_written(&mut self, report: R) {
         self.last_report = Some(report);
-        self.since_last_report = Milliseconds(0);
+        self.since_last_report = 0.millis();
     }
 
-    pub fn set_duration(&mut self, duration: Milliseconds) {
-        self.current = duration;
+    pub fn set_duration(&mut self, duration: MillisDurationU32) {
+        self.current_timeout = duration;
     }
 
     pub fn is_duplicate(&self, report: &R) -> bool {
@@ -56,16 +56,16 @@ where
 
     /// Call every 1ms / at 1 KHz
     pub fn tick(&mut self) -> bool {
-        if self.current == Milliseconds(0u32) {
-            self.since_last_report = Milliseconds(0);
+        if self.current_timeout.ticks() == 0 {
+            self.since_last_report = 0.millis();
             return false;
         }
 
-        if self.since_last_report >= self.current {
-            self.since_last_report = Milliseconds(0);
+        if self.since_last_report >= self.current_timeout {
+            self.since_last_report = 0.millis();
             true
         } else {
-            self.since_last_report = self.since_last_report + Milliseconds(1u32);
+            self.since_last_report += 1.millis();
             false
         }
     }

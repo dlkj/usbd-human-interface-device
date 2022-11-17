@@ -3,9 +3,8 @@ use std::sync::Mutex;
 use std::vec::Vec;
 
 use crate::interface::raw::RawInterfaceBuilder;
-use embedded_time::duration::Milliseconds;
-use embedded_time::fixed_point::FixedPoint;
 use env_logger::Env;
+use fugit::MillisDurationU32;
 use usb_device::bus::PollResult;
 use usb_device::prelude::*;
 use usb_device::UsbDirection;
@@ -404,8 +403,7 @@ fn get_protocol_default_post_reset() {
 fn get_global_idle_default() {
     init_logging();
 
-    const IDLE_DEFAULT: Milliseconds = Milliseconds(40);
-
+    const IDLE_DEFAULT: MillisDurationU32 = MillisDurationU32::millis(40);
     //Get idle
     let read_data: &[&[u8]] = &[&UsbRequest {
         direction: UsbDirection::In != UsbDirection::Out,
@@ -421,7 +419,7 @@ fn get_global_idle_default() {
 
     let validate_write_data = |v: &Vec<u8>| {
         assert_eq!(
-            Milliseconds(v[0] as u32 * 4),
+            MillisDurationU32::millis(v[0] as u32 * 4),
             IDLE_DEFAULT,
             "Unexpected idle value"
         );
@@ -458,8 +456,8 @@ fn get_global_idle_default() {
 #[test]
 fn set_global_idle() {
     init_logging();
-    const IDLE_DEFAULT: Milliseconds = Milliseconds(40);
-    const IDLE_NEW: Milliseconds = Milliseconds(88);
+    const IDLE_DEFAULT: MillisDurationU32 = MillisDurationU32::millis(40);
+    const IDLE_NEW: MillisDurationU32 = MillisDurationU32::millis(88);
 
     let read_data: &[&[u8]] = &[
         //Set idle
@@ -468,7 +466,7 @@ fn set_global_idle() {
             request_type: RequestType::Class as u8,
             recipient: Recipient::Interface as u8,
             request: HidRequest::SetIdle as u8,
-            value: (IDLE_NEW.integer() as u16 / 4) << 8,
+            value: (IDLE_NEW.to_millis() as u16 / 4) << 8,
             index: 0x0,
             length: 0x0,
         }
@@ -490,7 +488,7 @@ fn set_global_idle() {
 
     let validate_write_data = |v: &Vec<u8>| {
         assert_eq!(
-            Milliseconds(v[0] as u32 * 4),
+            MillisDurationU32::millis(v[0] as u32 * 4),
             IDLE_NEW,
             "Unexpected idle value"
         );
@@ -528,8 +526,8 @@ fn set_global_idle() {
 fn get_global_idle_default_post_reset() {
     init_logging();
 
-    const IDLE_DEFAULT: Milliseconds = Milliseconds(40);
-    const IDLE_NEW: Milliseconds = Milliseconds(88);
+    const IDLE_DEFAULT: MillisDurationU32 = MillisDurationU32::millis(40);
+    const IDLE_NEW: MillisDurationU32 = MillisDurationU32::millis(88);
 
     let read_data: &[&[u8]] = &[
         //Set global idle
@@ -538,7 +536,7 @@ fn get_global_idle_default_post_reset() {
             request_type: RequestType::Class as u8,
             recipient: Recipient::Interface as u8,
             request: HidRequest::SetIdle as u8,
-            value: (IDLE_NEW.integer() as u16 / 4) << 8,
+            value: (IDLE_NEW.to_millis() as u16 / 4) << 8,
             index: 0x0,
             length: 0x0,
         }
@@ -560,7 +558,7 @@ fn get_global_idle_default_post_reset() {
 
     let validate_write_data = |v: &Vec<u8>| {
         assert_eq!(
-            Milliseconds(v[0] as u32 * 4),
+            MillisDurationU32::millis(v[0] as u32 * 4),
             IDLE_DEFAULT,
             "Unexpected idle value"
         );
@@ -603,7 +601,7 @@ fn get_global_idle_default_post_reset() {
 fn get_report_idle_default() {
     init_logging();
 
-    const IDLE_DEFAULT: Milliseconds = Milliseconds(40);
+    const IDLE_DEFAULT: MillisDurationU32 = MillisDurationU32::millis(40);
     const REPORT_ID: u8 = 0xAB;
 
     //Get idle
@@ -621,7 +619,7 @@ fn get_report_idle_default() {
 
     let validate_write_data = |v: &Vec<u8>| {
         assert_eq!(
-            Milliseconds(v[0] as u32 * 4),
+            MillisDurationU32::millis(v[0] as u32 * 4),
             IDLE_DEFAULT,
             "Unexpected idle value"
         );
@@ -658,8 +656,8 @@ fn get_report_idle_default() {
 #[test]
 fn set_report_idle() {
     init_logging();
-    const IDLE_DEFAULT: Milliseconds = Milliseconds(40);
-    const IDLE_NEW: Milliseconds = Milliseconds(88);
+    const IDLE_DEFAULT: MillisDurationU32 = MillisDurationU32::millis(40);
+    const IDLE_NEW: MillisDurationU32 = MillisDurationU32::millis(88);
     const REPORT_ID: u8 = 0xAB;
 
     let read_data: &[&[u8]] = &[
@@ -669,7 +667,7 @@ fn set_report_idle() {
             request_type: RequestType::Class as u8,
             recipient: Recipient::Interface as u8,
             request: HidRequest::SetIdle as u8,
-            value: (IDLE_NEW.integer() as u16 / 4) << 8 | REPORT_ID as u16,
+            value: (IDLE_NEW.to_millis() as u16 / 4) << 8 | REPORT_ID as u16,
             index: 0x0,
             length: 0x0,
         }
@@ -703,12 +701,12 @@ fn set_report_idle() {
 
     let validate_write_data = |v: &Vec<u8>| {
         assert_eq!(
-            Milliseconds(v[0] as u32 * 4),
+            MillisDurationU32::millis(v[0] as u32 * 4),
             IDLE_NEW,
             "Unexpected report idle value"
         );
         assert_eq!(
-            Milliseconds(v[1] as u32 * 4),
+            MillisDurationU32::millis(v[1] as u32 * 4),
             IDLE_DEFAULT,
             "Unexpected global idle value"
         );
@@ -748,8 +746,8 @@ fn get_report_idle_default_post_reset() {
 
     init_logging();
 
-    const IDLE_DEFAULT: Milliseconds = Milliseconds(40);
-    const IDLE_NEW: Milliseconds = Milliseconds(88);
+    const IDLE_DEFAULT: MillisDurationU32 = MillisDurationU32::millis(40);
+    const IDLE_NEW: MillisDurationU32 = MillisDurationU32::millis(88);
 
     let read_data: &[&[u8]] = &[
         //Set report idle
@@ -758,7 +756,7 @@ fn get_report_idle_default_post_reset() {
             request_type: RequestType::Class as u8,
             recipient: Recipient::Interface as u8,
             request: HidRequest::SetIdle as u8,
-            value: (IDLE_NEW.integer() as u16 / 4) << 8 | REPORT_ID as u16,
+            value: (IDLE_NEW.to_millis() as u16 / 4) << 8 | REPORT_ID as u16,
             index: 0x0,
             length: 0x0,
         }
@@ -780,7 +778,7 @@ fn get_report_idle_default_post_reset() {
 
     let validate_write_data = |v: &Vec<u8>| {
         assert_eq!(
-            Milliseconds(v[0] as u32 * 4),
+            MillisDurationU32::millis(v[0] as u32 * 4),
             IDLE_DEFAULT,
             "Unexpected idle value"
         );
