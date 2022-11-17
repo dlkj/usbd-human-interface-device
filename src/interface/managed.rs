@@ -86,7 +86,6 @@ where
 {
     pub fn write_report(&self, report: &R) -> Result<(), UsbHidError> {
         if self.idle_manager.borrow().is_duplicate(report) {
-            self.tick()?;
             Err(UsbHidError::Duplicate)
         } else {
             let data = report.pack().map_err(|e| {
