@@ -625,9 +625,9 @@ dependencies = [
 
 [[package]]
 name = "rp2040-monotonic"
-version = "1.1.0"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b7b4e72b913ad6c28bf3239d18c26fd2adc83b01dfd4ca1d3cf73d298d19c1a"
+checksum = "c30fa31d4952d2af0ee0b4962ef914988413f8092827fffc2fda03145aae752f"
 dependencies = [
  "fugit",
  "rp2040-pac",
