@@ -79,6 +79,7 @@ pub const WHEEL_MOUSE_REPORT_DESCRIPTOR: &[u8] = &[
     0x15, 0x00,        //     Logical Minimum (0),
     0x25, 0x01,        //     Logical Maximum (1),
     0x81, 0x02,        //     Input (Data, Variable, Absolute),
+
     0x75, 0x08,        //     Report Size (8),
     0x95, 0x02,        //     Report Count (2),
     0x05, 0x01,        //     Usage Page (Generic Desktop),
@@ -87,6 +88,7 @@ pub const WHEEL_MOUSE_REPORT_DESCRIPTOR: &[u8] = &[
     0x15, 0x81,        //     Logical Minimum (-127),
     0x25, 0x7F,        //     Logical Maximum (127),
     0x81, 0x06,        //     Input (Data, Variable, Relative),
+
     0x15, 0x81,        //     Logical Minimum (-127)
     0x25, 0x7F,        //     Logical Maximum (127)
     0x09, 0x38,        //     Usage (Wheel)
@@ -138,26 +140,29 @@ pub const ABSOLUTE_WHEEL_MOUSE_REPORT_DESCRIPTOR: &[u8] = &[
     0x25, 0x01,        //     Logical Maximum (1),
     0x81, 0x02,        //     Input (Data, Variable, Absolute),
 
-    0x75, 0x10,        //     Report Size (16),
-    0x95, 0x02,        //     Report Count (2),
     0x05, 0x01,        //     Usage Page (Generic Desktop),
     0x09, 0x30,        //     Usage (X),
     0x09, 0x31,        //     Usage (Y),
-    0x15, 0x00, 0x00,  //     Logical Minimum (0),
+    0x15, 0x00,        //     Logical Minimum (0),
     0x26, 0xFF, 0x7F,  //     Logical Maximum (32767),
+    0x35, 0x00,        //     Physical Minimum (0),
+    0x46, 0xFF, 0x7F,  //     Physical Maximum (32767),
+    0x75, 0x10,        //     Report Size (16),
+    0x95, 0x02,        //     Report Count (2),
     0x81, 0x02,        //     Input (Data, Variable, Absolute),
 
-    0x15, 0x81,        //     Logical Minimum (-127)
-    0x25, 0x7F,        //     Logical Maximum (127)
+// Mouse does not work right now.  When set to -127 to 127 it scrolls a ton on every mouse report
+// even though it should be getting a zero value (no scroll)
+
     0x09, 0x38,        //     Usage (Wheel)
-    0x75, 0x08,        //     Report Size (8)
     0x95, 0x01,        //     Report Count (1)
+    0x75, 0x08,        //     Report Size (8)
+    // 0x25, 0x7F,        //     Logical Maximum (127)
+    // 0x15, 0x81,        //     Logical Minimum (-127)
+    0x25, 0xFF,        //     Logical Maximum (255)
+    0x15, 0x00,        //     Logical Minimum (0)
     0x81, 0x06,        //     Input (Data,Var,Rel,No Wrap,Linear,Preferred State,No Null Position)
 
-    0x05, 0x0C,        //     Usage Page (Consumer)
-    0x0A, 0x38, 0x02,  //     Usage (AC Pan)
-    0x95, 0x01,        //     Report Count (1)
-    0x81, 0x06,        //     Input (Data,Var,Rel,No Wrap,Linear,Preferred State,No Null Position)
     0xC0,              //   End Collection
     0xC0,              // End Collection
 ];
@@ -172,14 +177,8 @@ pub struct AbsoluteWheelMouseReport {
     #[packed_field]
     pub y: u16,
     #[packed_field]
-    pub vertical_wheel: i8,
-    #[packed_field]
-    pub horizontal_wheel: i8,
+    pub wheel: u8,
 }
-
-
-
-
 
 
 pub struct BootMouseInterface<'a, B: UsbBus> {
@@ -237,6 +236,9 @@ impl<'a, B: UsbBus> WrappedInterface<'a, B, RawInterface<'a, B>> for BootMouseIn
     }
 }
 
+
+
+
 pub struct WheelMouseInterface<'a, B: UsbBus> {
     inner: RawInterface<'a, B>,
 }
@@ -291,6 +293,9 @@ impl<'a, B: UsbBus> WrappedInterface<'a, B, RawInterface<'a, B>> for WheelMouseI
         Self { inner: interface }
     }
 }
+
+
+
 
 pub struct AbsoluteWheelMouseInterface<'a, B: UsbBus> {
     inner: RawInterface<'a, B>,
