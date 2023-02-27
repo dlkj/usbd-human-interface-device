@@ -1,6 +1,6 @@
 [package]
 name = "usbd-human-interface-device"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2021"
 description = "Batteries included embedded USB HID library for usb-device. Includes concrete Keyboard (boot and NKRO), Mouse and Consumer Control implementations as well as support for building your own HID classes."
 keywords = [ "hid", "usb-device", "usb", "keyboard", "mouse"]
@@ -23,4 +23,4 @@ fugit = "0.3"
 option-block = "0.3"
 
 [dev-dependencies]
-env_logger = "0.10.0"
+env_logger = "0.10"
