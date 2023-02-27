@@ -20,6 +20,7 @@ frunk = { version = "0.4", default-features = false }
 delegate = "0.8"
 num_enum = { version = "0.5", default-features = false }
 fugit = "0.3"
+option-block = "0.3"
 
 [dev-dependencies]
 env_logger = "0.10.0"
