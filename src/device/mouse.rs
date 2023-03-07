@@ -151,16 +151,11 @@ pub const ABSOLUTE_WHEEL_MOUSE_REPORT_DESCRIPTOR: &[u8] = &[
     0x95, 0x02,        //     Report Count (2),
     0x81, 0x02,        //     Input (Data, Variable, Absolute),
 
-// Mouse does not work right now.  When set to -127 to 127 it scrolls a ton on every mouse report
-// even though it should be getting a zero value (no scroll)
-
     0x09, 0x38,        //     Usage (Wheel)
     0x95, 0x01,        //     Report Count (1)
     0x75, 0x08,        //     Report Size (8)
-    // 0x25, 0x7F,        //     Logical Maximum (127)
-    // 0x15, 0x81,        //     Logical Minimum (-127)
-    0x25, 0xFF,        //     Logical Maximum (255)
-    0x15, 0x00,        //     Logical Minimum (0)
+    0x25, 0x7F,        //     Logical Maximum (127)
+    0x15, 0x81,        //     Logical Minimum (-127)
     0x81, 0x06,        //     Input (Data,Var,Rel,No Wrap,Linear,Preferred State,No Null Position)
 
     0xC0,              //   End Collection
@@ -177,9 +172,8 @@ pub struct AbsoluteWheelMouseReport {
     #[packed_field]
     pub y: u16,
     #[packed_field]
-    pub wheel: u8,
+    pub wheel: i8,
 }
-
 
 pub struct BootMouseInterface<'a, B: UsbBus> {
     inner: RawInterface<'a, B>,
@@ -316,7 +310,7 @@ impl<'a, B: UsbBus> AbsoluteWheelMouseInterface<'a, B> {
     pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
         WrappedInterfaceConfig::new(
             RawInterfaceBuilder::new(ABSOLUTE_WHEEL_MOUSE_REPORT_DESCRIPTOR)
-                .boot_device(InterfaceProtocol::Mouse)
+                // .boot_device(InterfaceProtocol::Mouse)
                 .description("Absolute Wheel Mouse")
                 .in_endpoint(UsbPacketSize::Bytes8, 10.millis())
                 .unwrap()
