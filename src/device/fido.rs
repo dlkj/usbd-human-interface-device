@@ -21,13 +21,13 @@ pub const FIDO_REPORT_DESCRIPTOR: &[u8] = &[
     0xA1, 0x01, // Collection (Application),
     0x09, 0x20, //   Usage (Data In),
     0x15, 0x00, //       Logical Minimum(0),
-    0x26, 0xFF, 0x00, // Logical Maxs (0x00FF),
+    0x26, 0xFF, 0x00, // Logical Max (0x00FF),
     0x75, 0x08, //       Report size (8)
     0x95, 0x40, //       Report count (64)
     0x81, 0x02, //       Input (Data | Variable | Absolute)
     0x09, 0x21, //   Usage (Data Out),
     0x15, 0x00, //       Logical Minimum(0),
-    0x26, 0xFF, 0x00, // Logical Maxs (0x00FF),
+    0x26, 0xFF, 0x00, // Logical Max (0x00FF),
     0x75, 0x08, //       Report size (8)
     0x95, 0x40, //       Report count (64)
     0x91, 0x02, //       Output (Data | Variable | Absolute)
