@@ -97,19 +97,25 @@ fn main() -> ! {
     let mut led_pin = pins.gpio13.into_push_pull_output();
     led_pin.set_low().ok();
 
-    let key_pins: &[&dyn InputPin<Error = core::convert::Infallible>] = &[
-        &pins.gpio1.into_pull_up_input(),
-        &pins.gpio2.into_pull_up_input(),
-        &pins.gpio3.into_pull_up_input(),
-        &pins.gpio4.into_pull_up_input(),
-        &pins.gpio5.into_pull_up_input(),
-        &pins.gpio6.into_pull_up_input(),
-        &pins.gpio7.into_pull_up_input(),
-        &pins.gpio8.into_pull_up_input(),
-        &pins.gpio9.into_pull_up_input(),
+    let keyboard_pins: [&dyn InputPin<Error = core::convert::Infallible>; 3] = [
         &pins.gpio10.into_pull_up_input(),
         &pins.gpio11.into_pull_up_input(),
         &pins.gpio12.into_pull_up_input(),
+    ];
+
+    let mouse_pins: [&dyn InputPin<Error = core::convert::Infallible>; 7] = [
+        &pins.gpio1.into_pull_up_input(),
+        &pins.gpio2.into_pull_up_input(),
+        &pins.gpio3.into_pull_up_input(),
+        &pins.gpio5.into_pull_up_input(),
+        &pins.gpio7.into_pull_up_input(),
+        &pins.gpio8.into_pull_up_input(),
+        &pins.gpio9.into_pull_up_input(),
+    ];
+
+    let consumer_pins: [&dyn InputPin<Error = core::convert::Infallible>; 2] = [
+        &pins.gpio4.into_pull_up_input(),
+        &pins.gpio6.into_pull_up_input(),
     ];
 
     let mut keyboard_mouse_poll = timer.count_down();
@@ -130,7 +136,7 @@ fn main() -> ! {
 
     loop {
         if keyboard_mouse_poll.wait().is_ok() {
-            let keys = get_keyboard_keys(key_pins);
+            let keys = get_keyboard_keys(&keyboard_pins);
 
             let keyboard = composite.interface::<NKROBootKeyboardInterface<'_, _>, _>();
             match keyboard.write_report(keys) {
@@ -142,7 +148,7 @@ fn main() -> ! {
                 }
             };
 
-            mouse_report = update_mouse_report(mouse_report, key_pins);
+            mouse_report = update_mouse_report(mouse_report, &mouse_pins);
             if mouse_report.buttons != last_mouse_buttons
                 || mouse_report.x != 0
                 || mouse_report.y != 0
@@ -162,7 +168,7 @@ fn main() -> ! {
         }
 
         if consumer_poll.wait().is_ok() {
-            let codes = get_consumer_codes(key_pins);
+            let codes = get_consumer_codes(&consumer_pins);
             let consumer_report = MultipleConsumerReport {
                 codes: [
                     codes[0],
@@ -215,19 +221,19 @@ fn main() -> ! {
     }
 }
 
-fn get_keyboard_keys(keys: &[&dyn InputPin<Error = Infallible>]) -> [Keyboard; 3] {
+fn get_keyboard_keys(pins: &[&dyn InputPin<Error = Infallible>; 3]) -> [Keyboard; 3] {
     [
-        if keys[9].is_low().unwrap() {
+        if pins[0].is_low().unwrap() {
             Keyboard::A
         } else {
             Keyboard::NoEventIndicated
         },
-        if keys[10].is_low().unwrap() {
+        if pins[1].is_low().unwrap() {
             Keyboard::B
         } else {
             Keyboard::NoEventIndicated
         },
-        if keys[11].is_low().unwrap() {
+        if pins[2].is_low().unwrap() {
             Keyboard::C
         } else {
             Keyboard::NoEventIndicated
@@ -235,14 +241,14 @@ fn get_keyboard_keys(keys: &[&dyn InputPin<Error = Infallible>]) -> [Keyboard; 3
     ]
 }
 
-fn get_consumer_codes(keys: &[&dyn InputPin<Error = Infallible>]) -> [Consumer; 2] {
+fn get_consumer_codes(pins: &[&dyn InputPin<Error = Infallible>; 2]) -> [Consumer; 2] {
     [
-        if keys[3].is_low().unwrap() {
+        if pins[0].is_low().unwrap() {
             Consumer::VolumeDecrement
         } else {
             Consumer::Unassigned
         },
-        if keys[5].is_low().unwrap() {
+        if pins[1].is_low().unwrap() {
             Consumer::VolumeIncrement
         } else {
             Consumer::Unassigned
@@ -252,33 +258,33 @@ fn get_consumer_codes(keys: &[&dyn InputPin<Error = Infallible>]) -> [Consumer; 
 
 fn update_mouse_report(
     mut report: WheelMouseReport,
-    keys: &[&dyn InputPin<Error = core::convert::Infallible>],
+    pins: &[&dyn InputPin<Error = core::convert::Infallible>; 7],
 ) -> WheelMouseReport {
-    if keys[0].is_low().unwrap() {
+    if pins[0].is_low().unwrap() {
         report.buttons |= 0x1; //Left
     } else {
         report.buttons &= 0xFF - 0x1;
     }
-    if keys[1].is_low().unwrap() {
+    if pins[1].is_low().unwrap() {
         report.buttons |= 0x4; //Middle
     } else {
         report.buttons &= 0xFF - 0x4;
     }
-    if keys[2].is_low().unwrap() {
+    if pins[2].is_low().unwrap() {
         report.buttons |= 0x2; //Right
     } else {
         report.buttons &= 0xFF - 0x2;
     }
-    if keys[4].is_low().unwrap() {
+    if pins[3].is_low().unwrap() {
         report.y = i8::saturating_add(report.y, -10); //Up
     }
-    if keys[6].is_low().unwrap() {
+    if pins[4].is_low().unwrap() {
         report.x = i8::saturating_add(report.x, -10); //Left
     }
-    if keys[7].is_low().unwrap() {
+    if pins[5].is_low().unwrap() {
         report.y = i8::saturating_add(report.y, 10); //Down
     }
-    if keys[8].is_low().unwrap() {
+    if pins[6].is_low().unwrap() {
         report.x = i8::saturating_add(report.x, 10); //Right
     }
 

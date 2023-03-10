@@ -71,7 +71,7 @@ fn main() -> ! {
     //GPIO pins
     let mut led_pin = pins.gpio13.into_push_pull_output();
 
-    let keys: &[&dyn InputPin<Error = core::convert::Infallible>] = &[
+    let input_pins: [&dyn InputPin<Error = core::convert::Infallible>; 7] = [
         &pins.gpio1.into_pull_up_input(),
         &pins.gpio2.into_pull_up_input(),
         &pins.gpio3.into_pull_up_input(),
@@ -79,11 +79,6 @@ fn main() -> ! {
         &pins.gpio5.into_pull_up_input(),
         &pins.gpio6.into_pull_up_input(),
         &pins.gpio7.into_pull_up_input(),
-        &pins.gpio8.into_pull_up_input(),
-        &pins.gpio9.into_pull_up_input(),
-        &pins.gpio10.into_pull_up_input(),
-        &pins.gpio11.into_pull_up_input(),
-        &pins.gpio12.into_pull_up_input(),
     ];
 
     led_pin.set_low().ok();
@@ -91,12 +86,12 @@ fn main() -> ! {
     let mut input_count_down = timer.count_down();
     input_count_down.start(50.millis());
 
-    let mut last = get_report(keys);
+    let mut last = get_report(&input_pins);
 
     loop {
-        //Poll the keys every 10ms
+        //Poll every 10ms
         if input_count_down.wait().is_ok() {
-            let report = get_report(keys);
+            let report = get_report(&input_pins);
             if report != last {
                 match consumer.interface().write_report(&report) {
                     Err(UsbError::WouldBlock) => {}
@@ -110,18 +105,18 @@ fn main() -> ! {
             }
         }
 
-        if usb_dev.poll(&mut [&mut consumer]) {}
+        usb_dev.poll(&mut [&mut consumer]);
     }
 }
 
-fn get_report(keys: &[&dyn InputPin<Error = core::convert::Infallible>]) -> FixedFunctionReport {
+fn get_report(pins: &[&dyn InputPin<Error = core::convert::Infallible>; 7]) -> FixedFunctionReport {
     FixedFunctionReport {
-        next: keys[0].is_low().unwrap(),
-        previous: keys[1].is_low().unwrap(),
-        stop: keys[2].is_low().unwrap(),
-        play_pause: keys[3].is_low().unwrap(),
-        mute: keys[4].is_low().unwrap(),
-        volume_increment: keys[5].is_low().unwrap(),
-        volume_decrement: keys[6].is_low().unwrap(),
+        next: pins[0].is_low().unwrap(),
+        previous: pins[1].is_low().unwrap(),
+        stop: pins[2].is_low().unwrap(),
+        play_pause: pins[3].is_low().unwrap(),
+        mute: pins[4].is_low().unwrap(),
+        volume_increment: pins[5].is_low().unwrap(),
+        volume_decrement: pins[6].is_low().unwrap(),
     }
 }

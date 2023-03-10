@@ -74,7 +74,7 @@ fn main() -> ! {
     //GPIO pins
     let mut led_pin = pins.gpio13.into_push_pull_output();
 
-    let keys: &[&dyn InputPin<Error = core::convert::Infallible>] = &[
+    let input_pins: [&dyn InputPin<Error = core::convert::Infallible>; 9] = [
         &pins.gpio1.into_pull_up_input(),
         &pins.gpio2.into_pull_up_input(),
         &pins.gpio3.into_pull_up_input(),
@@ -84,22 +84,19 @@ fn main() -> ! {
         &pins.gpio7.into_pull_up_input(),
         &pins.gpio8.into_pull_up_input(),
         &pins.gpio9.into_pull_up_input(),
-        &pins.gpio10.into_pull_up_input(),
-        &pins.gpio11.into_pull_up_input(),
-        &pins.gpio12.into_pull_up_input(),
     ];
 
     led_pin.set_low().ok();
 
-    let mut last = get_report(keys);
+    let mut last = get_report(&input_pins);
 
     let mut input_count_down = timer.count_down();
     input_count_down.start(50.millis());
 
     loop {
-        //Poll the keys every 10ms
+        //Poll the every 10ms
         if input_count_down.wait().is_ok() {
-            let report = get_report(keys);
+            let report = get_report(&input_pins);
             if report != last {
                 match consumer.interface().write_report(&report) {
                     Err(UsbError::WouldBlock) => {}
@@ -117,25 +114,27 @@ fn main() -> ! {
     }
 }
 
-fn get_report(keys: &[&dyn InputPin<Error = core::convert::Infallible>]) -> MultipleConsumerReport {
+fn get_report(
+    pins: &[&dyn InputPin<Error = core::convert::Infallible>; 9],
+) -> MultipleConsumerReport {
     #[rustfmt::skip]
-        let keys = [
-        if keys[0].is_low().unwrap() { Consumer::PlayPause } else { Consumer::Unassigned },
-        if keys[1].is_low().unwrap() { Consumer::ScanPreviousTrack } else { Consumer::Unassigned },
-        if keys[2].is_low().unwrap() { Consumer::ScanNextTrack } else { Consumer::Unassigned },
-        if keys[3].is_low().unwrap() { Consumer::Mute } else { Consumer::Unassigned },
-        if keys[4].is_low().unwrap() { Consumer::VolumeDecrement } else { Consumer::Unassigned },
-        if keys[5].is_low().unwrap() { Consumer::VolumeIncrement } else { Consumer::Unassigned },
-        if keys[6].is_low().unwrap() { Consumer::ALCalculator } else { Consumer::Unassigned },
-        if keys[7].is_low().unwrap() { Consumer::ALInternetBrowser } else { Consumer::Unassigned },
-        if keys[8].is_low().unwrap() { Consumer::ALFileBrowser } else { Consumer::Unassigned },
+        let pins = [
+        if pins[0].is_low().unwrap() { Consumer::PlayPause } else { Consumer::Unassigned },
+        if pins[1].is_low().unwrap() { Consumer::ScanPreviousTrack } else { Consumer::Unassigned },
+        if pins[2].is_low().unwrap() { Consumer::ScanNextTrack } else { Consumer::Unassigned },
+        if pins[3].is_low().unwrap() { Consumer::Mute } else { Consumer::Unassigned },
+        if pins[4].is_low().unwrap() { Consumer::VolumeDecrement } else { Consumer::Unassigned },
+        if pins[5].is_low().unwrap() { Consumer::VolumeIncrement } else { Consumer::Unassigned },
+        if pins[6].is_low().unwrap() { Consumer::ALCalculator } else { Consumer::Unassigned },
+        if pins[7].is_low().unwrap() { Consumer::ALInternetBrowser } else { Consumer::Unassigned },
+        if pins[8].is_low().unwrap() { Consumer::ALFileBrowser } else { Consumer::Unassigned },
     ];
 
     let mut report = MultipleConsumerReport {
         codes: [Consumer::Unassigned; 4],
     };
 
-    let mut it = keys.iter().filter(|&&c| c != Consumer::Unassigned);
+    let mut it = pins.iter().filter(|&&c| c != Consumer::Unassigned);
     for c in report.codes.iter_mut() {
         if let Some(&code) = it.next() {
             *c = code;
