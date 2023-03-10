@@ -118,7 +118,6 @@ pub struct WheelMouseReport {
     pub horizontal_wheel: i8,
 }
 
-
 /// Absolute mouse with wheel and eight buttons
 ///
 /// Reference: <https://docs.microsoft.com/en-us/previous-versions/windows/hardware/design/dn613912(v=vs.85)>
@@ -232,9 +231,6 @@ impl<'a, B: UsbBus> WrappedInterface<'a, B, RawInterface<'a, B>> for BootMouseIn
     }
 }
 
-
-
-
 pub struct WheelMouseInterface<'a, B: UsbBus> {
     inner: RawInterface<'a, B>,
 }
@@ -290,9 +286,6 @@ impl<'a, B: UsbBus> WrappedInterface<'a, B, RawInterface<'a, B>> for WheelMouseI
     }
 }
 
-
-
-
 pub struct AbsoluteWheelMouseInterface<'a, B: UsbBus> {
     inner: RawInterface<'a, B>,
 }
@@ -342,7 +335,9 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for AbsoluteWheelMouseInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> WrappedInterface<'a, B, RawInterface<'a, B>> for AbsoluteWheelMouseInterface<'a, B> {
+impl<'a, B: UsbBus> WrappedInterface<'a, B, RawInterface<'a, B>>
+    for AbsoluteWheelMouseInterface<'a, B>
+{
     fn new(interface: RawInterface<'a, B>, _: ()) -> Self {
         Self { inner: interface }
     }
