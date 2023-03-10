@@ -129,7 +129,7 @@ pub const ABSOLUTE_WHEEL_MOUSE_REPORT_DESCRIPTOR: &[u8] = &[
     0x09, 0x02,        // Usage (Mouse),
     0xA1, 0x01,        // Collection (Application),
     0x09, 0x01,        //   Usage (Pointer),
-    0xA1, 0x00,        //   Collection (Physical),
+    // 0xA1, 0x00,        //   Collection (Physical),
 
     0x05, 0x09,        //     Usage Page (Buttons),
     0x19, 0x01,        //     Usage Minimum (1),
@@ -158,7 +158,7 @@ pub const ABSOLUTE_WHEEL_MOUSE_REPORT_DESCRIPTOR: &[u8] = &[
     0x95, 0x01,        //     Report Count (1)
     0x81, 0x06,        //     Input (Data,Var,Rel,No Wrap,Linear,Preferred State,No Null Position)
 
-    0xC0,              //   End Collection
+    // 0xC0,              //   End Collection
     0xC0,              // End Collection
 ];
 
