@@ -1,5 +1,3 @@
-# usbd-human-interface-device
-
 [![Library build](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/lib_build.yml/badge.svg)](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/lib_build.yml)
 [![Example build](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/example_build.yml/badge.svg)](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/example_build.yml)
 [![Security audit](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/audit.yml/badge.svg)](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/audit.yml)
@@ -8,106 +6,53 @@
 [![docs.rs](https://docs.rs/usbd-human-interface-device/badge.svg)](https://docs.rs/usbd-human-interface-device)
 
 Batteries included embedded USB HID library for [`usb-device`](https://crates.io/crates/usb-device).
-Includes concrete Keyboard (boot and NKRO), Mouse, Joystick and Consumer Control implementations as well as
+Includes Keyboard (boot and NKRO), Mouse, Joystick and Consumer Control implementations as well as
 support for building your own HID classes.
 
-This library has been tested on the RP2040 but should work on any platform supported by
+Tested on the RP2040, but should work on any platform supported by
 [`usb-device`](https://crates.io/crates/usb-device).
 
-Devices created with this library should work with any USB host. It has been tested on Windows,
+Devices created with this library should work with any USB host. Tested on Windows,
 Linux, MacOS and Android.
 
 **Note:** Managed interfaces that support HID idle, such as
 [`NKROBootKeyboardInterface`](https://docs.rs/usbd-human-interface-device/latest/usbd_human_interface_device/device/keyboard/struct.NKROBootKeyboardInterface.html)
 and [`BootKeyboardInterface`](https://docs.rs/usbd-human-interface-device/latest/usbd_human_interface_device/device/keyboard/struct.BootKeyboardInterface.html),
-require their `tick()` method calling every 1ms/at 1kHz.
-
-```rust,no_run
-use usbd_human_interface_device::page::Keyboard;
-use usbd_human_interface_device::device::keyboard::{KeyboardLedsReport, NKROBootKeyboardInterface};
-use usbd_human_interface_device::prelude::*;
-
-let usb_alloc = UsbBusAllocator::new(usb_bus);
-
-let mut keyboard = UsbHidClassBuilder::new()
-    .add_interface(
-        NKROBootKeyboardInterface::default_config(),
-    )
-    .build(&usb_alloc);
-
-let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-    .manufacturer("usbd-human-interface-device")
-    .product("NKRO Keyboard")
-    .serial_number("TEST")
-    .build();
-
-let mut tick_timer = timer.count_down();
-tick_timer.start(1.millis());
-
-loop {
-    let keys = if pin.is_high().unwrap() {
-            [Keyboard::A]
-        } else {
-            [Keyboard::NoEventIndicated]
-    };
-
-    keyboard.interface().write_report(keys).ok();
-
-    //tick once per ms/at 1kHz
-    if tick_timer.wait().is_ok() {
-        keyboard.interface().tick().unwrap();
-    }
-
-    if usb_dev.poll(&mut [&mut keyboard]) {
-        match keyboard.interface().read_report() {
-
-            Ok(l) => {
-                update_leds(l);
-            }
-            _ => {}
-
-        }
-    }
-}
-```
+require their `tick()` method calling every 1ms.
 
 ## Features
 
-- Keyboard implementations - standard boot compliant keyboard, boot compatible NKRO(N-Key Roll Over) keyboard
-- Mouse - standard boot compliant mouse, boot compatible mouse with scroll wheel and pan
+- Keyboard - boot compliant keyboard, boot compliant NKRO(N-Key Roll Over) keyboard
+- Mouse - boot compliant mouse, boot compliant mouse with scroll wheel and pan
 - Joystick - two axis joystick with eight buttons
-- Consumer Control - fixed function media control device, arbitrary consumer control device
-- Enums defining the Consumer, Desktop, Game, Keyboard, LED, Simulation and Telephony HID usage pages
+- Consumer Control - Media control device, generic consumer control device
+- Enums for the Consumer, Desktop, Game, Keyboard, LED, Simulation and Telephony HID usage pages
 - Support for multi-interface devices
-- Support for HID idle
-- Support for HID protocol changing
-- Support for both single and multiple reports
+- Support for HID idle and HID protocol changing
+- Support for both single and multi report interfaces
+- Compatible with [RTIC](https://rtic.rs)
 
 ## Examples
 
 See [examples](https://github.com/dlkj/usbd-human-interface-device/tree/main/examples) for
-demonstration of how to use this library on the RP2040 (Raspberry Pi Pico)
+demonstrations of how to use this library on the RP2040 (Raspberry Pi Pico)
 
 ## Road map
 
 - Examples and testing for other micro-controllers such as the SAM D2x family.
-- Example using with [RTIC](https://rtic.rs)
 - Support for host device remote wakeup
-- Example implementation of common game and simulation devices
 
 ## Contact
 
-https://github.com/dlkj/usbd-human-interface-device/issues
+<https://github.com/dlkj/usbd-human-interface-device/issues>
 
 ## License
 
-Distributed under the MIT License. See [MIT](https://opensource.org/licenses/MIT) for details.
+Distributed under the MIT License, see [`LICENSE`](https://github.com/dlkj/usbd-human-interface-device/tree/main/LICENSE).
 
 ## Contributing
 
-Contributions are welcome. Please for the project, create a feature branch and open a pull request
-
-Any contribution submitted for inclusion in the work by you will be licensed under the MIT License without any additional terms or conditions.
+Contributions are welcome via pull requests
 
 ## Acknowledgements
 

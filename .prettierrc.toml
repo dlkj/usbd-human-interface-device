@@ -1,0 +1,3 @@
+[[overrides]]
+files = "**/.cargo/config"
+options.parser = "toml"
