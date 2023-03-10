@@ -94,7 +94,7 @@ fn main() -> ! {
     input_count_down.start(10.millis());
 
     loop {
-        // Poll the keys every 10ms
+        // Poll every 10ms
         if input_count_down.wait().is_ok() {
             report = update_report(report, keys);
 
