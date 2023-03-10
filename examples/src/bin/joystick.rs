@@ -71,7 +71,7 @@ fn main() -> ! {
     //GPIO pins
     let mut led_pin = pins.gpio13.into_push_pull_output();
 
-    let keys: &[&dyn InputPin<Error = core::convert::Infallible>] = &[
+    let pins: &[&dyn InputPin<Error = core::convert::Infallible>] = &[
         &pins.gpio0.into_pull_up_input(),
         &pins.gpio1.into_pull_up_input(),
         &pins.gpio2.into_pull_up_input(),
@@ -88,20 +88,16 @@ fn main() -> ! {
 
     led_pin.set_low().ok();
 
-    let mut report = JoystickReport::default();
-
     let mut input_count_down = timer.count_down();
     input_count_down.start(10.millis());
 
     loop {
         // Poll every 10ms
         if input_count_down.wait().is_ok() {
-            report = update_report(report, keys);
 
-            match joy.interface().write_report(&report) {
+            match joy.interface().write_report(&get_report(pins)) {
                 Err(UsbHidError::WouldBlock) => {}
                 Ok(_) => {
-                    report = JoystickReport::default();
                 }
                 Err(e) => {
                     core::panic!("Failed to write joystick report: {:?}", e)
@@ -113,18 +109,16 @@ fn main() -> ! {
     }
 }
 
-fn update_report(
-    mut report: JoystickReport,
-    keys: &[&dyn InputPin<Error = core::convert::Infallible>],
+fn get_report(
+    pins: &[&dyn InputPin<Error = core::convert::Infallible>],
 ) -> JoystickReport {
     // Read out 8 buttons first
     // Clippy wants us to use an iterator here but it hurts readability
+    let mut buttons = 0;
     #[allow(clippy::needless_range_loop)]
-    for button in 0..=7 {
-        if keys[button].is_low().unwrap() {
-            report.buttons |= 1 << button;
-        } else {
-            report.buttons &= 0xFF - (1 << button);
+    for idx in 0..=7 {
+        if pins[idx].is_low().unwrap() {
+            buttons |= 1 << idx;
         }
     }
 
@@ -133,20 +127,25 @@ fn update_report(
     //  8    9
     //    11
     // These are mapped to the limits of an axis
-    if keys[8].is_low().unwrap() {
-        report.x = -127; // left
-    } else if keys[9].is_low().unwrap() {
-        report.x = 127; // right
+    let x = if pins[8].is_low().unwrap() {
+         -127 // left
+    } else if pins[9].is_low().unwrap() {
+         127 // right
     } else {
-        report.x = 0; // center
-    }
-    if keys[10].is_low().unwrap() {
-        report.y = -127; // up
-    } else if keys[11].is_low().unwrap() {
-        report.y = 127; // down
-    } else {
-        report.y = 0; // center
-    }
+         0 // center
+    };
 
-    report
+    let y = if pins[10].is_low().unwrap() {
+         -127 // up
+    } else if pins[11].is_low().unwrap() {
+        127 // down
+    } else {
+        0 // center
+    };
+
+    JoystickReport{
+        buttons,
+        x,
+        y
+    }
 }
