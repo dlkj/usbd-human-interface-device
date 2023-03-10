@@ -1,14 +1,11 @@
-usbd-human-interface-device
-===========================
+# usbd-human-interface-device
 
 [![Library build](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/lib_build.yml/badge.svg)](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/lib_build.yml)
 [![Example build](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/example_build.yml/badge.svg)](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/example_build.yml)
 [![Security audit](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/audit.yml/badge.svg)](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/audit.yml)
 
-
 [![crates.io](https://img.shields.io/crates/v/usbd-human-interface-device.svg)](https://crates.io/crates/usbd-human-interface-device)
 [![docs.rs](https://docs.rs/usbd-human-interface-device/badge.svg)](https://docs.rs/usbd-human-interface-device)
-
 
 Batteries included embedded USB HID library for [`usb-device`](https://crates.io/crates/usb-device).
 Includes concrete Keyboard (boot and NKRO), Mouse, Joystick and Consumer Control implementations as well as
@@ -74,64 +71,54 @@ loop {
 }
 ```
 
-Features
---------
+## Features
 
-* Keyboard implementations - standard boot compliant keyboard, boot compatible NKRO(N-Key Roll Over) keyboard
-* Mouse - standard boot compliant mouse, boot compatible mouse with scroll wheel and pan
-* Joystick - two axis joystick with eight buttons
-* Consumer Control - fixed function media control device, arbitrary consumer control device
-* Enums defining the Consumer, Desktop, Game, Keyboard, LED, Simulation and Telephony HID usage pages
-* Support for multi-interface devices
-* Support for HID idle
-* Support for HID protocol changing
-* Support for both single and multiple reports
+- Keyboard implementations - standard boot compliant keyboard, boot compatible NKRO(N-Key Roll Over) keyboard
+- Mouse - standard boot compliant mouse, boot compatible mouse with scroll wheel and pan
+- Joystick - two axis joystick with eight buttons
+- Consumer Control - fixed function media control device, arbitrary consumer control device
+- Enums defining the Consumer, Desktop, Game, Keyboard, LED, Simulation and Telephony HID usage pages
+- Support for multi-interface devices
+- Support for HID idle
+- Support for HID protocol changing
+- Support for both single and multiple reports
 
-Examples
---------
+## Examples
 
 See [examples](https://github.com/dlkj/usbd-human-interface-device/tree/main/examples) for
 demonstration of how to use this library on the RP2040 (Raspberry Pi Pico)
 
+## Road map
 
-Roadmap
--------
+- Examples and testing for other micro-controllers such as the SAM D2x family.
+- Example using with [RTIC](https://rtic.rs)
+- Support for host device remote wakeup
+- Example implementation of common game and simulation devices
 
-* Examples and testing for other microcontroller such as the SAM D2x family.
-* Example using with [RTIC](https://rtic.rs)
-* Support for host device remote wakeup
-* Example implementation of common game and simulation devices
-
-Contact
--------
+## Contact
 
 https://github.com/dlkj/usbd-human-interface-device/issues
 
-License
--------
+## License
 
 Distributed under the MIT License. See [MIT](https://opensource.org/licenses/MIT) for details.
 
-
-Contributing
-------------
+## Contributing
 
 Contributions are welcome. Please for the project, create a feature branch and open a pull request
 
-Any contribution submitted for inclusion in the work by you will be licenced under the MIT License without any additional terms or conditions.
+Any contribution submitted for inclusion in the work by you will be licensed under the MIT License without any additional terms or conditions.
 
-
-Acknowledgements
-----------------
+## Acknowledgements
 
 This library was inspired by existing rust USB libraries and the following sources of USB information:
 
-* [usb-device](https://crates.io/crates/usb-device)
-* [usbd-hid](https://crates.io/crates/usbd-hid)
-* [usbd-serial](https://crates.io/crates/usbd-serial)
-* [Keyberon](https://crates.io/crates/keyberon)
-* [USB Made Simple](https://www.usbmadesimple.co.uk/)
-* [USB in a NutShell](https://www.beyondlogic.org/usbnutshell/usb1.shtml)
-* [Frank Zhao's USB Descriptor and Request Parser](https://eleccelerator.com/usbdescreqparser/)
-* [Adafruit](https://learn.adafruit.com/custom-hid-devices-in-circuitpython/n-key-rollover-nkro-hid-device)
-* [USBlyzer](http://www.usblyzer.com/)
+- [usb-device](https://crates.io/crates/usb-device)
+- [usbd-hid](https://crates.io/crates/usbd-hid)
+- [usbd-serial](https://crates.io/crates/usbd-serial)
+- [Keyberon](https://crates.io/crates/keyberon)
+- [USB Made Simple](https://www.usbmadesimple.co.uk/)
+- [USB in a NutShell](https://www.beyondlogic.org/usbnutshell/usb1.shtml)
+- [Frank Zhao's USB Descriptor and Request Parser](https://eleccelerator.com/usbdescreqparser/)
+- [Adafruit](https://learn.adafruit.com/custom-hid-devices-in-circuitpython/n-key-rollover-nkro-hid-device)
+- [USBlyzer](http://www.usblyzer.com/)

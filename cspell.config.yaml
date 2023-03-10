@@ -1,0 +1,56 @@
+---
+$schema: https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json
+version: "0.2"
+language: en
+ignorePaths:
+  - cspell.config.yaml
+  - target
+dictionaries:
+  - rust
+words:
+  - adafruit
+  - Blyzer
+  - codegen
+  - defmt
+  - dlkj
+  - dpram
+  - eabi
+  - frunk
+  - gpio
+  - heapless
+  - hlist
+  - iads
+  - irqs
+  - keyberon
+  - leds
+  - monotonics
+  - nkro
+  - nkro
+  - numlock
+  - nvic
+  - oper
+  - pico
+  - plls
+  - regs
+  - repr
+  - ringback
+  - rtic
+  - rustc
+  - rustfmt
+  - rustup
+  - spinlock
+  - spinlocks
+  - thumbv
+  - unmangle
+  - unprotect
+  - usbctrl
+  - usbd
+  - vbrx
+  - vbry
+  - vbrz
+  - wakeup
+  - xosc
+  - zhao
+flagWords:
+  - hte->the
+  - teh->the
