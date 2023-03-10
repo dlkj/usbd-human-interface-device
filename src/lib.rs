@@ -1,16 +1,4 @@
-//! Batteries included embedded USB HID library for [`usb-device`](https://crates.io/crates/usb-device).
-//! Includes concrete Keyboard (boot and NKRO), Mouse and Consumer Control implementations as well as
-//! support for building your own HID classes.
-//!
-//! This library has been tested on the RP2040 but should work on any platform supported by
-//! [`usb-device`](https://crates.io/crates/usb-device).
-//!
-//! Devices created with this library should work with any USB host. It has been tested on Windows,
-//! Linux, MacOS and Android.
-//!
-//! **Note:** Managed interfaces that support HID idle, such as [`device::keyboard::NKROBootKeyboardInterface`] and
-//! [`device::keyboard::BootKeyboardInterface`], require their `tick()` method calling every 1ms/at 1kHz.
-//!
+#![no_std]
 //! ```rust, no_run
 //! # use core::option::Option;
 //! # use core::result::Result;
@@ -136,26 +124,8 @@
 //!     }
 //! }
 //! ```
-//!
-//! Features
-//! --------
-//!
-//! * Keyboard implementations - standard boot compliant keyboard, boot compatible NKRO(N-Key Roll Over) keyboard
-//! * Mouse - standard boot compliant mouse, boot compatible mouse with scroll wheel and pan
-//! * Consumer Control - fixed function media control device, arbitrary consumer control device
-//! * Enums defining the Consumer, Desktop, Game, Keyboard, LED, Simulation and Telephony HID usage pages
-//! * Support for multi-interface devices
-//! * Support for HID idle
-//! * Support for HID protocol changing
-//! * Support for both single and multiple reports
-//!
-//! Examples
-//! --------
-//!
-//! See [examples](https://github.com/dlkj/usbd-human-interface-device/tree/main/examples) for
-//! demonstration of how to use this library on the RP2040 (Raspberry Pi Pico)
 
-#![no_std]
+#![doc = include_str!("../README.md")]
 
 //Allow the use of std in tests
 #[cfg(test)]

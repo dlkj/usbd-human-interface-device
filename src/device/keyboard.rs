@@ -254,7 +254,7 @@ pub const BOOT_KEYBOARD_REPORT_DESCRIPTOR: &[u8] = &[
 //25 bytes
 //byte 0 - modifiers
 //byte 1 - reserved 0s
-//byte 2-7 - array of keycodes - used for boot support
+//byte 2-7 - array of key codes - used for boot support
 //byte 9-24 - bit array of pressed keys
 #[rustfmt::skip]
 pub const NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR: &[u8] = &[

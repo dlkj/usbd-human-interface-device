@@ -1,16 +1,18 @@
 # Examples
 
-* composite - composite keyboard, mouse and consumer control device
-* composite_irq - composite keyboard, mouse and consumer control device using irqs rather than polling
-* consumer_fixed - consumer control device with fixed media control functions
-* consumer_multiple - consumer control device with arbitary functions
-* keyboard_boot - keyboard implementing the HID boot specification
-* keyboard_custom - example of building a custom device
-* keyboard_nkro - keybard implementing n-key-roll-over and HID boot
-* mouse_boot - mouse implementing the HID boot specification
-* mouse_wheel - mouse implementing pan and scroll wheels
+- composite - composite keyboard, mouse and consumer control device
+- composite_irq - composite keyboard, mouse and consumer control device using irqs rather than polling
+- consumer_fixed - consumer control device with fixed media control functions
+- consumer_multiple - consumer control device with arbitrary functions
+- joystick - two axis joystick with eight buttons
+- keyboard_boot - keyboard implementing the HID boot specification
+- keyboard_custom - example of building a custom device
+- keyboard_nkro - keyboard implementing n-key-roll-over and HID boot
+- keyboard_rtic - keyboard implemented on top of the [Real Time Interrupt-driven Concurrency](https://rtic.rs) (RTIC) framework
+- mouse_boot - mouse implementing the HID boot specification
+- mouse_wheel - mouse implementing pan and scroll wheels
 
-The examples target the Raspbery Pi Pico but can be ported to other boards by changing the board support package
+The examples target the Raspberry Pi Pico but can be ported to other boards by changing the board support package
 import and cargo dependency.
 
 ## Installation of development dependencies
