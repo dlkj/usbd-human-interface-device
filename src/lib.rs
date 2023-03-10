@@ -1,5 +1,5 @@
 //! Batteries included embedded USB HID library for [`usb-device`](https://crates.io/crates/usb-device).
-//! Includes concrete Keyboard (boot and NKRO), Mouse and Consumer Control implementations as well as
+//! Includes concrete Keyboard (boot and NKRO), Mouse, Joystick and Consumer Control implementations as well as
 //! support for building your own HID classes.
 //!
 //! This library has been tested on the RP2040 but should work on any platform supported by
@@ -143,6 +143,7 @@
 //! * Keyboard implementations - standard boot compliant keyboard, boot compatible NKRO(N-Key Roll Over) keyboard
 //! * Mouse - standard boot compliant mouse, boot compatible mouse with scroll wheel and pan
 //! * Consumer Control - fixed function media control device, arbitrary consumer control device
+//! * Joystick - two axis joystick with eight buttons
 //! * Enums defining the Consumer, Desktop, Game, Keyboard, LED, Simulation and Telephony HID usage pages
 //! * Support for multi-interface devices
 //! * Support for HID idle

@@ -4,6 +4,7 @@
 * composite_irq - composite keyboard, mouse and consumer control device using irqs rather than polling
 * consumer_fixed - consumer control device with fixed media control functions
 * consumer_multiple - consumer control device with arbitary functions
+* joystick - two axis joystick with eight buttons
 * keyboard_boot - keyboard implementing the HID boot specification
 * keyboard_custom - example of building a custom device
 * keyboard_nkro - keybard implementing n-key-roll-over and HID boot
