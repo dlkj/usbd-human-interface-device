@@ -71,7 +71,7 @@ fn main() -> ! {
     //GPIO pins
     let mut led_pin = pins.gpio13.into_push_pull_output();
 
-    let pins: &[&dyn InputPin<Error = core::convert::Infallible>] = &[
+    let input_pins: [&dyn InputPin<Error = core::convert::Infallible>; 12] = [
         &pins.gpio0.into_pull_up_input(),
         &pins.gpio1.into_pull_up_input(),
         &pins.gpio2.into_pull_up_input(),
@@ -94,11 +94,9 @@ fn main() -> ! {
     loop {
         // Poll every 10ms
         if input_count_down.wait().is_ok() {
-
-            match joy.interface().write_report(&get_report(pins)) {
+            match joy.interface().write_report(&get_report(&input_pins)) {
                 Err(UsbHidError::WouldBlock) => {}
-                Ok(_) => {
-                }
+                Ok(_) => {}
                 Err(e) => {
                     core::panic!("Failed to write joystick report: {:?}", e)
                 }
@@ -109,15 +107,11 @@ fn main() -> ! {
     }
 }
 
-fn get_report(
-    pins: &[&dyn InputPin<Error = core::convert::Infallible>],
-) -> JoystickReport {
+fn get_report(pins: &[&dyn InputPin<Error = core::convert::Infallible>; 12]) -> JoystickReport {
     // Read out 8 buttons first
-    // Clippy wants us to use an iterator here but it hurts readability
     let mut buttons = 0;
-    #[allow(clippy::needless_range_loop)]
-    for idx in 0..=7 {
-        if pins[idx].is_low().unwrap() {
+    for (idx, &pin) in pins[..8].iter().enumerate() {
+        if pin.is_low().unwrap() {
             buttons |= 1 << idx;
         }
     }
@@ -128,24 +122,20 @@ fn get_report(
     //    11
     // These are mapped to the limits of an axis
     let x = if pins[8].is_low().unwrap() {
-         -127 // left
+        -127 // left
     } else if pins[9].is_low().unwrap() {
-         127 // right
+        127 // right
     } else {
-         0 // center
+        0 // center
     };
 
     let y = if pins[10].is_low().unwrap() {
-         -127 // up
+        -127 // up
     } else if pins[11].is_low().unwrap() {
         127 // down
     } else {
         0 // center
     };
 
-    JoystickReport{
-        buttons,
-        x,
-        y
-    }
+    JoystickReport { buttons, x, y }
 }
