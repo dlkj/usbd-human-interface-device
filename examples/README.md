@@ -9,6 +9,7 @@
 - keyboard_custom - example of building a custom device
 - keyboard_nkro - keyboard implementing n-key-roll-over and HID boot
 - keyboard_rtic - keyboard implemented on top of the [Real Time Interrupt-driven Concurrency](https://rtic.rs) (RTIC) framework
+- mouse_absolute - absolute pointer mouse
 - mouse_boot - mouse implementing the HID boot specification
 - mouse_wheel - mouse implementing pan and scroll wheels
 
