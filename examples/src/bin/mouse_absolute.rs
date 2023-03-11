@@ -3,7 +3,6 @@
 
 use bsp::entry;
 use bsp::hal;
-use defmt::info;
 use defmt_rtt as _;
 use embedded_hal::digital::v2::*;
 use embedded_hal::prelude::*;
