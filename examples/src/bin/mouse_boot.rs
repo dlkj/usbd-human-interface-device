@@ -132,16 +132,16 @@ fn update_report(
     } else {
         report.buttons &= 0xFF - 0x2;
     }
-    if pins[4].is_low().unwrap() {
+    if pins[3].is_low().unwrap() {
         report.y = i8::saturating_add(report.y, -10); //Up
     }
-    if pins[5].is_low().unwrap() {
+    if pins[4].is_low().unwrap() {
         report.x = i8::saturating_add(report.x, -10); //Left
     }
-    if pins[6].is_low().unwrap() {
+    if pins[5].is_low().unwrap() {
         report.y = i8::saturating_add(report.y, 10); //Down
     }
-    if pins[7].is_low().unwrap() {
+    if pins[6].is_low().unwrap() {
         report.x = i8::saturating_add(report.x, 10); //Right
     }
 

@@ -159,7 +159,7 @@ fn update_report(
     if pins[9].is_low().unwrap() {
         report.horizontal_wheel = i8::saturating_add(report.horizontal_wheel, -1);
     }
-    if pins[11].is_low().unwrap() {
+    if pins[10].is_low().unwrap() {
         report.horizontal_wheel = i8::saturating_add(report.horizontal_wheel, 1);
     }
 
