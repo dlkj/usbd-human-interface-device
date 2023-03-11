@@ -63,7 +63,6 @@ pub struct BootMouseReport {
 /// Boot compatible mouse with wheel, pan and eight buttons
 ///
 /// Reference: <https://docs.microsoft.com/en-us/previous-versions/windows/hardware/design/dn613912(v=vs.85)>
-///            <https://www.microchip.com/forums/tm.aspx?m=391435>
 #[rustfmt::skip]
 pub const WHEEL_MOUSE_REPORT_DESCRIPTOR: &[u8] = &[
     0x05, 0x01,        // Usage Page (Generic Desktop),
@@ -120,8 +119,12 @@ pub struct WheelMouseReport {
 
 /// Absolute mouse with wheel and eight buttons
 ///
+/// Note - absolute pointer support is relatively uncommon. This has been tested on Windows 11
+/// Other operating systems may not natively support this device.
+/// 
+/// Windows only natively supports absolute pointer devices on the primary display.
+/// 
 /// Reference: <https://docs.microsoft.com/en-us/previous-versions/windows/hardware/design/dn613912(v=vs.85)>
-///            <https://www.microchip.com/forums/tm.aspx?m=391435>
 #[rustfmt::skip]
 pub const ABSOLUTE_WHEEL_MOUSE_REPORT_DESCRIPTOR: &[u8] = &[
     0x05, 0x01,        // Usage Page (Generic Desktop),
