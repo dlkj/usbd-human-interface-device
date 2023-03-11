@@ -694,7 +694,7 @@ checksum = "1f6cc3adc849b5292b4075fc0d5fdcf2f24866e88e336dd27a8943090a520508"
 
 [[package]]
 name = "usbd-human-interface-device"
-version = "0.3.3"
+version = "0.3.4"
 dependencies = [
  "delegate",
  "frunk",
