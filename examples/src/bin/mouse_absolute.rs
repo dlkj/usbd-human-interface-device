@@ -3,6 +3,7 @@
 
 use bsp::entry;
 use bsp::hal;
+use defmt::info;
 use defmt_rtt as _;
 use embedded_hal::digital::v2::*;
 use embedded_hal::prelude::*;
@@ -15,6 +16,11 @@ use usbd_human_interface_device::device::mouse::AbsoluteWheelMouseReport;
 use usbd_human_interface_device::prelude::*;
 
 use rp_pico as bsp;
+
+/// Note - absolute pointer support is relatively uncommon. This has been tested on Windows 11
+/// Other operating systems may not natively support this device
+///
+/// Windows only natively supports absolute pointer devices on the primary display.
 
 #[entry]
 fn main() -> ! {
@@ -96,7 +102,7 @@ fn main() -> ! {
         if input_count_down.wait().is_ok() {
             report = update_report(report, &input_pins);
 
-            //Only write a report if the mouse is moving or buttons change
+            //Only write a report if the mouse has moved or buttons change
             if report.buttons != last_buttons || report.x != 0 || report.y != 0 || report.wheel != 0
             {
                 match mouse.interface().write_report(&report) {
@@ -143,30 +149,30 @@ fn update_report(
     }
 
     if pins[5].is_low().unwrap() {
-        report.x = 0;
-        report.y = 0;
+        report.x = 1;
+        report.y = 1;
     }
 
     if pins[6].is_low().unwrap() {
-        report.x = 640;
-        report.y = 480;
+        report.x = u16::MAX / 4;
+        report.y = u16::MAX / 4;
     }
 
     if pins[7].is_low().unwrap() {
-        report.x = 1024;
-        report.y = 768;
+        report.x = u16::MAX / 2;
+        report.y = u16::MAX / 2;
     }
     if pins[8].is_low().unwrap() {
-        report.x = 1920;
-        report.y = 1080;
+        report.x = u16::MAX;
+        report.y = u16::MAX;
     }
     if pins[9].is_low().unwrap() {
-        report.x = 3840;
-        report.y = 2160;
+        report.x = u16::MAX / 4;
+        report.y = 0;
     }
     if pins[10].is_low().unwrap() {
-        report.x = 5000;
-        report.y = 2000;
+        report.x = 0;
+        report.y = u16::MAX / 4;
     }
 
     report
