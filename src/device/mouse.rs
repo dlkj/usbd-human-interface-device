@@ -308,7 +308,6 @@ impl<'a, B: UsbBus> AbsoluteWheelMouseInterface<'a, B> {
     pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
         WrappedInterfaceConfig::new(
             RawInterfaceBuilder::new(ABSOLUTE_WHEEL_MOUSE_REPORT_DESCRIPTOR)
-                // .boot_device(InterfaceProtocol::Mouse)
                 .description("Absolute Wheel Mouse")
                 .in_endpoint(UsbPacketSize::Bytes8, 10.millis())
                 .unwrap()
