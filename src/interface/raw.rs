@@ -137,7 +137,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for RawInterface<'a, B> {
             error!("GetReport failed, buffer too short");
             Err(UsbError::BufferOverflow)
         } else {
-            data[..in_buffer.len()].copy_from_slice(&in_buffer[..]);
+            data[..in_buffer.len()].copy_from_slice(&in_buffer);
             Ok(in_buffer.len())
         }
     }
