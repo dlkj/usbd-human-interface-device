@@ -19,6 +19,7 @@ use hal::gpio::{Output, Pin, PushPull};
 use hal::pac;
 use pac::interrupt;
 use panic_probe as _;
+#[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_human_interface_device::device::consumer::{
@@ -186,7 +187,7 @@ fn main() -> ! {
                         Err(UsbHidError::WouldBlock) => {}
                         Ok(_) => {
                             last_mouse_buttons = mouse_report.buttons;
-                            mouse_report = Default::default();
+                            mouse_report = WheelMouseReport::default();
                         }
                         Err(e) => {
                             core::panic!("Failed to write mouse report: {:?}", e)

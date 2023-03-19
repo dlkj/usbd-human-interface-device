@@ -4,6 +4,7 @@ use delegate::delegate;
 use fugit::ExtU32;
 use log::error;
 use packed_struct::prelude::*;
+#[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
 use usb_device::{Result, UsbError};
 
@@ -35,6 +36,7 @@ pub struct MultipleConsumerReport {
     pub codes: [Consumer; 4],
 }
 
+#[allow(clippy::doc_markdown)]
 ///Fixed functionality consumer control report descriptor
 /// 
 /// Based on [Logitech Gaming Keyboard](http://www.usblyzer.com/reports/usb-properties/usb-keyboard.html)
@@ -104,6 +106,7 @@ impl<'a, B: UsbBus> ConsumerControlInterface<'a, B> {
         self.inner.write_report(&data)
     }
 
+    #[must_use]
     pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
         WrappedInterfaceConfig::new(
             RawInterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
@@ -118,12 +121,13 @@ impl<'a, B: UsbBus> ConsumerControlInterface<'a, B> {
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a> for ConsumerControlInterface<'a, B> {
+    #![allow(clippy::inline_always)]
     delegate! {
         to self.inner{
            fn report_descriptor(&self) -> &'_ [u8];
            fn id(&self) -> InterfaceNumber;
            fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-           fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'_ str>;
+           fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str>;
            fn reset(&mut self);
            fn set_report(&mut self, data: &[u8]) -> Result<()>;
            fn get_report(&mut self, data: &mut [u8]) -> Result<usize>;
@@ -157,6 +161,7 @@ impl<'a, B: UsbBus> ConsumerControlFixedInterface<'a, B> {
         self.inner.write_report(&data)
     }
 
+    #[must_use]
     pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
         WrappedInterfaceConfig::new(
             RawInterfaceBuilder::new(FIXED_FUNCTION_REPORT_DESCRIPTOR)
@@ -171,12 +176,13 @@ impl<'a, B: UsbBus> ConsumerControlFixedInterface<'a, B> {
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a> for ConsumerControlFixedInterface<'a, B> {
+    #![allow(clippy::inline_always)]
     delegate! {
         to self.inner{
            fn report_descriptor(&self) -> &'_ [u8];
            fn id(&self) -> InterfaceNumber;
            fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-           fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'_ str>;
+           fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str>;
            fn reset(&mut self);
            fn set_report(&mut self, data: &[u8]) -> Result<()>;
            fn get_report(&mut self, data: &mut [u8]) -> Result<usize>;

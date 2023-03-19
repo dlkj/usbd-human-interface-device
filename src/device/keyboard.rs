@@ -3,6 +3,7 @@
 use delegate::delegate;
 use fugit::ExtU32;
 use packed_struct::prelude::*;
+#[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
 use usb_device::UsbError;
 
@@ -14,7 +15,7 @@ use crate::UsbHidError;
 
 /// Interface implementing the HID boot keyboard specification
 ///
-/// **Note:** This is a managed interfaces that support HID idle, [BootKeyboardInterface::tick()] must be called every 1ms/at 1kHz.
+/// **Note:** This is a managed interfaces that support HID idle, [`BootKeyboardInterface::tick()`] must be called every 1ms.
 pub struct BootKeyboardInterface<'a, B: UsbBus> {
     inner: ManagedInterface<'a, B, BootKeyboardReport>,
 }
@@ -23,6 +24,7 @@ impl<'a, B> BootKeyboardInterface<'a, B>
 where
     B: UsbBus,
 {
+    #![allow(clippy::inline_always)]
     delegate! {
         to self.inner {
             /// Call every 1ms / at 1 KHz
@@ -50,6 +52,7 @@ where
         }
     }
 
+    #[must_use]
     pub fn default_config(
     ) -> WrappedInterfaceConfig<Self, ManagedInterfaceConfig<'a, BootKeyboardReport>> {
         WrappedInterfaceConfig::new(
@@ -76,12 +79,13 @@ impl<'a, B> InterfaceClass<'a> for BootKeyboardInterface<'a, B>
 where
     B: UsbBus,
 {
+    #![allow(clippy::inline_always)]
     delegate! {
         to self.inner{
            fn report_descriptor(&self) -> &'_ [u8];
            fn id(&self) -> InterfaceNumber;
            fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-           fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'_ str>;
+           fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str>;
            fn reset(&mut self);
            fn set_report(&mut self, data: &[u8]) -> usb_device::Result<()>;
            fn get_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize>;
@@ -150,7 +154,7 @@ impl BootKeyboardReport {
 
         let mut error = false;
         let mut i = 0;
-        for k in keys.into_iter() {
+        for k in keys {
             match k {
                 Keyboard::LeftControl => {
                     report.left_ctrl = true;
@@ -300,7 +304,7 @@ pub const NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR: &[u8] = &[
 /// keyboard report format
 ///
 /// This is compatible with the HID boot specification but key data must be duplicated across both
-/// the [NKROBootKeyboardReport::boot_keys] and [NKROBootKeyboardReport::nkro_keys] fields
+/// the [`NKROBootKeyboardReport::boot_keys`] and [`NKROBootKeyboardReport::nkro_keys`] fields
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Default, PackedStruct)]
 #[packed_struct(endian = "lsb", bit_numbering = "msb0", size_bytes = "25")]
 pub struct NKROBootKeyboardReport {
@@ -333,7 +337,7 @@ impl NKROBootKeyboardReport {
 
         let mut boot_keys_error = false;
         let mut i = 0;
-        for k in keys.into_iter() {
+        for k in keys {
             match k {
                 Keyboard::LeftControl => {
                     report.left_ctrl = true;
@@ -397,7 +401,7 @@ impl NKROBootKeyboardReport {
 
 /// Interface implementing a NKRO keyboard compatible with the HID boot keyboard specification
 ///
-/// **Note:** This is a managed interfaces that support HID idle, [NKROBootKeyboardInterface::tick()] must be called every 1ms/ at 1kHz.
+/// **Note:** This is a managed interfaces that support HID idle, [`NKROBootKeyboardInterface::tick()`] must be called every 1ms/ at 1kHz.
 pub struct NKROBootKeyboardInterface<'a, B: UsbBus> {
     inner: ManagedInterface<'a, B, NKROBootKeyboardReport>,
 }
@@ -406,6 +410,7 @@ impl<'a, B> NKROBootKeyboardInterface<'a, B>
 where
     B: UsbBus,
 {
+    #![allow(clippy::inline_always)]
     delegate! {
         to self.inner {
             /// Call every 1ms / at 1 KHz
@@ -433,6 +438,7 @@ where
         }
     }
 
+    #[must_use]
     pub fn default_config(
     ) -> WrappedInterfaceConfig<Self, ManagedInterfaceConfig<'a, NKROBootKeyboardReport>> {
         WrappedInterfaceConfig::new(
@@ -457,12 +463,13 @@ impl<'a, B> InterfaceClass<'a> for NKROBootKeyboardInterface<'a, B>
 where
     B: UsbBus,
 {
+    #![allow(clippy::inline_always)]
     delegate! {
         to self.inner{
             fn report_descriptor(&self) -> &'_ [u8];
             fn id(&self) -> InterfaceNumber;
             fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-            fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'_ str>;
+            fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str>;
             fn set_report(&mut self, data: &[u8]) -> usb_device::Result<()>;
             fn get_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize>;
             fn get_report_ack(&mut self) -> usb_device::Result<()>;

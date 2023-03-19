@@ -6,6 +6,7 @@ use fugit::{ExtU32, MillisDurationU32};
 use log::error;
 use packed_struct::PackedStruct;
 use usb_device::bus::UsbBus;
+#[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
 use usb_device::UsbError;
 
@@ -26,6 +27,7 @@ impl<R> IdleManager<R>
 where
     R: Eq + Copy,
 {
+    #[must_use]
     pub fn new(default: MillisDurationU32) -> Self {
         Self {
             last_report: None,
@@ -54,7 +56,7 @@ where
         self.last_report.as_ref() == Some(report)
     }
 
-    /// Call every 1ms / at 1 KHz
+    /// Call every 1ms
     pub fn tick(&mut self) -> bool {
         if self.current_timeout.ticks() == 0 {
             self.since_last_report = 0.millis();
@@ -80,6 +82,7 @@ pub struct ManagedInterface<'a, B: UsbBus, R> {
     idle_manager: RefCell<IdleManager<R>>,
 }
 
+#[allow(clippy::inline_always)]
 impl<'a, B: UsbBus, R, const LEN: usize> ManagedInterface<'a, B, R>
 where
     R: Copy + Eq + PackedStruct<ByteArray = [u8; LEN]>,
@@ -102,7 +105,7 @@ where
         }
     }
 
-    /// Call every 1ms / at 1 KHz
+    /// Call every 1ms
     pub fn tick(&self) -> Result<(), UsbHidError> {
         let mut idle_manager = self.idle_manager.borrow_mut();
         if !(idle_manager.tick()) {
@@ -137,12 +140,13 @@ impl<'a, B: UsbBus, R> InterfaceClass<'a> for ManagedInterface<'a, B, R>
 where
     R: Copy + Eq,
 {
+    #![allow(clippy::inline_always)]
     delegate! {
         to self.inner{
            fn report_descriptor(&self) -> &'_ [u8];
            fn id(&self) -> InterfaceNumber;
            fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-           fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'_ str>;
+           fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str>;
            fn set_report(&mut self, data: &[u8]) -> usb_device::Result<()>;
            fn get_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize>;
            fn get_report_ack(&mut self) -> usb_device::Result<()>;
@@ -186,10 +190,11 @@ pub struct ManagedInterfaceConfig<'a, R> {
 }
 
 impl<'a, R> ManagedInterfaceConfig<'a, R> {
+    #[must_use]
     pub fn new(inner_config: RawInterfaceConfig<'a>) -> Self {
         Self {
             inner_config,
-            report: Default::default(),
+            report: PhantomData::default(),
         }
     }
 }

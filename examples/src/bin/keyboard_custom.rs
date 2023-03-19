@@ -15,6 +15,7 @@ use hal::pac;
 use hal::timer::CountDown;
 use packed_struct::prelude::*;
 use panic_probe as _;
+#[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_human_interface_device::device::keyboard::{BootKeyboardReport, KeyboardLedsReport};

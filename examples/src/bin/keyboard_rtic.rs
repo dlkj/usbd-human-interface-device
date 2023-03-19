@@ -17,6 +17,7 @@ mod app {
     use frunk::HList;
     use fugit::ExtU64;
     use rp2040_monotonic::Rp2040Monotonic;
+    #[allow(clippy::wildcard_imports)]
     use usb_device::class_prelude::*;
     use usb_device::prelude::*;
     use usbd_human_interface_device::device::keyboard::NKROBootKeyboardInterface;

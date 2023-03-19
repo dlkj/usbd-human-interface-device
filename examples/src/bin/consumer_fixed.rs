@@ -11,6 +11,7 @@ use fugit::ExtU32;
 use hal::pac;
 use panic_probe as _;
 
+#[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_human_interface_device::device::consumer::FixedFunctionReport;

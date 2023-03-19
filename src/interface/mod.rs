@@ -56,7 +56,7 @@ pub trait InterfaceClass<'a> {
     fn report_descriptor(&self) -> &'_ [u8];
     fn id(&self) -> InterfaceNumber;
     fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-    fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'_ str>;
+    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str>;
     fn reset(&mut self);
     fn set_report(&mut self, data: &[u8]) -> usb_device::Result<()>;
     fn get_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize>;
@@ -66,21 +66,19 @@ pub trait InterfaceClass<'a> {
     fn set_protocol(&mut self, protocol: HidProtocol);
     fn get_protocol(&self) -> HidProtocol;
     fn hid_descriptor_body(&self) -> [u8; 7] {
-        let descriptor_len = self.report_descriptor().len();
-        if descriptor_len > u16::MAX as usize {
-            panic!("Report descriptor too long");
-        } else {
-            HidDescriptorBody {
-                bcd_hid: SPEC_VERSION_1_11,
-                country_code: COUNTRY_CODE_NOT_SUPPORTED,
-                num_descriptors: 1,
-                descriptor_type: DescriptorType::Report,
-                descriptor_length: descriptor_len as u16,
-            }
-            .pack()
-            .map_err(drop) // Avoid pulling all the core::fmt code into final binary
-            .expect("Failed to pack HidDescriptor")
+        let descriptor_len = u16::try_from(self.report_descriptor().len())
+            .expect("Report descriptor too long, must be < u16::MAX");
+
+        HidDescriptorBody {
+            bcd_hid: SPEC_VERSION_1_11,
+            country_code: COUNTRY_CODE_NOT_SUPPORTED,
+            num_descriptors: 1,
+            descriptor_type: DescriptorType::Report,
+            descriptor_length: descriptor_len,
         }
+        .pack()
+        .map_err(drop) // Avoid pulling all the core::fmt code into final binary
+        .expect("Failed to pack HidDescriptor")
     }
 }
 
@@ -93,21 +91,20 @@ pub trait InterfaceHList<'a>: ToRef<'a> {
 }
 
 impl<'a> InterfaceHList<'a> for HNil {
-    #[inline(always)]
     fn get_id_mut(&mut self, _: u8) -> Option<&mut dyn InterfaceClass<'a>> {
         None
     }
-    #[inline(always)]
+
     fn get_id(&self, _: u8) -> Option<&dyn InterfaceClass<'a>> {
         None
     }
-    #[inline(always)]
+
     fn reset(&mut self) {}
-    #[inline(always)]
+
     fn write_descriptors(&self, _: &mut DescriptorWriter) -> usb_device::Result<()> {
         Ok(())
     }
-    #[inline(always)]
+
     fn get_string(&self, _: StringIndex, _: u16) -> Option<&'static str> {
         None
     }
@@ -116,7 +113,6 @@ impl<'a> InterfaceHList<'a> for HNil {
 impl<'a, Head: InterfaceClass<'a> + 'a, Tail: InterfaceHList<'a>> InterfaceHList<'a>
     for HCons<Head, Tail>
 {
-    #[inline(always)]
     fn get_id_mut(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a>> {
         if id == u8::from(self.head.id()) {
             Some(&mut self.head)
@@ -124,7 +120,7 @@ impl<'a, Head: InterfaceClass<'a> + 'a, Tail: InterfaceHList<'a>> InterfaceHList
             self.tail.get_id_mut(id)
         }
     }
-    #[inline(always)]
+
     fn get_id(&self, id: u8) -> Option<&dyn InterfaceClass<'a>> {
         if id == u8::from(self.head.id()) {
             Some(&self.head)
@@ -132,17 +128,17 @@ impl<'a, Head: InterfaceClass<'a> + 'a, Tail: InterfaceHList<'a>> InterfaceHList
             self.tail.get_id(id)
         }
     }
-    #[inline(always)]
+
     fn reset(&mut self) {
         self.head.reset();
         self.tail.reset();
     }
-    #[inline(always)]
+
     fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()> {
         self.head.write_descriptors(writer)?;
         self.tail.write_descriptors(writer)
     }
-    #[inline(always)]
+
     fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str> {
         let s = self.head.get_string(index, lang_id);
         if s.is_some() {
@@ -172,7 +168,7 @@ impl<I, InnerConfig, Config> WrappedInterfaceConfig<I, InnerConfig, Config> {
         Self {
             inner_config,
             config,
-            interface: Default::default(),
+            interface: PhantomData::default(),
         }
     }
 }
