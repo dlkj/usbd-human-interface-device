@@ -99,7 +99,7 @@ fn main() -> ! {
         .add_interface(
             usbd_human_interface_device::device::keyboard::NKROBootKeyboardInterface::default_config(),
         )
-        .add_interface(usbd_human_interface_device::device::mouse::WheelMouseInterface::default_config())
+        .add_interface(usbd_human_interface_device::device::mouse::WheelMouseInterface::<hal::usb::UsbBus>::default_config())
         .add_interface(
             usbd_human_interface_device::device::consumer::ConsumerControlInterface::default_config(),
         )

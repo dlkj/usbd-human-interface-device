@@ -6,11 +6,11 @@ use fugit::ExtU32;
 use log::error;
 use packed_struct::prelude::*;
 use usb_device::bus::{InterfaceNumber, StringIndex, UsbBus};
-use usb_device::class_prelude::DescriptorWriter;
+use usb_device::class_prelude::{DescriptorWriter, UsbBusAllocator};
 
 use crate::hid_class::prelude::*;
 use crate::interface::raw::{RawInterface, RawInterfaceConfig};
-use crate::interface::{InterfaceClass, WrappedInterface, WrappedInterfaceConfig};
+use crate::interface::{InterfaceClass, UsbAllocatable};
 use crate::UsbHidError;
 
 /// HID Mouse report descriptor conforming to the Boot specification
@@ -196,8 +196,8 @@ impl<'a, B: UsbBus> BootMouseInterface<'a, B> {
     }
 
     #[must_use]
-    pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
-        WrappedInterfaceConfig::new(
+    pub fn default_config() -> BootMouseConfig<'a> {
+        BootMouseConfig::new(
             RawInterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR)
                 .boot_device(InterfaceProtocol::Mouse)
                 .description("Mouse")
@@ -205,8 +205,28 @@ impl<'a, B: UsbBus> BootMouseInterface<'a, B> {
                 .unwrap()
                 .without_out_endpoint()
                 .build(),
-            (),
         )
+    }
+}
+
+pub struct BootMouseConfig<'a> {
+    inner_config: RawInterfaceConfig<'a>,
+}
+
+impl<'a> BootMouseConfig<'a> {
+    #[must_use]
+    pub fn new(inner_config: RawInterfaceConfig<'a>) -> Self {
+        Self { inner_config }
+    }
+}
+
+impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for BootMouseConfig<'a> {
+    type Allocated = BootMouseInterface<'a, B>;
+
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
+        BootMouseInterface {
+            inner: self.inner_config.allocate(usb_alloc),
+        }
     }
 }
 
@@ -230,12 +250,6 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for BootMouseInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> WrappedInterface<'a, B, RawInterface<'a, B>> for BootMouseInterface<'a, B> {
-    fn new(interface: RawInterface<'a, B>, _: ()) -> Self {
-        Self { inner: interface }
-    }
-}
-
 pub struct WheelMouseInterface<'a, B: UsbBus> {
     inner: RawInterface<'a, B>,
 }
@@ -253,8 +267,8 @@ impl<'a, B: UsbBus> WheelMouseInterface<'a, B> {
     }
 
     #[must_use]
-    pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
-        WrappedInterfaceConfig::new(
+    pub fn default_config() -> WheelMouseConfig<'a> {
+        WheelMouseConfig::new(
             RawInterfaceBuilder::new(WHEEL_MOUSE_REPORT_DESCRIPTOR)
                 .boot_device(InterfaceProtocol::Mouse)
                 .description("Wheel Mouse")
@@ -262,8 +276,28 @@ impl<'a, B: UsbBus> WheelMouseInterface<'a, B> {
                 .unwrap()
                 .without_out_endpoint()
                 .build(),
-            (),
         )
+    }
+}
+
+pub struct WheelMouseConfig<'a> {
+    inner_config: RawInterfaceConfig<'a>,
+}
+
+impl<'a> WheelMouseConfig<'a> {
+    #[must_use]
+    pub fn new(inner_config: RawInterfaceConfig<'a>) -> Self {
+        Self { inner_config }
+    }
+}
+
+impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for WheelMouseConfig<'a> {
+    type Allocated = WheelMouseInterface<'a, B>;
+
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
+        WheelMouseInterface {
+            inner: self.inner_config.allocate(usb_alloc),
+        }
     }
 }
 
@@ -287,12 +321,6 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for WheelMouseInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> WrappedInterface<'a, B, RawInterface<'a, B>> for WheelMouseInterface<'a, B> {
-    fn new(interface: RawInterface<'a, B>, _: ()) -> Self {
-        Self { inner: interface }
-    }
-}
-
 pub struct AbsoluteWheelMouseInterface<'a, B: UsbBus> {
     inner: RawInterface<'a, B>,
 }
@@ -310,16 +338,36 @@ impl<'a, B: UsbBus> AbsoluteWheelMouseInterface<'a, B> {
     }
 
     #[must_use]
-    pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
-        WrappedInterfaceConfig::new(
+    pub fn default_config() -> AbsoluteWheelMouseConfig<'a> {
+        AbsoluteWheelMouseConfig::new(
             RawInterfaceBuilder::new(ABSOLUTE_WHEEL_MOUSE_REPORT_DESCRIPTOR)
                 .description("Absolute Wheel Mouse")
                 .in_endpoint(UsbPacketSize::Bytes8, 10.millis())
                 .unwrap()
                 .without_out_endpoint()
                 .build(),
-            (),
         )
+    }
+}
+
+pub struct AbsoluteWheelMouseConfig<'a> {
+    inner_config: RawInterfaceConfig<'a>,
+}
+
+impl<'a> AbsoluteWheelMouseConfig<'a> {
+    #[must_use]
+    pub fn new(inner_config: RawInterfaceConfig<'a>) -> Self {
+        Self { inner_config }
+    }
+}
+
+impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for AbsoluteWheelMouseConfig<'a> {
+    type Allocated = AbsoluteWheelMouseInterface<'a, B>;
+
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
+        AbsoluteWheelMouseInterface {
+            inner: self.inner_config.allocate(usb_alloc),
+        }
     }
 }
 
@@ -340,13 +388,5 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for AbsoluteWheelMouseInterface<'a, B> {
            fn set_protocol(&mut self, protocol: HidProtocol);
            fn get_protocol(&self) -> HidProtocol;
         }
-    }
-}
-
-impl<'a, B: UsbBus> WrappedInterface<'a, B, RawInterface<'a, B>>
-    for AbsoluteWheelMouseInterface<'a, B>
-{
-    fn new(interface: RawInterface<'a, B>, _: ()) -> Self {
-        Self { inner: interface }
     }
 }
