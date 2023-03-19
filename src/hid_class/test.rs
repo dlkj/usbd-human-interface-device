@@ -17,11 +17,24 @@ fn init_logging() {
         .try_init();
 }
 
+#[derive(Default)]
+struct UsbTestManager {}
+impl UsbTestManager {
+    fn write(&self, data: &[u8]) {
+        todo!()
+    }
+
+    fn read(&self) -> Vec<u8> {
+        todo!()
+    }
+}
+
 struct TestUsbBus<'a, F> {
     next_ep_index: usize,
     read_data: &'a [&'a [u8]],
     write_val: F,
     inner: Mutex<RefCell<TestUsbBusInner>>,
+    manager: &'a UsbTestManager,
 }
 struct TestUsbBusInner {
     next_read_data: usize,
@@ -29,7 +42,7 @@ struct TestUsbBusInner {
 }
 
 impl<'a, F> TestUsbBus<'a, F> {
-    fn new(read_data: &'a [&'_ [u8]], write_val: F) -> Self {
+    fn new(read_data: &'a [&'_ [u8]], write_val: F, manager: &'a UsbTestManager) -> Self {
         TestUsbBus {
             next_ep_index: 0,
             read_data,
@@ -38,6 +51,7 @@ impl<'a, F> TestUsbBus<'a, F> {
                 write_data: Vec::new(),
                 next_read_data: 0,
             })),
+            manager,
         }
     }
 }
@@ -199,7 +213,9 @@ fn descriptor_ordering_satisfies_boot_spec() {
     .pack()
     .unwrap()];
 
-    let usb_bus = TestUsbBus::new(read_data, validate_write_data);
+    let manager = UsbTestManager::default();
+
+    let usb_bus = TestUsbBus::new(read_data, validate_write_data, &manager);
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
@@ -208,12 +224,7 @@ fn descriptor_ordering_satisfies_boot_spec() {
         .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("usbd-human-interface-device")
-        .product("Test Hid Device")
-        .serial_number("TEST")
         .device_class(USB_CLASS_HID)
-        .composite_with_iads()
-        .max_packet_size_0(8)
         .build();
 
     //poll the usb bus
@@ -226,48 +237,42 @@ fn descriptor_ordering_satisfies_boot_spec() {
 fn get_protocol_default_to_report() {
     init_logging();
 
-    //Get protocol
-    let read_data: &[&[u8]] = &[&UsbRequest {
-        direction: UsbDirection::In != UsbDirection::Out,
-        request_type: RequestType::Class as u8,
-        recipient: Recipient::Interface as u8,
-        request: HidRequest::GetProtocol as u8,
-        value: 0x0,
-        index: 0x0,
-        length: 0x1,
-    }
-    .pack()
-    .unwrap()];
-
-    let validate_write_data = |v: &Vec<u8>| {
-        assert_eq!(
-            v[0],
-            HidProtocol::Report as u8,
-            "Expected protocol to be Report by default"
-        );
-    };
-
-    let usb_bus = TestUsbBus::new(read_data, validate_write_data);
-
-    let usb_alloc = UsbBusAllocator::new(usb_bus);
+    let manager = UsbTestManager::default();
+    let usb_alloc = UsbBusAllocator::new(TestUsbBus::new(&[], |_: &Vec<u8>| {}, &manager));
 
     let mut hid = UsbHidClassBuilder::new()
         .add_interface(RawInterfaceBuilder::new(&[]).build())
         .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("usbd-human-interface-device")
-        .product("Test Hid Device")
-        .serial_number("TEST")
         .device_class(USB_CLASS_HID)
-        .composite_with_iads()
-        .max_packet_size_0(8)
         .build();
 
-    //poll the usb bus
-    for _ in 0..10 {
-        assert!(usb_dev.poll(&mut [&mut hid]));
-    }
+    // write out-class-get_protocol
+    manager.write(
+        &UsbRequest {
+            direction: UsbDirection::In != UsbDirection::Out,
+            request_type: RequestType::Class as u8,
+            recipient: Recipient::Interface as u8,
+            request: HidRequest::GetProtocol as u8,
+            value: 0x0,
+            index: 0x0,
+            length: 0x1,
+        }
+        .pack()
+        .unwrap(),
+    );
+
+    // poll
+    assert!(usb_dev.poll(&mut [&mut hid]));
+
+    // read and validate hid_protocol report
+    let data = &manager.read()[..];
+    assert_eq!(
+        data,
+        &[HidProtocol::Report as u8],
+        "Expected protocol to be Report by default"
+    );
 }
 
 #[test]
@@ -309,7 +314,9 @@ fn set_protocol() {
         );
     };
 
-    let usb_bus = TestUsbBus::new(read_data, validate_write_data);
+    let manager = UsbTestManager::default();
+
+    let usb_bus = TestUsbBus::new(read_data, validate_write_data, &manager);
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
@@ -318,12 +325,7 @@ fn set_protocol() {
         .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("usbd-human-interface-device")
-        .product("Test Hid Device")
-        .serial_number("TEST")
         .device_class(USB_CLASS_HID)
-        .composite_with_iads()
-        .max_packet_size_0(8)
         .build();
 
     //poll the usb bus
@@ -371,7 +373,9 @@ fn get_protocol_default_post_reset() {
         );
     };
 
-    let usb_bus = TestUsbBus::new(read_data, validate_write_data);
+    let manager = UsbTestManager::default();
+
+    let usb_bus = TestUsbBus::new(read_data, validate_write_data, &manager);
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
@@ -380,12 +384,7 @@ fn get_protocol_default_post_reset() {
         .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("usbd-human-interface-device")
-        .product("Test Hid Device")
-        .serial_number("TEST")
         .device_class(USB_CLASS_HID)
-        .composite_with_iads()
-        .max_packet_size_0(8)
         .build();
 
     //poll the usb bus
@@ -425,7 +424,9 @@ fn get_global_idle_default() {
         );
     };
 
-    let usb_bus = TestUsbBus::new(read_data, validate_write_data);
+    let manager = UsbTestManager::default();
+
+    let usb_bus = TestUsbBus::new(read_data, validate_write_data, &manager);
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
@@ -439,12 +440,7 @@ fn get_global_idle_default() {
         .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("usbd-human-interface-device")
-        .product("Test Hid Device")
-        .serial_number("TEST")
         .device_class(USB_CLASS_HID)
-        .composite_with_iads()
-        .max_packet_size_0(8)
         .build();
 
     //poll the usb bus
@@ -494,7 +490,9 @@ fn set_global_idle() {
         );
     };
 
-    let usb_bus = TestUsbBus::new(read_data, validate_write_data);
+    let manager = UsbTestManager::default();
+
+    let usb_bus = TestUsbBus::new(read_data, validate_write_data, &manager);
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
@@ -508,12 +506,7 @@ fn set_global_idle() {
         .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("usbd-human-interface-device")
-        .product("Test Hid Device")
-        .serial_number("TEST")
         .device_class(USB_CLASS_HID)
-        .composite_with_iads()
-        .max_packet_size_0(8)
         .build();
 
     //poll the usb bus
@@ -564,7 +557,9 @@ fn get_global_idle_default_post_reset() {
         );
     };
 
-    let usb_bus = TestUsbBus::new(read_data, validate_write_data);
+    let manager = UsbTestManager::default();
+
+    let usb_bus = TestUsbBus::new(read_data, validate_write_data, &manager);
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
@@ -578,12 +573,7 @@ fn get_global_idle_default_post_reset() {
         .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("usbd-human-interface-device")
-        .product("Test Hid Device")
-        .serial_number("TEST")
         .device_class(USB_CLASS_HID)
-        .composite_with_iads()
-        .max_packet_size_0(8)
         .build();
 
     //poll the usb bus
@@ -625,7 +615,9 @@ fn get_report_idle_default() {
         );
     };
 
-    let usb_bus = TestUsbBus::new(read_data, validate_write_data);
+    let manager = UsbTestManager::default();
+
+    let usb_bus = TestUsbBus::new(read_data, validate_write_data, &manager);
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
@@ -639,12 +631,7 @@ fn get_report_idle_default() {
         .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("usbd-human-interface-device")
-        .product("Test Hid Device")
-        .serial_number("TEST")
         .device_class(USB_CLASS_HID)
-        .composite_with_iads()
-        .max_packet_size_0(8)
         .build();
 
     //poll the usb bus
@@ -712,7 +699,9 @@ fn set_report_idle() {
         );
     };
 
-    let usb_bus = TestUsbBus::new(read_data, validate_write_data);
+    let manager = UsbTestManager::default();
+
+    let usb_bus = TestUsbBus::new(read_data, validate_write_data, &manager);
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
@@ -726,12 +715,7 @@ fn set_report_idle() {
         .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("usbd-human-interface-device")
-        .product("Test Hid Device")
-        .serial_number("TEST")
         .device_class(USB_CLASS_HID)
-        .composite_with_iads()
-        .max_packet_size_0(8)
         .build();
 
     //poll the usb bus
@@ -784,7 +768,9 @@ fn get_report_idle_default_post_reset() {
         );
     };
 
-    let usb_bus = TestUsbBus::new(read_data, validate_write_data);
+    let manager = UsbTestManager::default();
+
+    let usb_bus = TestUsbBus::new(read_data, validate_write_data, &manager);
 
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
@@ -798,12 +784,7 @@ fn get_report_idle_default_post_reset() {
         .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("usbd-human-interface-device")
-        .product("Test Hid Device")
-        .serial_number("TEST")
         .device_class(USB_CLASS_HID)
-        .composite_with_iads()
-        .max_packet_size_0(8)
         .build();
 
     //poll the usb bus
