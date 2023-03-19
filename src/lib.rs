@@ -1,4 +1,12 @@
 #![no_std]
+#![warn(clippy::pedantic)]
+#![warn(clippy::style)]
+#![warn(clippy::cargo)]
+#![allow(clippy::module_name_repetitions)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::struct_excessive_bools)]
+
 //! ```rust, no_run
 //! # use core::option::Option;
 //! # use core::result::Result;

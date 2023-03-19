@@ -64,6 +64,7 @@ impl<'a, B: UsbBus> RawFidoInterface<'a, B> {
         }
     }
 
+    #[must_use]
     pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
         WrappedInterfaceConfig::new(
             RawInterfaceBuilder::new(FIDO_REPORT_DESCRIPTOR)
@@ -79,12 +80,13 @@ impl<'a, B: UsbBus> RawFidoInterface<'a, B> {
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a> for RawFidoInterface<'a, B> {
+    #![allow(clippy::inline_always)]
     delegate! {
         to self.inner{
            fn report_descriptor(&self) -> &'_ [u8];
            fn id(&self) -> InterfaceNumber;
            fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-           fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'_ str>;
+           fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str>;
            fn reset(&mut self);
            fn set_report(&mut self, data: &[u8]) -> usb_device::Result<()>;
            fn get_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize>;

@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::sync::Mutex;
 use std::vec::Vec;
 
+use crate::hid_class::descriptor::USB_CLASS_HID;
 use crate::interface::raw::RawInterfaceBuilder;
 use env_logger::Env;
 use fugit::MillisDurationU32;
@@ -163,7 +164,7 @@ fn descriptor_ordering_satisfies_boot_spec() {
                 request_type: RequestType::Standard as u8,
                 recipient: Recipient::Device as u8,
                 request: Request::GET_DESCRIPTOR,
-                value: (usb_device::descriptor::descriptor_type::CONFIGURATION as u16) << 8,
+                value: u16::from(usb_device::descriptor::descriptor_type::CONFIGURATION) << 8,
                 index: 0,
                 length: 0xFFFF,
             }
@@ -631,7 +632,7 @@ fn get_report_idle_default() {
                 request_type: RequestType::Class as u8,
                 recipient: Recipient::Interface as u8,
                 request: HidRequest::GetIdle as u8,
-                value: REPORT_ID as u16,
+                value: u16::from(REPORT_ID),
                 index: 0x0,
                 length: 0x1,
             }
@@ -683,7 +684,7 @@ fn set_report_idle() {
                 request_type: RequestType::Class as u8,
                 recipient: Recipient::Interface as u8,
                 request: HidRequest::SetIdle as u8,
-                value: (IDLE_NEW.to_millis() as u16 / 4) << 8 | REPORT_ID as u16,
+                value: (IDLE_NEW.to_millis() as u16 / 4) << 8 | u16::from(REPORT_ID),
                 index: 0x0,
                 length: 0x0,
             }
@@ -702,7 +703,7 @@ fn set_report_idle() {
                 request_type: RequestType::Class as u8,
                 recipient: Recipient::Interface as u8,
                 request: HidRequest::GetIdle as u8,
-                value: REPORT_ID as u16,
+                value: u16::from(REPORT_ID),
                 index: 0x0,
                 length: 0x1,
             }
@@ -782,7 +783,7 @@ fn get_report_idle_default_post_reset() {
                 request_type: RequestType::Class as u8,
                 recipient: Recipient::Interface as u8,
                 request: HidRequest::SetIdle as u8,
-                value: (IDLE_NEW.to_millis() as u16 / 4) << 8 | REPORT_ID as u16,
+                value: (IDLE_NEW.to_millis() as u16 / 4) << 8 | u16::from(REPORT_ID),
                 index: 0x0,
                 length: 0x0,
             }
@@ -803,7 +804,7 @@ fn get_report_idle_default_post_reset() {
                 request_type: RequestType::Class as u8,
                 recipient: Recipient::Interface as u8,
                 request: HidRequest::GetIdle as u8,
-                value: REPORT_ID as u16,
+                value: u16::from(REPORT_ID),
                 index: 0x0,
                 length: 0x1,
             }
