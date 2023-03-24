@@ -27,11 +27,11 @@ struct UsbTestManager {
 impl UsbTestManager {
     fn host_write_setup(&self, data: &[u8]) -> Result<()> {
         let buf = self.setup_buf.lock().unwrap();
-        if !buf.borrow().is_empty() {
-            Err(UsbError::WouldBlock)
-        } else {
+        if buf.borrow().is_empty() {
             buf.borrow_mut().extend_from_slice(data);
             Ok(())
+        } else {
+            Err(UsbError::WouldBlock)
         }
     }
 
@@ -56,11 +56,11 @@ impl UsbTestManager {
 
     fn device_write(&self, data: &[u8]) -> Result<usize> {
         let buf = self.in_buf.lock().unwrap();
-        if !buf.borrow().is_empty() {
-            Err(UsbError::WouldBlock)
-        } else {
+        if buf.borrow().is_empty() {
             buf.borrow_mut().extend_from_slice(data);
             Ok(data.len())
+        } else {
+            Err(UsbError::WouldBlock)
         }
     }
 }
@@ -229,7 +229,7 @@ fn descriptor_ordering_satisfies_boot_spec() {
     }
 
     // Check there isn't any more data
-    assert!(it.next().is_none())
+    assert!(it.next().is_none());
 }
 
 #[test]
@@ -406,9 +406,9 @@ fn get_protocol_default_post_reset() {
 
 #[test]
 fn get_global_idle_default() {
-    init_logging();
-
     const IDLE_DEFAULT: MillisDurationU32 = MillisDurationU32::millis(40);
+
+    init_logging();
 
     let manager = UsbTestManager::default();
 
@@ -457,9 +457,10 @@ fn get_global_idle_default() {
 
 #[test]
 fn set_global_idle() {
-    init_logging();
     const IDLE_DEFAULT: MillisDurationU32 = MillisDurationU32::millis(40);
     const IDLE_NEW: MillisDurationU32 = MillisDurationU32::millis(88);
+
+    init_logging();
 
     let manager = UsbTestManager::default();
 
@@ -486,7 +487,7 @@ fn set_global_idle() {
                 request_type: RequestType::Class as u8,
                 recipient: Recipient::Interface as u8,
                 request: HidRequest::SetIdle as u8,
-                value: (IDLE_NEW.to_millis() as u16 / 4) << 8,
+                value: (u16::try_from(IDLE_NEW.to_millis()).unwrap() / 4) << 8,
                 index: 0x0,
                 length: 0x0,
             }
@@ -527,10 +528,10 @@ fn set_global_idle() {
 
 #[test]
 fn get_global_idle_default_post_reset() {
-    init_logging();
-
     const IDLE_DEFAULT: MillisDurationU32 = MillisDurationU32::millis(40);
     const IDLE_NEW: MillisDurationU32 = MillisDurationU32::millis(88);
+
+    init_logging();
 
     let manager = UsbTestManager::default();
 
@@ -557,7 +558,7 @@ fn get_global_idle_default_post_reset() {
                 request_type: RequestType::Class as u8,
                 recipient: Recipient::Interface as u8,
                 request: HidRequest::SetIdle as u8,
-                value: (IDLE_NEW.to_millis() as u16 / 4) << 8,
+                value: (u16::try_from(IDLE_NEW.to_millis()).unwrap() / 4) << 8,
                 index: 0x0,
                 length: 0x0,
             }
@@ -600,10 +601,10 @@ fn get_global_idle_default_post_reset() {
 
 #[test]
 fn get_report_idle_default() {
-    init_logging();
-
     const IDLE_DEFAULT: MillisDurationU32 = MillisDurationU32::millis(40);
     const REPORT_ID: u8 = 0xAB;
+
+    init_logging();
 
     let manager = UsbTestManager::default();
 
@@ -654,10 +655,11 @@ fn get_report_idle_default() {
 
 #[test]
 fn set_report_idle() {
-    init_logging();
     const IDLE_DEFAULT: MillisDurationU32 = MillisDurationU32::millis(40);
     const IDLE_NEW: MillisDurationU32 = MillisDurationU32::millis(88);
     const REPORT_ID: u8 = 0x4;
+
+    init_logging();
 
     let manager = UsbTestManager::default();
 
@@ -684,7 +686,8 @@ fn set_report_idle() {
                 request_type: RequestType::Class as u8,
                 recipient: Recipient::Interface as u8,
                 request: HidRequest::SetIdle as u8,
-                value: (IDLE_NEW.to_millis() as u16 / 4) << 8 | u16::from(REPORT_ID),
+                value: (u16::try_from(IDLE_NEW.to_millis()).unwrap() / 4) << 8
+                    | u16::from(REPORT_ID),
                 index: 0x0,
                 length: 0x0,
             }
@@ -752,11 +755,11 @@ fn set_report_idle() {
 
 #[test]
 fn get_report_idle_default_post_reset() {
-    init_logging();
-
     const REPORT_ID: u8 = 0x4;
     const IDLE_DEFAULT: MillisDurationU32 = MillisDurationU32::millis(40);
     const IDLE_NEW: MillisDurationU32 = MillisDurationU32::millis(88);
+
+    init_logging();
 
     let manager = UsbTestManager::default();
 
@@ -783,7 +786,8 @@ fn get_report_idle_default_post_reset() {
                 request_type: RequestType::Class as u8,
                 recipient: Recipient::Interface as u8,
                 request: HidRequest::SetIdle as u8,
-                value: (IDLE_NEW.to_millis() as u16 / 4) << 8 | u16::from(REPORT_ID),
+                value: (u16::try_from(IDLE_NEW.to_millis()).unwrap() / 4) << 8
+                    | u16::from(REPORT_ID),
                 index: 0x0,
                 length: 0x0,
             }
