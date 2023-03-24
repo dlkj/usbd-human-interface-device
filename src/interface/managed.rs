@@ -12,11 +12,9 @@ use crate::interface::InterfaceClass;
 use crate::interface::UsbAllocatable;
 use crate::UsbHidError;
 
-use super::raw::IdleStorage;
-use super::raw::InSize;
-use super::raw::OutSize;
-use super::raw::ReportBuffer;
 use super::raw::ReportCount;
+use super::raw::{IdleStorage, OutSize};
+use super::raw::{InSize, ReportBuffer};
 
 pub struct IdleManager<R> {
     last_report: Option<R>,
@@ -70,11 +68,8 @@ pub struct ManagedInterface<'a, B: UsbBus, Report, I, O, R>
 where
     B: UsbBus,
     I: InSize,
-    I::Buffer: ReportBuffer,
     O: OutSize,
-    O::Buffer: ReportBuffer,
     R: ReportCount,
-    R::IdleStorage: IdleStorage,
 {
     inner: RawInterface<'a, B, I, O, R>,
     idle_manager: IdleManager<Report>,
@@ -106,11 +101,8 @@ where
     Report: Copy + Eq + PackedStruct<ByteArray = [u8; LEN]>,
     B: UsbBus,
     I: InSize,
-    I::Buffer: ReportBuffer,
     O: OutSize,
-    O::Buffer: ReportBuffer,
     R: ReportCount,
-    R::IdleStorage: IdleStorage,
 {
     pub fn write_report(&mut self, report: &Report) -> Result<(), UsbHidError> {
         if self.idle_manager.is_duplicate(report) {
@@ -164,11 +156,8 @@ where
     Report: Copy + Eq,
     B: UsbBus,
     I: InSize,
-    I::Buffer: ReportBuffer,
     O: OutSize,
-    O::Buffer: ReportBuffer,
     R: ReportCount,
-    R::IdleStorage: IdleStorage,
 {
     type I = RawInterface<'a, B, I, O, R>;
 
@@ -185,11 +174,8 @@ where
 pub struct ManagedInterfaceConfig<'a, Report, I, O, R>
 where
     I: InSize,
-    I::Buffer: ReportBuffer,
     O: OutSize,
-    O::Buffer: ReportBuffer,
     R: ReportCount,
-    R::IdleStorage: IdleStorage,
 {
     report: PhantomData<Report>,
     inner_config: RawInterfaceConfig<'a, I, O, R>,
@@ -198,11 +184,8 @@ where
 impl<'a, Report, I, O, R> ManagedInterfaceConfig<'a, Report, I, O, R>
 where
     I: InSize,
-    I::Buffer: ReportBuffer,
     O: OutSize,
-    O::Buffer: ReportBuffer,
     R: ReportCount,
-    R::IdleStorage: IdleStorage,
 {
     #[must_use]
     pub fn new(inner_config: RawInterfaceConfig<'a, I, O, R>) -> Self {
@@ -218,11 +201,8 @@ where
     B: UsbBus + 'a,
     Report: Copy + Eq,
     I: InSize,
-    I::Buffer: ReportBuffer,
     O: OutSize,
-    O::Buffer: ReportBuffer,
     R: ReportCount,
-    R::IdleStorage: IdleStorage,
 {
     type Allocated = ManagedInterface<'a, B, Report, I, O, R>;
 

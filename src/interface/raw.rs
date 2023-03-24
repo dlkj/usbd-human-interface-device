@@ -72,7 +72,7 @@ impl<const N: usize> ReportBuffer for Vec<u8, N> {
 }
 
 pub trait InSize: Sealed {
-    type Buffer;
+    type Buffer: ReportBuffer;
 }
 pub enum InNone {}
 impl Sealed for InNone {}
@@ -96,7 +96,7 @@ vec_in_bytes!(InBytes32, 32);
 vec_in_bytes!(InBytes64, 64);
 
 pub trait OutSize: Sealed {
-    type Buffer;
+    type Buffer: ReportBuffer;
 }
 pub enum OutNone {}
 impl Sealed for OutNone {}
@@ -125,8 +125,8 @@ pub trait IdleStorage: Default {
     fn get(&self, index: usize) -> Option<u8>;
 }
 
-pub trait ReportCount {
-    type IdleStorage;
+pub trait ReportCount: Sealed {
+    type IdleStorage: IdleStorage;
 }
 
 impl IdleStorage for () {
@@ -142,6 +142,7 @@ impl IdleStorage for () {
 }
 
 pub enum ReportSingle {}
+impl Sealed for ReportSingle {}
 impl ReportCount for ReportSingle {
     type IdleStorage = ();
 }
@@ -180,11 +181,8 @@ use super::{HidDescriptorBody, RawInterfaceT};
 pub struct RawInterfaceConfig<'a, I, O, R>
 where
     I: InSize,
-    I::Buffer: ReportBuffer,
     O: OutSize,
-    O::Buffer: ReportBuffer,
     R: ReportCount,
-    R::IdleStorage: IdleStorage,
 {
     marker: PhantomData<(I, O, R)>,
     report_descriptor: &'a [u8],
@@ -200,11 +198,8 @@ pub struct RawInterface<'a, B, I, O, R>
 where
     B: UsbBus,
     I: InSize,
-    I::Buffer: ReportBuffer,
     O: OutSize,
-    O::Buffer: ReportBuffer,
     R: ReportCount,
-    R::IdleStorage: IdleStorage,
 {
     id: InterfaceNumber,
     config: RawInterfaceConfig<'a, I, O, R>,
@@ -222,11 +217,8 @@ impl<'a, B: UsbBus + 'a, I, O, R> UsbAllocatable<'a, B> for RawInterfaceConfig<'
 where
     B: UsbBus,
     I: InSize,
-    I::Buffer: ReportBuffer,
     O: OutSize,
-    O::Buffer: ReportBuffer,
     R: ReportCount,
-    R::IdleStorage: IdleStorage,
 {
     type Allocated = RawInterface<'a, B, I, O, R>;
 
@@ -239,11 +231,8 @@ impl<'a, B, I, O, R> InterfaceClass<'a, B> for RawInterface<'a, B, I, O, R>
 where
     B: UsbBus,
     I: InSize,
-    I::Buffer: ReportBuffer,
     O: OutSize,
-    O::Buffer: ReportBuffer,
     R: ReportCount,
-    R::IdleStorage: IdleStorage,
 {
     type I = Self;
 
@@ -532,11 +521,8 @@ pub struct EndpointConfig {
 pub struct RawInterfaceBuilder<'a, I, O, R>
 where
     I: InSize,
-    I::Buffer: ReportBuffer,
     O: OutSize,
-    O::Buffer: ReportBuffer,
     R: ReportCount,
-    R::IdleStorage: IdleStorage,
 {
     config: RawInterfaceConfig<'a, I, O, R>,
 }
@@ -544,11 +530,8 @@ where
 impl<'a, I, O, R> RawInterfaceBuilder<'a, I, O, R>
 where
     I: InSize,
-    I::Buffer: ReportBuffer,
     O: OutSize,
-    O::Buffer: ReportBuffer,
     R: ReportCount,
-    R::IdleStorage: IdleStorage,
 {
     pub fn new(report_descriptor: &'a [u8]) -> BuilderResult<Self> {
         Ok(RawInterfaceBuilder {
