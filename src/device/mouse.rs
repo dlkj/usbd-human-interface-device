@@ -212,7 +212,7 @@ impl<'a> Default for BootMouseConfig<'a> {
                 unwrap!(RawInterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR))
                     .boot_device(InterfaceProtocol::Mouse)
                     .description("Mouse")
-                    .in_endpoint(UsbPacketSize::Bytes8, 10.millis())
+                    .in_endpoint(10.millis())
             )
             .without_out_endpoint()
             .build(),
@@ -275,7 +275,7 @@ impl<'a> Default for WheelMouseConfig<'a> {
                 unwrap!(RawInterfaceBuilder::new(WHEEL_MOUSE_REPORT_DESCRIPTOR))
                     .boot_device(InterfaceProtocol::Mouse)
                     .description("Wheel Mouse")
-                    .in_endpoint(UsbPacketSize::Bytes8, 10.millis())
+                    .in_endpoint(10.millis())
             )
             .without_out_endpoint()
             .build(),
@@ -339,7 +339,7 @@ impl<'a> Default for AbsoluteWheelMouseConfig<'a> {
                 ABSOLUTE_WHEEL_MOUSE_REPORT_DESCRIPTOR
             ))
             .description("Absolute Wheel Mouse")
-            .in_endpoint(UsbPacketSize::Bytes8, 10.millis()))
+            .in_endpoint(10.millis()))
             .without_out_endpoint()
             .build(),
         )

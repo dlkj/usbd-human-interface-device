@@ -86,8 +86,8 @@ impl<'a> Default for RawFidoConfig<'a> {
             unwrap!(
                 unwrap!(unwrap!(RawInterfaceBuilder::new(FIDO_REPORT_DESCRIPTOR))
                     .description("U2F Token")
-                    .in_endpoint(UsbPacketSize::Bytes64, 5.millis()))
-                .with_out_endpoint(UsbPacketSize::Bytes64, 5.millis())
+                    .in_endpoint(5.millis()))
+                .with_out_endpoint(5.millis())
             )
             .build(),
         )

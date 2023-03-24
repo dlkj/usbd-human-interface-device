@@ -79,10 +79,10 @@ impl<'a> Default for BootKeyboardConfig<'a> {
             .boot_device(InterfaceProtocol::Keyboard)
             .description("Keyboard")
             .idle_default(500.millis()))
-            .in_endpoint(UsbPacketSize::Bytes8, 10.millis()))
+            .in_endpoint(10.millis()))
             //.without_out_endpoint()
             //Shouldn't require a dedicated out endpoint, but leds are flaky without it
-            .with_out_endpoint(UsbPacketSize::Bytes8, 100.millis()))
+            .with_out_endpoint(100.millis()))
             .build(),
         ))
     }
@@ -456,8 +456,8 @@ impl<'a> Default for NKROBootKeyboardConfig<'a> {
             .description("NKRO Keyboard")
             .boot_device(InterfaceProtocol::Keyboard)
             .idle_default(500.millis()))
-            .in_endpoint(UsbPacketSize::Bytes32, 10.millis()))
-            .with_out_endpoint(UsbPacketSize::Bytes8, 100.millis()))
+            .in_endpoint(10.millis()))
+            .with_out_endpoint(100.millis()))
             .build(),
         ))
     }

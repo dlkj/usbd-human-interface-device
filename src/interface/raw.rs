@@ -2,7 +2,7 @@ use crate::hid_class::descriptor::{
     DescriptorType, HidProtocol, InterfaceProtocol, InterfaceSubClass, COUNTRY_CODE_NOT_SUPPORTED,
     SPEC_VERSION_1_11, USB_CLASS_HID,
 };
-use crate::hid_class::{BuilderResult, UsbHidBuilderError, UsbPacketSize};
+use crate::hid_class::{BuilderResult, UsbHidBuilderError};
 use crate::interface::{InterfaceClass, UsbAllocatable};
 use crate::private::Sealed;
 use core::marker::PhantomData;
@@ -16,7 +16,7 @@ use usb_device::class_prelude::*;
 use usb_device::UsbError;
 
 pub trait ReportBuffer: Default {
-    const CAPACITY: usize;
+    const CAPACITY: u16;
     fn clear(&mut self);
     fn is_empty(&self) -> bool;
     fn len(&self) -> usize;
@@ -26,7 +26,7 @@ pub trait ReportBuffer: Default {
 }
 
 impl ReportBuffer for () {
-    const CAPACITY: usize = 0;
+    const CAPACITY: u16 = 0;
 
     fn clear(&mut self) {}
 
@@ -48,7 +48,9 @@ impl ReportBuffer for () {
 }
 
 impl<const N: usize> ReportBuffer for Vec<u8, N> {
-    const CAPACITY: usize = N;
+    // no easy compile time check for this in stable at the moment
+    #[allow(clippy::cast_possible_truncation)]
+    const CAPACITY: u16 = N as u16;
 
     fn clear(&mut self) {
         self.clear();
@@ -262,13 +264,10 @@ where
     pub fn new(usb_alloc: &'a UsbBusAllocator<B>, config: RawInterfaceConfig<'a, I, O, R>) -> Self {
         RawInterface {
             id: usb_alloc.interface(),
-            in_endpoint: usb_alloc.interrupt(
-                config.in_endpoint.max_packet_size.into(),
-                config.in_endpoint.poll_interval,
-            ),
+            in_endpoint: usb_alloc.interrupt(I::Buffer::CAPACITY, config.in_endpoint.poll_interval),
             out_endpoint: config
                 .out_endpoint
-                .map(|c| usb_alloc.interrupt(c.max_packet_size.into(), c.poll_interval)),
+                .map(|c| usb_alloc.interrupt(O::Buffer::CAPACITY, c.poll_interval)),
             description_index: config.description.map(|_| usb_alloc.string()),
             //When initialized, all devices default to report protocol - Hid spec 7.2.6 Set_Protocol Request
             protocol: HidProtocol::Report,
@@ -513,7 +512,6 @@ where
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EndpointConfig {
     pub poll_interval: u8,
-    pub max_packet_size: UsbPacketSize,
 }
 
 #[must_use = "this `UsbHidInterfaceBuilder` must be assigned or consumed by `::build_interface()`"]
@@ -544,10 +542,7 @@ where
                 protocol: InterfaceProtocol::None,
                 idle_default: 0,
                 out_endpoint: None,
-                in_endpoint: EndpointConfig {
-                    max_packet_size: UsbPacketSize::Bytes8,
-                    poll_interval: 20,
-                },
+                in_endpoint: EndpointConfig { poll_interval: 20 },
             },
         })
     }
@@ -579,13 +574,8 @@ where
         self
     }
 
-    pub fn with_out_endpoint(
-        mut self,
-        max_packet_size: UsbPacketSize,
-        poll_interval: MillisDurationU32,
-    ) -> BuilderResult<Self> {
+    pub fn with_out_endpoint(mut self, poll_interval: MillisDurationU32) -> BuilderResult<Self> {
         self.config.out_endpoint = Some(EndpointConfig {
-            max_packet_size,
             poll_interval: u8::try_from(poll_interval.to_millis())
                 .map_err(|_| UsbHidBuilderError::ValueOverflow)?,
         });
@@ -597,13 +587,8 @@ where
         self
     }
 
-    pub fn in_endpoint(
-        mut self,
-        max_packet_size: UsbPacketSize,
-        poll_interval: MillisDurationU32,
-    ) -> BuilderResult<Self> {
+    pub fn in_endpoint(mut self, poll_interval: MillisDurationU32) -> BuilderResult<Self> {
         self.config.in_endpoint = EndpointConfig {
-            max_packet_size,
             poll_interval: u8::try_from(poll_interval.to_millis())
                 .map_err(|_| UsbHidBuilderError::ValueOverflow)?,
         };

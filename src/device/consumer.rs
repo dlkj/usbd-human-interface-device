@@ -132,7 +132,7 @@ impl<'a> Default for ConsumerControlConfig<'a> {
             unwrap!(
                 unwrap!(RawInterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR))
                     .description("Consumer Control")
-                    .in_endpoint(UsbPacketSize::Bytes8, 50.millis())
+                    .in_endpoint(50.millis())
             )
             .without_out_endpoint()
             .build(),
@@ -190,7 +190,7 @@ impl<'a> Default for ConsumerControlFixedConfig<'a> {
             unwrap!(
                 unwrap!(RawInterfaceBuilder::new(FIXED_FUNCTION_REPORT_DESCRIPTOR))
                     .description("Consumer Control")
-                    .in_endpoint(UsbPacketSize::Bytes8, 50.millis())
+                    .in_endpoint(50.millis())
             )
             .without_out_endpoint()
             .build(),

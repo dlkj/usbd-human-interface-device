@@ -85,7 +85,7 @@ impl<'a> Default for JoystickConfig<'a> {
             unwrap!(unwrap!(RawInterfaceBuilder::new(JOYSTICK_DESCRIPTOR))
                 .boot_device(InterfaceProtocol::None)
                 .description("Joystick")
-                .in_endpoint(UsbPacketSize::Bytes8, 10.millis()))
+                .in_endpoint(10.millis()))
             .without_out_endpoint()
             .build(),
         )

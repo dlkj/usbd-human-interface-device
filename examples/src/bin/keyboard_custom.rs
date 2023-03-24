@@ -112,9 +112,9 @@ fn main() -> ! {
             .description("Custom Keyboard")
             .idle_default(500.millis())
             .unwrap()
-            .in_endpoint(UsbPacketSize::Bytes8, 10.millis())
+            .in_endpoint(10.millis())
             .unwrap()
-            .with_out_endpoint(UsbPacketSize::Bytes8, 100.millis())
+            .with_out_endpoint(100.millis())
             .unwrap()
             .build(),
         )
