@@ -157,30 +157,30 @@ impl ReportCount for SingleReport {
     type IdleStorage = ();
 }
 
-pub enum UpTo8Reports {}
-impl ReportCount for UpTo8Reports {
-    type IdleStorage = Block8<u8>;
+macro_rules! option_block_idle_storage {
+    ($name: ident, $storage: ident) => {
+        impl IdleStorage for $storage<u8> {
+            fn insert(&mut self, index: usize, val: u8) -> Option<u8> {
+                self.insert(index, val)
+            }
+
+            fn get(&self, index: usize) -> Option<u8> {
+                self.get(index).cloned()
+            }
+        }
+
+        pub enum $name {}
+        impl ReportCount for $name {
+            type IdleStorage = $storage<u8>;
+        }
+    };
 }
 
-pub enum UpTo16Reports {}
-impl ReportCount for UpTo16Reports {
-    type IdleStorage = Block16<u8>;
-}
-
-pub enum UpTo32Reports {}
-impl ReportCount for UpTo32Reports {
-    type IdleStorage = Block32<u8>;
-}
-
-pub enum UpTo64Reports {}
-impl ReportCount for UpTo64Reports {
-    type IdleStorage = Block64<u8>;
-}
-
-pub enum UpTo128Reports {}
-impl ReportCount for UpTo128Reports {
-    type IdleStorage = Block128<u8>;
-}
+option_block_idle_storage!(UpTo8Reports, Block8);
+option_block_idle_storage!(UpTo16Reports, Block16);
+option_block_idle_storage!(UpTo32Reports, Block32);
+option_block_idle_storage!(UpTo64Reports, Block64);
+option_block_idle_storage!(UpTo128Reports, Block128);
 
 use super::{HidDescriptorBody, RawInterfaceT};
 

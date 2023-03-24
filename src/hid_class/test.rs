@@ -10,6 +10,7 @@ use crate::interface::raw::InBytes64;
 use crate::interface::raw::OutBytes64;
 use crate::interface::raw::RawInterfaceBuilder;
 use crate::interface::raw::SingleReport;
+use crate::interface::raw::UpTo8Reports;
 use env_logger::Env;
 use fugit::MillisDurationU32;
 use packed_struct::prelude::*;
@@ -694,7 +695,7 @@ fn set_report_idle() {
 
     let mut hid = UsbHidClassBuilder::new()
         .add_interface(
-            RawInterfaceBuilder::<InBytes64, OutBytes64, SingleReport>::new(&[])
+            RawInterfaceBuilder::<InBytes64, OutBytes64, UpTo8Reports>::new(&[])
                 .unwrap()
                 .idle_default(IDLE_DEFAULT)
                 .unwrap()
@@ -761,6 +762,106 @@ fn set_report_idle() {
                 request_type: RequestType::Class as u8,
                 recipient: Recipient::Interface as u8,
                 request: HidRequest::GetIdle.into(),
+                value: 0x0,
+                index: 0x0,
+                length: 0x1,
+            }
+            .pack()
+            .unwrap(),
+        )
+        .unwrap();
+
+    assert!(usb_dev.poll(&mut [&mut hid]));
+
+    // read and validate hid_protocol report
+    let data = manager.host_read_in();
+    assert_eq!(
+        data,
+        [u8::try_from(IDLE_DEFAULT.ticks()).unwrap() / 4],
+        "Unexpected global idle value"
+    );
+}
+
+#[test]
+fn set_report_idle_no_reports() {
+    const IDLE_DEFAULT: MillisDurationU32 = MillisDurationU32::millis(40);
+    const IDLE_NEW: MillisDurationU32 = MillisDurationU32::millis(88);
+    const REPORT_ID: u16 = 0x4;
+
+    init_logging();
+
+    let manager = UsbTestManager::default();
+
+    let usb_alloc = UsbBusAllocator::new(TestUsbBus::new(&manager));
+
+    let mut hid = UsbHidClassBuilder::new()
+        .add_interface(
+            RawInterfaceBuilder::<InBytes64, OutBytes64, SingleReport>::new(&[])
+                .unwrap()
+                .idle_default(IDLE_DEFAULT)
+                .unwrap()
+                .build(),
+        )
+        .build(&usb_alloc);
+
+    let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
+        .device_class(USB_CLASS_HID)
+        .build();
+
+    // Set report idle - this is a nop due to lack of report storage in the device (`SingleReport`)
+    manager
+        .host_write_setup(
+            &UsbRequest {
+                direction: UsbDirection::In != UsbDirection::In,
+                request_type: RequestType::Class as u8,
+                recipient: Recipient::Interface as u8,
+                request: HidRequest::SetIdle as u8,
+                value: (u16::try_from(IDLE_NEW.to_millis()).unwrap() / 4) << 8 | REPORT_ID,
+                index: 0x0,
+                length: 0x0,
+            }
+            .pack()
+            .unwrap(),
+        )
+        .unwrap();
+
+    assert!(usb_dev.poll(&mut [&mut hid]));
+
+    // Get report idle
+    manager
+        .host_write_setup(
+            &UsbRequest {
+                direction: UsbDirection::In != UsbDirection::Out,
+                request_type: RequestType::Class as u8,
+                recipient: Recipient::Interface as u8,
+                request: HidRequest::GetIdle as u8,
+                value: REPORT_ID,
+                index: 0x0,
+                length: 0x1,
+            }
+            .pack()
+            .unwrap(),
+        )
+        .unwrap();
+
+    assert!(usb_dev.poll(&mut [&mut hid]));
+
+    // read and validate hid_protocol report
+    let data = manager.host_read_in();
+    assert_eq!(
+        data,
+        [u8::try_from(IDLE_DEFAULT.ticks()).unwrap() / 4],
+        "Unexpected report idle value"
+    );
+
+    // Get global idle
+    manager
+        .host_write_setup(
+            &UsbRequest {
+                direction: UsbDirection::In != UsbDirection::Out,
+                request_type: RequestType::Class as u8,
+                recipient: Recipient::Interface as u8,
+                request: HidRequest::GetIdle as u8,
                 value: 0x0,
                 index: 0x0,
                 length: 0x1,
