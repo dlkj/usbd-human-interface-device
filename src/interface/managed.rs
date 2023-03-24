@@ -60,17 +60,18 @@ where
     }
 }
 
-pub struct ManagedInterface<'a, B: UsbBus, R> {
-    inner: RawInterface<'a, B>,
+pub struct ManagedInterface<'a, B: UsbBus, R, const IN_BUF: usize, const OUT_BUF: usize> {
+    inner: RawInterface<'a, B, IN_BUF, OUT_BUF>,
     idle_manager: IdleManager<R>,
 }
 
 #[allow(clippy::inline_always)]
-impl<'a, B: UsbBus, R> ManagedInterface<'a, B, R>
+impl<'a, B: UsbBus, R, const IN_BUF: usize, const OUT_BUF: usize>
+    ManagedInterface<'a, B, R, IN_BUF, OUT_BUF>
 where
     R: Copy + Eq,
 {
-    fn new(interface: RawInterface<'a, B>, _config: ()) -> Self {
+    fn new(interface: RawInterface<'a, B, IN_BUF, OUT_BUF>, _config: ()) -> Self {
         Self {
             inner: interface,
             idle_manager: IdleManager::default(),
@@ -79,7 +80,8 @@ where
 }
 
 #[allow(clippy::inline_always)]
-impl<'a, B: UsbBus, R, const LEN: usize> ManagedInterface<'a, B, R>
+impl<'a, B: UsbBus, R, const IN_BUF: usize, const OUT_BUF: usize, const LEN: usize>
+    ManagedInterface<'a, B, R, IN_BUF, OUT_BUF>
 where
     R: Copy + Eq + PackedStruct<ByteArray = [u8; LEN]>,
 {
@@ -129,27 +131,33 @@ where
     }
 }
 
-impl<'a, B: UsbBus, R> InterfaceClass<'a, B> for ManagedInterface<'a, B, R>
+impl<'a, B: UsbBus, R, const IN_BUF: usize, const OUT_BUF: usize> InterfaceClass<'a, B>
+    for ManagedInterface<'a, B, R, IN_BUF, OUT_BUF>
 where
     R: Copy + Eq,
 {
-    fn interface(&mut self) -> &mut RawInterface<'a, B> {
+    type I = RawInterface<'a, B, IN_BUF, OUT_BUF>;
+
+    fn interface(&mut self) -> &mut Self::I {
         &mut self.inner
     }
 
     fn reset(&mut self) {
+        self.inner.reset();
         self.idle_manager = IdleManager::default();
     }
 }
 
-pub struct ManagedInterfaceConfig<'a, R> {
+pub struct ManagedInterfaceConfig<'a, R, const IN_BUF: usize, const OUT_BUF: usize> {
     report: PhantomData<R>,
-    inner_config: RawInterfaceConfig<'a>,
+    inner_config: RawInterfaceConfig<'a, IN_BUF, OUT_BUF>,
 }
 
-impl<'a, R> ManagedInterfaceConfig<'a, R> {
+impl<'a, R, const IN_BUF: usize, const OUT_BUF: usize>
+    ManagedInterfaceConfig<'a, R, IN_BUF, OUT_BUF>
+{
     #[must_use]
-    pub fn new(inner_config: RawInterfaceConfig<'a>) -> Self {
+    pub fn new(inner_config: RawInterfaceConfig<'a, IN_BUF, OUT_BUF>) -> Self {
         Self {
             inner_config,
             report: PhantomData::default(),
@@ -157,12 +165,13 @@ impl<'a, R> ManagedInterfaceConfig<'a, R> {
     }
 }
 
-impl<'a, B, R> UsbAllocatable<'a, B> for ManagedInterfaceConfig<'a, R>
+impl<'a, B, R, const IN_BUF: usize, const OUT_BUF: usize> UsbAllocatable<'a, B>
+    for ManagedInterfaceConfig<'a, R, IN_BUF, OUT_BUF>
 where
     B: UsbBus + 'a,
     R: Copy + Eq,
 {
-    type Allocated = ManagedInterface<'a, B, R>;
+    type Allocated = ManagedInterface<'a, B, R, IN_BUF, OUT_BUF>;
 
     fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
         ManagedInterface::new(self.inner_config.allocate(usb_alloc), ())

@@ -48,7 +48,7 @@ pub struct JoystickReport {
 }
 
 pub struct JoystickInterface<'a, B: UsbBus> {
-    inner: RawInterface<'a, B>,
+    inner: RawInterface<'a, B, 0, 8>,
 }
 
 impl<'a, B: UsbBus> JoystickInterface<'a, B> {
@@ -65,7 +65,9 @@ impl<'a, B: UsbBus> JoystickInterface<'a, B> {
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a, B> for JoystickInterface<'a, B> {
-    fn interface(&mut self) -> &mut RawInterface<'a, B> {
+    type I = RawInterface<'a, B, 0, 8>;
+
+    fn interface(&mut self) -> &mut Self::I {
         &mut self.inner
     }
 
@@ -73,7 +75,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a, B> for JoystickInterface<'a, B> {
 }
 
 pub struct JoystickConfig<'a> {
-    interface: RawInterfaceConfig<'a>,
+    interface: RawInterfaceConfig<'a, 0, 8>,
 }
 
 impl<'a> Default for JoystickConfig<'a> {
@@ -92,7 +94,7 @@ impl<'a> Default for JoystickConfig<'a> {
 
 impl<'a> JoystickConfig<'a> {
     #[must_use]
-    pub fn new(interface: RawInterfaceConfig<'a>) -> Self {
+    pub fn new(interface: RawInterfaceConfig<'a, 0, 8>) -> Self {
         Self { interface }
     }
 }

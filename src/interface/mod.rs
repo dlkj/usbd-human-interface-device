@@ -2,11 +2,9 @@
 use frunk::{HCons, HNil, ToMut};
 use packed_struct::prelude::*;
 use usb_device::bus::{StringIndex, UsbBus, UsbBusAllocator};
-use usb_device::class_prelude::DescriptorWriter;
+use usb_device::class_prelude::{DescriptorWriter, InterfaceNumber};
 
-use crate::hid_class::descriptor::DescriptorType;
-
-use self::raw::RawInterface;
+use crate::hid_class::descriptor::{DescriptorType, HidProtocol};
 
 pub mod managed;
 pub mod raw;
@@ -51,20 +49,37 @@ where
     }
 }
 
+pub trait RawInterfaceT<'a, B> {
+    fn hid_descriptor_body(&self) -> [u8; 7];
+    fn report_descriptor(&self) -> &'_ [u8];
+    fn id(&self) -> InterfaceNumber;
+    fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
+    fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'a str>;
+    fn reset(&mut self);
+    fn set_report(&mut self, data: &[u8]) -> usb_device::Result<()>;
+    fn get_report(&self, data: &mut [u8]) -> usb_device::Result<usize>;
+    fn get_report_ack(&mut self) -> usb_device::Result<()>;
+    fn set_idle(&mut self, report_id: u8, value: u8);
+    fn get_idle(&self, report_id: u8) -> u8;
+    fn set_protocol(&mut self, protocol: HidProtocol);
+    fn get_protocol(&self) -> HidProtocol;
+}
+
 pub trait InterfaceClass<'a, B: UsbBus> {
-    fn interface(&mut self) -> &mut RawInterface<'a, B>;
+    type I: RawInterfaceT<'a, B>;
+    fn interface(&mut self) -> &mut Self::I;
     fn reset(&mut self);
 }
 
 pub trait InterfaceHList<'a, B>: ToMut<'a> {
-    fn get(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a, B>>;
+    fn get(&mut self, id: u8) -> Option<&mut dyn RawInterfaceT<'a, B>>;
     fn reset(&mut self);
     fn write_descriptors(&mut self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
     fn get_string(&mut self, index: StringIndex, lang_id: u16) -> Option<&'a str>;
 }
 
 impl<'a, B> InterfaceHList<'a, B> for HNil {
-    fn get(&mut self, _: u8) -> Option<&mut dyn InterfaceClass<'a, B>> {
+    fn get(&mut self, _: u8) -> Option<&mut dyn RawInterfaceT<'a, B>> {
         None
     }
 
@@ -82,9 +97,9 @@ impl<'a, B> InterfaceHList<'a, B> for HNil {
 impl<'a, B: UsbBus + 'a, Head: InterfaceClass<'a, B> + 'a, Tail: InterfaceHList<'a, B>>
     InterfaceHList<'a, B> for HCons<Head, Tail>
 {
-    fn get(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a, B>> {
+    fn get(&mut self, id: u8) -> Option<&mut dyn RawInterfaceT<'a, B>> {
         if id == u8::from(self.head.interface().id()) {
-            Some(&mut self.head)
+            Some(self.head.interface())
         } else {
             self.tail.get(id)
         }

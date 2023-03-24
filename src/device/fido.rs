@@ -44,7 +44,7 @@ impl Default for RawFidoMsg {
 }
 
 pub struct RawFidoInterface<'a, B: UsbBus> {
-    inner: RawInterface<'a, B>,
+    inner: RawInterface<'a, B, 64, 64>,
 }
 
 impl<'a, B: UsbBus> RawFidoInterface<'a, B> {
@@ -64,7 +64,9 @@ impl<'a, B: UsbBus> RawFidoInterface<'a, B> {
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a, B> for RawFidoInterface<'a, B> {
-    fn interface(&mut self) -> &mut RawInterface<'a, B> {
+    type I = RawInterface<'a, B, 64, 64>;
+
+    fn interface(&mut self) -> &mut Self::I {
         &mut self.inner
     }
 
@@ -72,7 +74,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a, B> for RawFidoInterface<'a, B> {
 }
 
 pub struct RawFidoConfig<'a> {
-    interface: RawInterfaceConfig<'a>,
+    interface: RawInterfaceConfig<'a, 64, 64>,
 }
 
 impl<'a> Default for RawFidoConfig<'a> {
@@ -92,7 +94,7 @@ impl<'a> Default for RawFidoConfig<'a> {
 
 impl<'a> RawFidoConfig<'a> {
     #[must_use]
-    pub fn new(interface: RawInterfaceConfig<'a>) -> Self {
+    pub fn new(interface: RawInterfaceConfig<'a, 64, 64>) -> Self {
         Self { interface }
     }
 }

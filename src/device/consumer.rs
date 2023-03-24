@@ -92,7 +92,7 @@ pub struct FixedFunctionReport {
 }
 
 pub struct ConsumerControlInterface<'a, B: UsbBus> {
-    inner: RawInterface<'a, B>,
+    inner: RawInterface<'a, B, 0, 8>,
 }
 
 impl<'a, B: UsbBus> ConsumerControlInterface<'a, B> {
@@ -106,7 +106,9 @@ impl<'a, B: UsbBus> ConsumerControlInterface<'a, B> {
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a, B> for ConsumerControlInterface<'a, B> {
-    fn interface(&mut self) -> &mut RawInterface<'a, B> {
+    type I = RawInterface<'a, B, 0, 8>;
+
+    fn interface(&mut self) -> &mut Self::I {
         &mut self.inner
     }
 
@@ -114,11 +116,11 @@ impl<'a, B: UsbBus> InterfaceClass<'a, B> for ConsumerControlInterface<'a, B> {
 }
 
 pub struct ConsumerControlConfig<'a> {
-    interface: RawInterfaceConfig<'a>,
+    interface: RawInterfaceConfig<'a, 0, 8>,
 }
 
 impl<'a> ConsumerControlConfig<'a> {
-    fn new(interface: RawInterfaceConfig<'a>) -> Self {
+    fn new(interface: RawInterfaceConfig<'a, 0, 8>) -> Self {
         Self { interface }
     }
 }
@@ -149,7 +151,7 @@ impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for ConsumerControlConfig<'a> {
 }
 
 pub struct ConsumerControlFixedInterface<'a, B: UsbBus> {
-    inner: RawInterface<'a, B>,
+    inner: RawInterface<'a, B, 0, 8>,
 }
 
 impl<'a, B: UsbBus> ConsumerControlFixedInterface<'a, B> {
@@ -163,7 +165,9 @@ impl<'a, B: UsbBus> ConsumerControlFixedInterface<'a, B> {
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a, B> for ConsumerControlFixedInterface<'a, B> {
-    fn interface(&mut self) -> &mut RawInterface<'a, B> {
+    type I = RawInterface<'a, B, 0, 8>;
+
+    fn interface(&mut self) -> &mut Self::I {
         &mut self.inner
     }
 
@@ -171,10 +175,10 @@ impl<'a, B: UsbBus> InterfaceClass<'a, B> for ConsumerControlFixedInterface<'a, 
 }
 
 pub struct ConsumerControlFixedConfig<'a> {
-    interface: RawInterfaceConfig<'a>,
+    interface: RawInterfaceConfig<'a, 0, 8>,
 }
 impl<'a> ConsumerControlFixedConfig<'a> {
-    fn new(interface: RawInterfaceConfig<'a>) -> Self {
+    fn new(interface: RawInterfaceConfig<'a, 0, 8>) -> Self {
         Self { interface }
     }
 }

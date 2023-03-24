@@ -153,7 +153,7 @@ fn descriptor_ordering_satisfies_boot_spec() {
     let usb_alloc = UsbBusAllocator::new(TestUsbBus::new(&manager));
 
     let mut hid = UsbHidClassBuilder::new()
-        .add_interface(RawInterfaceBuilder::new(&[]).unwrap().build())
+        .add_interface(RawInterfaceBuilder::<64, 64>::new(&[]).unwrap().build())
         .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
@@ -244,7 +244,7 @@ fn get_protocol_default_to_report() {
     let usb_alloc = UsbBusAllocator::new(TestUsbBus::new(&manager));
 
     let mut hid = UsbHidClassBuilder::new()
-        .add_interface(RawInterfaceBuilder::new(&[]).unwrap().build())
+        .add_interface(RawInterfaceBuilder::<64, 64>::new(&[]).unwrap().build())
         .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
@@ -288,7 +288,7 @@ fn set_protocol() {
     let usb_alloc = UsbBusAllocator::new(TestUsbBus::new(&manager));
 
     let mut hid = UsbHidClassBuilder::new()
-        .add_interface(RawInterfaceBuilder::new(&[]).unwrap().build())
+        .add_interface(RawInterfaceBuilder::<64, 64>::new(&[]).unwrap().build())
         .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
@@ -351,7 +351,7 @@ fn get_protocol_default_post_reset() {
     let usb_alloc = UsbBusAllocator::new(TestUsbBus::new(&manager));
 
     let mut hid = UsbHidClassBuilder::new()
-        .add_interface(RawInterfaceBuilder::new(&[]).unwrap().build())
+        .add_interface(RawInterfaceBuilder::<64, 64>::new(&[]).unwrap().build())
         .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
@@ -420,7 +420,7 @@ fn get_global_idle_default() {
 
     let mut hid = UsbHidClassBuilder::new()
         .add_interface(
-            RawInterfaceBuilder::new(&[])
+            RawInterfaceBuilder::<64, 64>::new(&[])
                 .unwrap()
                 .idle_default(IDLE_DEFAULT)
                 .unwrap()
@@ -473,7 +473,7 @@ fn set_global_idle() {
 
     let mut hid = UsbHidClassBuilder::new()
         .add_interface(
-            RawInterfaceBuilder::new(&[])
+            RawInterfaceBuilder::<64, 64>::new(&[])
                 .unwrap()
                 .idle_default(IDLE_DEFAULT)
                 .unwrap()
@@ -545,7 +545,7 @@ fn get_global_idle_default_post_reset() {
 
     let mut hid = UsbHidClassBuilder::new()
         .add_interface(
-            RawInterfaceBuilder::new(&[])
+            RawInterfaceBuilder::<64, 64>::new(&[])
                 .unwrap()
                 .idle_default(IDLE_DEFAULT)
                 .unwrap()
@@ -621,7 +621,7 @@ fn get_report_idle_default() {
 
     let mut hid = UsbHidClassBuilder::new()
         .add_interface(
-            RawInterfaceBuilder::new(&[])
+            RawInterfaceBuilder::<64, 64>::new(&[])
                 .unwrap()
                 .idle_default(IDLE_DEFAULT)
                 .unwrap()
@@ -675,7 +675,7 @@ fn set_report_idle() {
 
     let mut hid = UsbHidClassBuilder::new()
         .add_interface(
-            RawInterfaceBuilder::new(&[])
+            RawInterfaceBuilder::<64, 64>::new(&[])
                 .unwrap()
                 .idle_default(IDLE_DEFAULT)
                 .unwrap()
@@ -776,7 +776,7 @@ fn get_report_idle_default_post_reset() {
 
     let mut hid = UsbHidClassBuilder::new()
         .add_interface(
-            RawInterfaceBuilder::new(&[])
+            RawInterfaceBuilder::<64, 64>::new(&[])
                 .unwrap()
                 .idle_default(IDLE_DEFAULT)
                 .unwrap()

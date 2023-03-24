@@ -1,7 +1,7 @@
 //! Abstract Human Interface Device Class for implementing any HID compliant device
 
-use crate::interface::InterfaceHList;
 use crate::interface::{InterfaceClass, UsbAllocatable};
+use crate::interface::{InterfaceHList, RawInterfaceT};
 use core::cell::RefCell;
 use core::default::Default;
 use core::marker::PhantomData;
@@ -129,11 +129,11 @@ impl<'a, B, InterfaceList: InterfaceHList<'a, B>> UsbHidClass<'a, B, InterfaceLi
 }
 
 impl<'a, B: UsbBus + 'a, I> UsbHidClass<'a, B, I> {
-    fn get_descriptor(transfer: ControlIn<B>, interface: &mut dyn InterfaceClass<'a, B>) {
+    fn get_descriptor(transfer: ControlIn<B>, interface: &mut dyn RawInterfaceT<'a, B>) {
         let request: &Request = transfer.request();
         match DescriptorType::try_from((request.value >> 8) as u8) {
             Ok(DescriptorType::Report) => {
-                match transfer.accept_with(interface.interface().report_descriptor()) {
+                match transfer.accept_with(interface.report_descriptor()) {
                     Err(e) => error!("Failed to send report descriptor - {:?}", e),
                     Ok(_) => {
                         trace!("Sent report descriptor");
@@ -145,8 +145,7 @@ impl<'a, B: UsbBus + 'a, I> UsbHidClass<'a, B, I> {
                 let mut buffer = [0; LEN as usize];
                 buffer[0] = LEN;
                 buffer[1] = u8::from(DescriptorType::Hid);
-                (buffer[2..LEN as usize])
-                    .copy_from_slice(&interface.interface().hid_descriptor_body());
+                (buffer[2..LEN as usize]).copy_from_slice(&interface.hid_descriptor_body());
                 match transfer.accept_with(&buffer) {
                     Err(e) => {
                         error!("Failed to send Hid descriptor - {:?}", e);
@@ -209,7 +208,7 @@ where
 
         match HidRequest::try_from(request.request) {
             Ok(HidRequest::SetReport) => {
-                interface.interface().set_report(transfer.data()).ok();
+                interface.set_report(transfer.data()).ok();
                 transfer.accept().ok();
             }
             Ok(HidRequest::SetIdle) => {
@@ -220,9 +219,7 @@ where
                     );
                 }
 
-                interface
-                    .interface()
-                    .set_idle((request.value & 0xFF) as u8, (request.value >> 8) as u8);
+                interface.set_idle((request.value & 0xFF) as u8, (request.value >> 8) as u8);
                 transfer.accept().ok();
             }
             Ok(HidRequest::SetProtocol) => {
@@ -233,7 +230,7 @@ where
                     );
                 }
                 if let Ok(protocol) = HidProtocol::try_from((request.value & 0xFF) as u8) {
-                    interface.interface().set_protocol(protocol);
+                    interface.set_protocol(protocol);
                     transfer.accept().ok();
                 } else {
                     error!(
@@ -287,7 +284,7 @@ where
                 match HidRequest::try_from(request.request) {
                     Ok(HidRequest::GetReport) => {
                         let mut data = [0_u8; 64];
-                        if let Ok(n) = interface.interface().get_report(&mut data) {
+                        if let Ok(n) = interface.get_report(&mut data) {
                             if n != transfer.request().length.into() {
                                 warn!(
                                     "GetReport expected {} bytes, got {} bytes",
@@ -299,7 +296,7 @@ where
                                 error!("Failed to send report - {:?}", e);
                             } else {
                                 trace!("Sent report, {} bytes", n);
-                                unwrap!(interface.interface().get_report_ack());
+                                unwrap!(interface.get_report_ack());
                             }
                         }
                     }
@@ -312,7 +309,7 @@ where
                         }
 
                         let report_id = (request.value & 0xFF) as u8;
-                        let idle = interface.interface().get_idle(report_id);
+                        let idle = interface.get_idle(report_id);
                         if let Err(e) = transfer.accept_with(&[idle]) {
                             error!("Failed to send idle data - {:?}", e);
                         } else {
@@ -327,7 +324,7 @@ where
                             );
                         }
 
-                        let protocol = interface.interface().get_protocol();
+                        let protocol = interface.get_protocol();
                         if let Err(e) = transfer.accept_with(&[protocol.into()]) {
                             error!("Failed to send protocol data - {:?}", e);
                         } else {
