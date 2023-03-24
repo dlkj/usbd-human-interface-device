@@ -6,7 +6,7 @@ use usb_device::bus::UsbBus;
 use usb_device::class_prelude::UsbBusAllocator;
 
 use crate::hid_class::prelude::*;
-use crate::interface::raw::{InBytes8, OutNone, RawInterface, RawInterfaceConfig, SingleReport};
+use crate::interface::raw::{InBytes8, OutNone, RawInterface, RawInterfaceConfig, ReportSingle};
 use crate::interface::{InterfaceClass, UsbAllocatable};
 use crate::UsbHidError;
 
@@ -177,7 +177,7 @@ pub struct AbsoluteWheelMouseReport {
 }
 
 pub struct BootMouseInterface<'a, B: UsbBus> {
-    inner: RawInterface<'a, B, InBytes8, OutNone, SingleReport>,
+    inner: RawInterface<'a, B, InBytes8, OutNone, ReportSingle>,
 }
 
 impl<'a, B: UsbBus> BootMouseInterface<'a, B> {
@@ -194,12 +194,12 @@ impl<'a, B: UsbBus> BootMouseInterface<'a, B> {
 }
 
 pub struct BootMouseConfig<'a> {
-    interface: RawInterfaceConfig<'a, InBytes8, OutNone, SingleReport>,
+    interface: RawInterfaceConfig<'a, InBytes8, OutNone, ReportSingle>,
 }
 
 impl<'a> BootMouseConfig<'a> {
     #[must_use]
-    pub fn new(interface: RawInterfaceConfig<'a, InBytes8, OutNone, SingleReport>) -> Self {
+    pub fn new(interface: RawInterfaceConfig<'a, InBytes8, OutNone, ReportSingle>) -> Self {
         Self { interface }
     }
 }
@@ -231,7 +231,7 @@ impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for BootMouseConfig<'a> {
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a, B> for BootMouseInterface<'a, B> {
-    type I = RawInterface<'a, B, InBytes8, OutNone, SingleReport>;
+    type I = RawInterface<'a, B, InBytes8, OutNone, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {
         &mut self.inner
@@ -241,7 +241,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a, B> for BootMouseInterface<'a, B> {
 }
 
 pub struct WheelMouseInterface<'a, B: UsbBus> {
-    inner: RawInterface<'a, B, InBytes8, OutNone, SingleReport>,
+    inner: RawInterface<'a, B, InBytes8, OutNone, ReportSingle>,
 }
 
 impl<'a, B: UsbBus> WheelMouseInterface<'a, B> {
@@ -257,12 +257,12 @@ impl<'a, B: UsbBus> WheelMouseInterface<'a, B> {
     }
 }
 pub struct WheelMouseConfig<'a> {
-    interface: RawInterfaceConfig<'a, InBytes8, OutNone, SingleReport>,
+    interface: RawInterfaceConfig<'a, InBytes8, OutNone, ReportSingle>,
 }
 
 impl<'a> WheelMouseConfig<'a> {
     #[must_use]
-    pub fn new(interface: RawInterfaceConfig<'a, InBytes8, OutNone, SingleReport>) -> Self {
+    pub fn new(interface: RawInterfaceConfig<'a, InBytes8, OutNone, ReportSingle>) -> Self {
         Self { interface }
     }
 }
@@ -294,7 +294,7 @@ impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for WheelMouseConfig<'a> {
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a, B> for WheelMouseInterface<'a, B> {
-    type I = RawInterface<'a, B, InBytes8, OutNone, SingleReport>;
+    type I = RawInterface<'a, B, InBytes8, OutNone, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {
         &mut self.inner
@@ -304,7 +304,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a, B> for WheelMouseInterface<'a, B> {
 }
 
 pub struct AbsoluteWheelMouseInterface<'a, B: UsbBus> {
-    inner: RawInterface<'a, B, InBytes8, OutNone, SingleReport>,
+    inner: RawInterface<'a, B, InBytes8, OutNone, ReportSingle>,
 }
 
 impl<'a, B: UsbBus> AbsoluteWheelMouseInterface<'a, B> {
@@ -321,12 +321,12 @@ impl<'a, B: UsbBus> AbsoluteWheelMouseInterface<'a, B> {
 }
 
 pub struct AbsoluteWheelMouseConfig<'a> {
-    interface: RawInterfaceConfig<'a, InBytes8, OutNone, SingleReport>,
+    interface: RawInterfaceConfig<'a, InBytes8, OutNone, ReportSingle>,
 }
 
 impl<'a> AbsoluteWheelMouseConfig<'a> {
     #[must_use]
-    pub fn new(interface: RawInterfaceConfig<'a, InBytes8, OutNone, SingleReport>) -> Self {
+    pub fn new(interface: RawInterfaceConfig<'a, InBytes8, OutNone, ReportSingle>) -> Self {
         Self { interface }
     }
 }
@@ -357,7 +357,7 @@ impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for AbsoluteWheelMouseConfig<'a> 
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a, B> for AbsoluteWheelMouseInterface<'a, B> {
-    type I = RawInterface<'a, B, InBytes8, OutNone, SingleReport>;
+    type I = RawInterface<'a, B, InBytes8, OutNone, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {
         &mut self.inner

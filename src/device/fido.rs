@@ -5,7 +5,7 @@ use usb_device::class_prelude::UsbBusAllocator;
 
 use crate::hid_class::prelude::*;
 use crate::interface::raw::{
-    InBytes64, OutBytes64, RawInterface, RawInterfaceConfig, SingleReport,
+    InBytes64, OutBytes64, RawInterface, RawInterfaceConfig, ReportSingle,
 };
 use crate::interface::{InterfaceClass, UsbAllocatable};
 use crate::UsbHidError;
@@ -46,7 +46,7 @@ impl Default for RawFidoMsg {
 }
 
 pub struct RawFidoInterface<'a, B: UsbBus> {
-    inner: RawInterface<'a, B, InBytes64, OutBytes64, SingleReport>,
+    inner: RawInterface<'a, B, InBytes64, OutBytes64, ReportSingle>,
 }
 
 impl<'a, B: UsbBus> RawFidoInterface<'a, B> {
@@ -66,7 +66,7 @@ impl<'a, B: UsbBus> RawFidoInterface<'a, B> {
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a, B> for RawFidoInterface<'a, B> {
-    type I = RawInterface<'a, B, InBytes64, OutBytes64, SingleReport>;
+    type I = RawInterface<'a, B, InBytes64, OutBytes64, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {
         &mut self.inner
@@ -76,7 +76,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a, B> for RawFidoInterface<'a, B> {
 }
 
 pub struct RawFidoConfig<'a> {
-    interface: RawInterfaceConfig<'a, InBytes64, OutBytes64, SingleReport>,
+    interface: RawInterfaceConfig<'a, InBytes64, OutBytes64, ReportSingle>,
 }
 
 impl<'a> Default for RawFidoConfig<'a> {
@@ -96,7 +96,7 @@ impl<'a> Default for RawFidoConfig<'a> {
 
 impl<'a> RawFidoConfig<'a> {
     #[must_use]
-    pub fn new(interface: RawInterfaceConfig<'a, InBytes64, OutBytes64, SingleReport>) -> Self {
+    pub fn new(interface: RawInterfaceConfig<'a, InBytes64, OutBytes64, ReportSingle>) -> Self {
         Self { interface }
     }
 }

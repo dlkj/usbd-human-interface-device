@@ -151,8 +151,8 @@ impl IdleStorage for () {
     }
 }
 
-pub enum SingleReport {}
-impl ReportCount for SingleReport {
+pub enum ReportSingle {}
+impl ReportCount for ReportSingle {
     type IdleStorage = ();
 }
 
@@ -177,11 +177,11 @@ macro_rules! option_block_idle_storage {
     };
 }
 
-option_block_idle_storage!(UpTo8Reports, Block8);
-option_block_idle_storage!(UpTo16Reports, Block16);
-option_block_idle_storage!(UpTo32Reports, Block32);
-option_block_idle_storage!(UpTo64Reports, Block64);
-option_block_idle_storage!(UpTo128Reports, Block128);
+option_block_idle_storage!(Reports8, Block8);
+option_block_idle_storage!(Reports16, Block16);
+option_block_idle_storage!(Reports32, Block32);
+option_block_idle_storage!(Reports64, Block64);
+option_block_idle_storage!(Reports128, Block128);
 
 use super::{HidDescriptorBody, RawInterfaceT};
 

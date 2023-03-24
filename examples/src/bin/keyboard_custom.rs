@@ -22,7 +22,7 @@ use usbd_human_interface_device::device::keyboard::{BootKeyboardReport, Keyboard
 use usbd_human_interface_device::hid_class::prelude::*;
 use usbd_human_interface_device::interface::raw::InBytes8;
 use usbd_human_interface_device::interface::raw::OutBytes8;
-use usbd_human_interface_device::interface::raw::SingleReport;
+use usbd_human_interface_device::interface::raw::ReportSingle;
 use usbd_human_interface_device::page::Keyboard;
 
 use rp_pico as bsp;
@@ -105,7 +105,7 @@ fn main() -> ! {
 
     let mut keyboard = UsbHidClassBuilder::new()
         .add_interface(
-            RawInterfaceBuilder::<InBytes8, OutBytes8, SingleReport>::new(
+            RawInterfaceBuilder::<InBytes8, OutBytes8, ReportSingle>::new(
                 LOGITECH_GAMING_KEYBOARD_REPORT_DESCRIPTOR,
             )
             .unwrap()
