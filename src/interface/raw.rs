@@ -79,26 +79,21 @@ impl Sealed for InNone {}
 impl InSize for InNone {
     type Buffer = ();
 }
-pub enum InBytes8 {}
-impl Sealed for InBytes8 {}
-impl InSize for InBytes8 {
-    type Buffer = Vec<u8, 8>;
+
+macro_rules! vec_in_bytes {
+    ($name: ident, $capacity: literal) => {
+        pub enum $name {}
+        impl Sealed for $name {}
+        impl InSize for $name {
+            type Buffer = Vec<u8, $capacity>;
+        }
+    };
 }
-pub enum InBytes16 {}
-impl Sealed for InBytes16 {}
-impl InSize for InBytes16 {
-    type Buffer = Vec<u8, 16>;
-}
-pub enum InBytes32 {}
-impl Sealed for InBytes32 {}
-impl InSize for InBytes32 {
-    type Buffer = Vec<u8, 32>;
-}
-pub enum InBytes64 {}
-impl Sealed for InBytes64 {}
-impl InSize for InBytes64 {
-    type Buffer = Vec<u8, 64>;
-}
+
+vec_in_bytes!(InBytes8, 8);
+vec_in_bytes!(InBytes16, 16);
+vec_in_bytes!(InBytes32, 32);
+vec_in_bytes!(InBytes64, 64);
 
 pub trait OutSize: Sealed {
     type Buffer;
@@ -108,26 +103,21 @@ impl Sealed for OutNone {}
 impl OutSize for OutNone {
     type Buffer = ();
 }
-pub enum OutBytes8 {}
-impl Sealed for OutBytes8 {}
-impl OutSize for OutBytes8 {
-    type Buffer = Vec<u8, 8>;
+
+macro_rules! vec_out_bytes {
+    ($name: ident, $capacity: literal) => {
+        pub enum $name {}
+        impl Sealed for $name {}
+        impl OutSize for $name {
+            type Buffer = Vec<u8, $capacity>;
+        }
+    };
 }
-pub enum OutBytes16 {}
-impl Sealed for OutBytes16 {}
-impl OutSize for OutBytes16 {
-    type Buffer = Vec<u8, 16>;
-}
-pub enum OutBytes32 {}
-impl Sealed for OutBytes32 {}
-impl OutSize for OutBytes32 {
-    type Buffer = Vec<u8, 32>;
-}
-pub enum OutBytes64 {}
-impl Sealed for OutBytes64 {}
-impl OutSize for OutBytes64 {
-    type Buffer = Vec<u8, 64>;
-}
+
+vec_out_bytes!(OutBytes8, 8);
+vec_out_bytes!(OutBytes16, 16);
+vec_out_bytes!(OutBytes32, 32);
+vec_out_bytes!(OutBytes64, 64);
 
 pub trait IdleStorage: Default {
     const CAPACITY: u32;
@@ -171,6 +161,7 @@ macro_rules! option_block_idle_storage {
         }
 
         pub enum $name {}
+        impl Sealed for $name {}
         impl ReportCount for $name {
             type IdleStorage = $storage<u8>;
         }
