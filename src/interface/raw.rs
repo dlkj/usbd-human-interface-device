@@ -4,19 +4,197 @@ use crate::hid_class::descriptor::{
 };
 use crate::hid_class::{BuilderResult, UsbHidBuilderError, UsbPacketSize};
 use crate::interface::{InterfaceClass, UsbAllocatable};
+use crate::private::Sealed;
+use core::marker::PhantomData;
 use fugit::{ExtU32, MillisDurationU32};
 use heapless::Vec;
-use option_block::Block32;
+use option_block::{Block128, Block16, Block32, Block64, Block8};
 use packed_struct::PackedStruct;
 use usb_device::bus::{InterfaceNumber, StringIndex, UsbBus, UsbBusAllocator};
 #[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
 use usb_device::UsbError;
 
+pub trait ReportBuffer: Default {
+    fn clear(&mut self);
+    fn is_empty(&self) -> bool;
+    fn len(&self) -> usize;
+    fn capacity(&self) -> usize;
+    #[allow(clippy::result_unit_err)]
+    fn extend_from_slice(&mut self, other: &[u8]) -> Result<(), ()>;
+    fn as_ref(&self) -> &[u8];
+}
+
+impl ReportBuffer for () {
+    fn clear(&mut self) {}
+
+    fn is_empty(&self) -> bool {
+        true
+    }
+
+    fn len(&self) -> usize {
+        0
+    }
+
+    fn capacity(&self) -> usize {
+        0
+    }
+
+    fn extend_from_slice(&mut self, _other: &[u8]) -> Result<(), ()> {
+        Err(())
+    }
+
+    fn as_ref(&self) -> &[u8] {
+        &[]
+    }
+}
+
+impl<const N: usize> ReportBuffer for Vec<u8, N> {
+    fn clear(&mut self) {
+        self.clear();
+    }
+
+    fn is_empty(&self) -> bool {
+        self.is_empty()
+    }
+
+    fn len(&self) -> usize {
+        <[u8]>::len(self)
+    }
+
+    fn capacity(&self) -> usize {
+        self.capacity()
+    }
+
+    fn extend_from_slice(&mut self, other: &[u8]) -> Result<(), ()> {
+        self.extend_from_slice(other)
+    }
+
+    fn as_ref(&self) -> &[u8] {
+        self
+    }
+}
+
+pub trait InSize: Sealed {
+    type Buffer;
+}
+pub enum InNone {}
+impl Sealed for InNone {}
+impl InSize for InNone {
+    type Buffer = ();
+}
+pub enum InBytes8 {}
+impl Sealed for InBytes8 {}
+impl InSize for InBytes8 {
+    type Buffer = Vec<u8, 8>;
+}
+pub enum InBytes16 {}
+impl Sealed for InBytes16 {}
+impl InSize for InBytes16 {
+    type Buffer = Vec<u8, 16>;
+}
+pub enum InBytes32 {}
+impl Sealed for InBytes32 {}
+impl InSize for InBytes32 {
+    type Buffer = Vec<u8, 32>;
+}
+pub enum InBytes64 {}
+impl Sealed for InBytes64 {}
+impl InSize for InBytes64 {
+    type Buffer = Vec<u8, 64>;
+}
+
+pub trait OutSize: Sealed {
+    type Buffer;
+}
+pub enum OutNone {}
+impl Sealed for OutNone {}
+impl OutSize for OutNone {
+    type Buffer = ();
+}
+pub enum OutBytes8 {}
+impl Sealed for OutBytes8 {}
+impl OutSize for OutBytes8 {
+    type Buffer = Vec<u8, 8>;
+}
+pub enum OutBytes16 {}
+impl Sealed for OutBytes16 {}
+impl OutSize for OutBytes16 {
+    type Buffer = Vec<u8, 16>;
+}
+pub enum OutBytes32 {}
+impl Sealed for OutBytes32 {}
+impl OutSize for OutBytes32 {
+    type Buffer = Vec<u8, 32>;
+}
+pub enum OutBytes64 {}
+impl Sealed for OutBytes64 {}
+impl OutSize for OutBytes64 {
+    type Buffer = Vec<u8, 64>;
+}
+
+pub trait IdleStorage: Default {
+    fn insert(&mut self, index: usize, val: u8) -> Option<u8>;
+    fn get(&self, index: usize) -> Option<u8>;
+}
+
+pub trait ReportCount {
+    type IdleStorage;
+}
+
+impl IdleStorage for () {
+    fn insert(&mut self, _index: usize, _val: u8) -> Option<u8> {
+        None
+    }
+
+    fn get(&self, _index: usize) -> Option<u8> {
+        None
+    }
+}
+
+pub enum SingleReport {}
+impl ReportCount for SingleReport {
+    type IdleStorage = ();
+}
+
+pub enum UpTo8Reports {}
+impl ReportCount for UpTo8Reports {
+    type IdleStorage = Block8<u8>;
+}
+
+pub enum UpTo16Reports {}
+impl ReportCount for UpTo16Reports {
+    type IdleStorage = Block16<u8>;
+}
+
+pub enum UpTo32Reports {}
+impl ReportCount for UpTo32Reports {
+    type IdleStorage = Block32<u8>;
+}
+
+pub enum UpTo64Reports {}
+impl ReportCount for UpTo64Reports {
+    type IdleStorage = Block64<u8>;
+}
+
+pub enum UpTo128Reports {}
+impl ReportCount for UpTo128Reports {
+    type IdleStorage = Block128<u8>;
+}
+
 use super::{HidDescriptorBody, RawInterfaceT};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct RawInterfaceConfig<'a, const IN_BUF: usize, const OUT_BUF: usize> {
+pub struct RawInterfaceConfig<'a, I, O, R>
+where
+    I: InSize,
+    I::Buffer: ReportBuffer,
+    O: OutSize,
+    O::Buffer: ReportBuffer,
+    R: ReportCount,
+    R::IdleStorage: IdleStorage,
+{
+    marker: PhantomData<(I, O, R)>,
     report_descriptor: &'a [u8],
     report_descriptor_length: u16,
     description: Option<&'a str>,
@@ -30,48 +208,54 @@ pub struct RawInterfaceConfig<'a, const IN_BUF: usize, const OUT_BUF: usize> {
 // in most cases Block8 (max 8 reports) would be enough (size 9B vs 36B for Block32)
 type ReportIdleArray = Block32<u8>;
 
-pub struct RawInterface<'a, B: UsbBus, const IN_BUF: usize, const OUT_BUF: usize> {
+pub struct RawInterface<'a, B, I, O, R>
+where
+    B: UsbBus,
+    I: InSize,
+    I::Buffer: ReportBuffer,
+    O: OutSize,
+    O::Buffer: ReportBuffer,
+    R: ReportCount,
+    R::IdleStorage: IdleStorage,
+{
     id: InterfaceNumber,
-    config: RawInterfaceConfig<'a, IN_BUF, OUT_BUF>,
+    config: RawInterfaceConfig<'a, I, O, R>,
     out_endpoint: Option<EndpointOut<'a, B>>,
     in_endpoint: EndpointIn<'a, B>,
     description_index: Option<StringIndex>,
     protocol: HidProtocol,
-    report_idle: ReportIdleArray,
+    report_idle: R::IdleStorage,
     global_idle: u8,
-    control_in_report_buffer: Vec<u8, IN_BUF>,
-    control_out_report_buffer: Vec<u8, OUT_BUF>,
+    control_in_report_buffer: I::Buffer,
+    control_out_report_buffer: O::Buffer,
 }
 
-impl<'a, B: UsbBus + 'a, const IN_BUF: usize, const OUT_BUF: usize> UsbAllocatable<'a, B>
-    for RawInterfaceConfig<'a, IN_BUF, OUT_BUF>
+impl<'a, B: UsbBus + 'a, I, O, R> UsbAllocatable<'a, B> for RawInterfaceConfig<'a, I, O, R>
+where
+    B: UsbBus,
+    I: InSize,
+    I::Buffer: ReportBuffer,
+    O: OutSize,
+    O::Buffer: ReportBuffer,
+    R: ReportCount,
+    R::IdleStorage: IdleStorage,
 {
-    type Allocated = RawInterface<'a, B, IN_BUF, OUT_BUF>;
+    type Allocated = RawInterface<'a, B, I, O, R>;
 
     fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
-        RawInterface {
-            config: self,
-            id: usb_alloc.interface(),
-            in_endpoint: usb_alloc.interrupt(
-                self.in_endpoint.max_packet_size.into(),
-                self.in_endpoint.poll_interval,
-            ),
-            out_endpoint: self
-                .out_endpoint
-                .map(|c| usb_alloc.interrupt(c.max_packet_size.into(), c.poll_interval)),
-            description_index: self.description.map(|_| usb_alloc.string()),
-            //When initialized, all devices default to report protocol - Hid spec 7.2.6 Set_Protocol Request
-            protocol: HidProtocol::Report,
-            report_idle: Block32::default(),
-            global_idle: self.idle_default,
-            control_in_report_buffer: Vec::default(),
-            control_out_report_buffer: Vec::default(),
-        }
+        RawInterface::new(usb_alloc, self)
     }
 }
 
-impl<'a, B: UsbBus, const IN_BUF: usize, const OUT_BUF: usize> InterfaceClass<'a, B>
-    for RawInterface<'a, B, IN_BUF, OUT_BUF>
+impl<'a, B, I, O, R> InterfaceClass<'a, B> for RawInterface<'a, B, I, O, R>
+where
+    B: UsbBus,
+    I: InSize,
+    I::Buffer: ReportBuffer,
+    O: OutSize,
+    O::Buffer: ReportBuffer,
+    R: ReportCount,
+    R::IdleStorage: IdleStorage,
 {
     type I = Self;
 
@@ -88,39 +272,43 @@ impl<'a, B: UsbBus, const IN_BUF: usize, const OUT_BUF: usize> InterfaceClass<'a
     }
 }
 
-impl<'a, B: UsbBus, const IN_BUF: usize, const OUT_BUF: usize>
-    RawInterface<'a, B, IN_BUF, OUT_BUF>
+impl<'a, B: UsbBus, I, O, R> RawInterface<'a, B, I, O, R>
+where
+    B: UsbBus,
+    I: InSize,
+    I::Buffer: ReportBuffer,
+    O: OutSize,
+    O::Buffer: ReportBuffer,
+    R: ReportCount,
+    R::IdleStorage: IdleStorage,
 {
-    pub fn new(
-        usb_alloc: &'a UsbBusAllocator<B>,
-        config: RawInterfaceConfig<'a, IN_BUF, OUT_BUF>,
-    ) -> Self {
+    pub fn new(usb_alloc: &'a UsbBusAllocator<B>, config: RawInterfaceConfig<'a, I, O, R>) -> Self {
         RawInterface {
-            config,
             id: usb_alloc.interface(),
             in_endpoint: usb_alloc.interrupt(
-                config.in_endpoint.max_packet_size as u16,
+                config.in_endpoint.max_packet_size.into(),
                 config.in_endpoint.poll_interval,
             ),
             out_endpoint: config
                 .out_endpoint
-                .map(|c| usb_alloc.interrupt(c.max_packet_size as u16, c.poll_interval)),
+                .map(|c| usb_alloc.interrupt(c.max_packet_size.into(), c.poll_interval)),
             description_index: config.description.map(|_| usb_alloc.string()),
             //When initialized, all devices default to report protocol - Hid spec 7.2.6 Set_Protocol Request
             protocol: HidProtocol::Report,
-            report_idle: Block32::default(),
+            report_idle: R::IdleStorage::default(),
             global_idle: config.idle_default,
-            control_in_report_buffer: Vec::default(),
-            control_out_report_buffer: Vec::default(),
+            control_in_report_buffer: I::Buffer::default(),
+            control_out_report_buffer: O::Buffer::default(),
+            config,
         }
     }
 
     fn clear_report_idle(&mut self) {
-        self.report_idle = Block32::default();
+        self.report_idle = R::IdleStorage::default();
     }
     fn get_report_idle(&self, report_id: u8) -> Option<u8> {
         if u32::from(report_id) < ReportIdleArray::CAPACITY {
-            self.report_idle.get(report_id.into()).copied()
+            self.report_idle.get(report_id.into())
         } else {
             None
         }
@@ -181,7 +369,7 @@ impl<'a, B: UsbBus, const IN_BUF: usize, const OUT_BUF: usize>
                 } else if data.len() < out_len {
                     Err(UsbError::BufferOverflow)
                 } else {
-                    data[..out_len].copy_from_slice(&self.control_out_report_buffer);
+                    data[..out_len].copy_from_slice(self.control_out_report_buffer.as_ref());
                     self.control_out_report_buffer.clear();
                     Ok(out_len)
                 }
@@ -190,8 +378,15 @@ impl<'a, B: UsbBus, const IN_BUF: usize, const OUT_BUF: usize>
         }
     }
 }
-impl<'a, B: UsbBus, const IN_BUF: usize, const OUT_BUF: usize> RawInterfaceT<'a, B>
-    for RawInterface<'a, B, IN_BUF, OUT_BUF>
+impl<'a, B: UsbBus, I, O, R> RawInterfaceT<'a, B> for RawInterface<'a, B, I, O, R>
+where
+    B: UsbBus,
+    I: InSize,
+    I::Buffer: ReportBuffer,
+    O: OutSize,
+    O::Buffer: ReportBuffer,
+    R: ReportCount,
+    R::IdleStorage: IdleStorage,
 {
     fn hid_descriptor_body(&self) -> [u8; 7] {
         match (HidDescriptorBody {
@@ -245,8 +440,8 @@ impl<'a, B: UsbBus, const IN_BUF: usize, const OUT_BUF: usize> RawInterfaceT<'a,
         self.protocol = HidProtocol::Report;
         self.global_idle = self.config.idle_default;
         self.clear_report_idle();
-        self.control_in_report_buffer.clear();
-        self.control_out_report_buffer.clear();
+        self.control_in_report_buffer = I::Buffer::default();
+        self.control_out_report_buffer = O::Buffer::default();
     }
     fn set_report(&mut self, data: &[u8]) -> usb_device::Result<()> {
         if self.control_out_report_buffer.is_empty() {
@@ -283,7 +478,7 @@ impl<'a, B: UsbBus, const IN_BUF: usize, const OUT_BUF: usize> RawInterfaceT<'a,
             Err(UsbError::BufferOverflow)
         } else {
             data[..self.control_in_report_buffer.len()]
-                .copy_from_slice(&self.control_in_report_buffer);
+                .copy_from_slice(self.control_in_report_buffer.as_ref());
             Ok(self.control_in_report_buffer.len())
         }
     }
@@ -333,6 +528,91 @@ impl<'a, B: UsbBus, const IN_BUF: usize, const OUT_BUF: usize> RawInterfaceT<'a,
     }
 }
 
+// impl<'a, B, I, O, R> RawInterface<'a, B, I, O, R>
+// where
+//     B: UsbBus,
+//     I: InSize,
+//     I::Buffer: ReportBuffer,
+//     O: OutSize,
+//     O::Buffer: ReportBuffer,
+//     R: ReportCount,
+//     R::IdleStorage: IdleStorage,
+// {
+//     fn clear_report_idle(&mut self) {
+//         self.report_idle = R::IdleStorage::default();
+//     }
+//     fn get_report_idle(&self, report_id: u8) -> Option<u8> {
+//         if u32::from(report_id) < ReportIdleArray::CAPACITY {
+//             self.report_idle.get(usize::from(report_id))
+//         } else {
+//             None
+//         }
+//     }
+//     pub fn protocol(&self) -> HidProtocol {
+//         self.protocol
+//     }
+//     pub fn global_idle(&self) -> MillisDurationU32 {
+//         (u32::from(self.global_idle) * 4).millis()
+//     }
+//     pub fn report_idle(&self, report_id: u8) -> Option<MillisDurationU32> {
+//         if report_id == 0 {
+//             None
+//         } else {
+//             self.get_report_idle(report_id)
+//                 .map(|i| (u32::from(i) * 4).millis())
+//         }
+//     }
+//     pub fn write_report(&self, data: &[u8]) -> usb_device::Result<usize> {
+//         //Try to write report to the report buffer for the config endpoint
+//         let mut in_buffer = self.control_in_report_buffer.borrow_mut();
+//         let control_result = if in_buffer.is_empty() {
+//             match in_buffer.extend_from_slice(data) {
+//                 Ok(_) => Ok(data.len()),
+//                 Err(_) => Err(UsbError::BufferOverflow),
+//             }
+//         } else {
+//             Err(UsbError::WouldBlock)
+//         };
+
+//         //Also try to write report to the in endpoint
+//         let endpoint_result = self.in_endpoint.write(data);
+
+//         match (control_result, endpoint_result) {
+//             //OK if either succeeded
+//             (_, Ok(n)) | (Ok(n), _) => Ok(n),
+//             //non-WouldBlock errors take preference
+//             (Err(e), Err(UsbError::WouldBlock)) | (_, Err(e)) => Err(e),
+//         }
+//     }
+//     pub fn read_report(&self, data: &mut [u8]) -> usb_device::Result<usize> {
+//         //If there is an out endpoint, try to read from it first
+//         let ep_result = if let Some(ep) = &self.out_endpoint {
+//             ep.read(data)
+//         } else {
+//             Err(UsbError::WouldBlock)
+//         };
+
+//         match ep_result {
+//             Err(UsbError::WouldBlock) => {
+//                 //If there wasn't data available from the in endpoint
+//                 //try the config endpoint report buffer
+//                 let mut out_buffer = self.control_out_report_buffer.borrow_mut();
+//                 if out_buffer.is_empty() {
+//                     Err(UsbError::WouldBlock)
+//                 } else if data.len() < out_buffer.len() {
+//                     Err(UsbError::BufferOverflow)
+//                 } else {
+//                     let n = out_buffer.len();
+//                     data[..n].copy_from_slice(out_buffer.as_ref());
+//                     out_buffer.clear();
+//                     Ok(n)
+//                 }
+//             }
+//             _ => ep_result,
+//         }
+//     }
+// }
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EndpointConfig {
     pub poll_interval: u8,
@@ -341,14 +621,31 @@ pub struct EndpointConfig {
 
 #[must_use = "this `UsbHidInterfaceBuilder` must be assigned or consumed by `::build_interface()`"]
 #[derive(Copy, Clone, Debug)]
-pub struct RawInterfaceBuilder<'a, const IN_BUF: usize, const OUT_BUF: usize> {
-    config: RawInterfaceConfig<'a, IN_BUF, OUT_BUF>,
+pub struct RawInterfaceBuilder<'a, I, O, R>
+where
+    I: InSize,
+    I::Buffer: ReportBuffer,
+    O: OutSize,
+    O::Buffer: ReportBuffer,
+    R: ReportCount,
+    R::IdleStorage: IdleStorage,
+{
+    config: RawInterfaceConfig<'a, I, O, R>,
 }
 
-impl<'a, const IN_BUF: usize, const OUT_BUF: usize> RawInterfaceBuilder<'a, IN_BUF, OUT_BUF> {
+impl<'a, I, O, R> RawInterfaceBuilder<'a, I, O, R>
+where
+    I: InSize,
+    I::Buffer: ReportBuffer,
+    O: OutSize,
+    O::Buffer: ReportBuffer,
+    R: ReportCount,
+    R::IdleStorage: IdleStorage,
+{
     pub fn new(report_descriptor: &'a [u8]) -> BuilderResult<Self> {
         Ok(RawInterfaceBuilder {
             config: RawInterfaceConfig {
+                marker: PhantomData::default(),
                 report_descriptor,
                 report_descriptor_length: u16::try_from(report_descriptor.len())
                     .map_err(|_| UsbHidBuilderError::SliceLengthOverflow)?,
@@ -423,7 +720,7 @@ impl<'a, const IN_BUF: usize, const OUT_BUF: usize> RawInterfaceBuilder<'a, IN_B
     }
 
     #[must_use]
-    pub fn build(self) -> RawInterfaceConfig<'a, IN_BUF, OUT_BUF> {
+    pub fn build(self) -> RawInterfaceConfig<'a, I, O, R> {
         self.config
     }
 }

@@ -8,6 +8,7 @@ use usb_device::UsbError;
 
 use crate::hid_class::prelude::*;
 use crate::interface::managed::{ManagedInterface, ManagedInterfaceConfig};
+use crate::interface::raw::{InBytes32, InBytes8, OutBytes8, SingleReport};
 use crate::interface::{InterfaceClass, UsbAllocatable};
 use crate::page::Keyboard;
 use crate::UsbHidError;
@@ -16,7 +17,7 @@ use crate::UsbHidError;
 ///
 /// **Note:** This is a managed interfaces that support HID idle, [`BootKeyboardInterface::tick()`] must be called every 1ms.
 pub struct BootKeyboardInterface<'a, B: UsbBus> {
-    inner: ManagedInterface<'a, B, BootKeyboardReport, 8, 8>,
+    inner: ManagedInterface<'a, B, BootKeyboardReport, InBytes8, OutBytes8, SingleReport>,
 }
 
 impl<'a, B> BootKeyboardInterface<'a, B>
@@ -53,7 +54,7 @@ impl<'a, B> InterfaceClass<'a, B> for BootKeyboardInterface<'a, B>
 where
     B: UsbBus,
 {
-    type I = RawInterface<'a, B, 8, 8>;
+    type I = RawInterface<'a, B, InBytes8, OutBytes8, SingleReport>;
 
     fn interface(&mut self) -> &mut Self::I {
         self.inner.interface()
@@ -65,7 +66,7 @@ where
 }
 
 pub struct BootKeyboardConfig<'a> {
-    interface: ManagedInterfaceConfig<'a, BootKeyboardReport, 8, 8>,
+    interface: ManagedInterfaceConfig<'a, BootKeyboardReport, InBytes8, OutBytes8, SingleReport>,
 }
 
 impl<'a> Default for BootKeyboardConfig<'a> {
@@ -89,7 +90,15 @@ impl<'a> Default for BootKeyboardConfig<'a> {
 
 impl<'a> BootKeyboardConfig<'a> {
     #[must_use]
-    pub fn new(interface: ManagedInterfaceConfig<'a, BootKeyboardReport, 8, 8>) -> Self {
+    pub fn new(
+        interface: ManagedInterfaceConfig<
+            'a,
+            BootKeyboardReport,
+            InBytes8,
+            OutBytes8,
+            SingleReport,
+        >,
+    ) -> Self {
         Self { interface }
     }
 }
@@ -399,7 +408,7 @@ impl NKROBootKeyboardReport {
 ///
 /// **Note:** This is a managed interfaces that support HID idle, [`NKROBootKeyboardInterface::tick()`] must be called every 1ms/ at 1kHz.
 pub struct NKROBootKeyboardInterface<'a, B: UsbBus> {
-    inner: ManagedInterface<'a, B, NKROBootKeyboardReport, 32, 8>,
+    inner: ManagedInterface<'a, B, NKROBootKeyboardReport, InBytes32, OutBytes8, SingleReport>,
 }
 
 impl<'a, B> NKROBootKeyboardInterface<'a, B>
@@ -433,7 +442,8 @@ where
 }
 
 pub struct NKROBootKeyboardConfig<'a> {
-    interface: ManagedInterfaceConfig<'a, NKROBootKeyboardReport, 32, 8>,
+    interface:
+        ManagedInterfaceConfig<'a, NKROBootKeyboardReport, InBytes32, OutBytes8, SingleReport>,
 }
 
 impl<'a> Default for NKROBootKeyboardConfig<'a> {
@@ -455,7 +465,15 @@ impl<'a> Default for NKROBootKeyboardConfig<'a> {
 
 impl<'a> NKROBootKeyboardConfig<'a> {
     #[must_use]
-    pub fn new(interface: ManagedInterfaceConfig<'a, NKROBootKeyboardReport, 32, 8>) -> Self {
+    pub fn new(
+        interface: ManagedInterfaceConfig<
+            'a,
+            NKROBootKeyboardReport,
+            InBytes32,
+            OutBytes8,
+            SingleReport,
+        >,
+    ) -> Self {
         Self { interface }
     }
 }
@@ -474,7 +492,7 @@ impl<'a, B> InterfaceClass<'a, B> for NKROBootKeyboardInterface<'a, B>
 where
     B: UsbBus,
 {
-    type I = RawInterface<'a, B, 32, 8>;
+    type I = RawInterface<'a, B, InBytes32, OutBytes8, SingleReport>;
 
     fn interface(&mut self) -> &mut Self::I {
         self.inner.interface()

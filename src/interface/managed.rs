@@ -12,6 +12,12 @@ use crate::interface::InterfaceClass;
 use crate::interface::UsbAllocatable;
 use crate::UsbHidError;
 
+use super::raw::IdleStorage;
+use super::raw::InSize;
+use super::raw::OutSize;
+use super::raw::ReportBuffer;
+use super::raw::ReportCount;
+
 pub struct IdleManager<R> {
     last_report: Option<R>,
     since_last_report: MillisDurationU32,
@@ -60,18 +66,33 @@ where
     }
 }
 
-pub struct ManagedInterface<'a, B: UsbBus, R, const IN_BUF: usize, const OUT_BUF: usize> {
-    inner: RawInterface<'a, B, IN_BUF, OUT_BUF>,
-    idle_manager: IdleManager<R>,
+pub struct ManagedInterface<'a, B: UsbBus, Report, I, O, R>
+where
+    B: UsbBus,
+    I: InSize,
+    I::Buffer: ReportBuffer,
+    O: OutSize,
+    O::Buffer: ReportBuffer,
+    R: ReportCount,
+    R::IdleStorage: IdleStorage,
+{
+    inner: RawInterface<'a, B, I, O, R>,
+    idle_manager: IdleManager<Report>,
 }
 
 #[allow(clippy::inline_always)]
-impl<'a, B: UsbBus, R, const IN_BUF: usize, const OUT_BUF: usize>
-    ManagedInterface<'a, B, R, IN_BUF, OUT_BUF>
+impl<'a, B: UsbBus, Report, I, O, R> ManagedInterface<'a, B, Report, I, O, R>
 where
-    R: Copy + Eq,
+    Report: Copy + Eq,
+    B: UsbBus,
+    I: InSize,
+    I::Buffer: ReportBuffer,
+    O: OutSize,
+    O::Buffer: ReportBuffer,
+    R: ReportCount,
+    R::IdleStorage: IdleStorage,
 {
-    fn new(interface: RawInterface<'a, B, IN_BUF, OUT_BUF>, _config: ()) -> Self {
+    fn new(interface: RawInterface<'a, B, I, O, R>, _config: ()) -> Self {
         Self {
             inner: interface,
             idle_manager: IdleManager::default(),
@@ -80,12 +101,18 @@ where
 }
 
 #[allow(clippy::inline_always)]
-impl<'a, B: UsbBus, R, const IN_BUF: usize, const OUT_BUF: usize, const LEN: usize>
-    ManagedInterface<'a, B, R, IN_BUF, OUT_BUF>
+impl<'a, B: UsbBus, Report, I, O, R, const LEN: usize> ManagedInterface<'a, B, Report, I, O, R>
 where
-    R: Copy + Eq + PackedStruct<ByteArray = [u8; LEN]>,
+    Report: Copy + Eq + PackedStruct<ByteArray = [u8; LEN]>,
+    B: UsbBus,
+    I: InSize,
+    I::Buffer: ReportBuffer,
+    O: OutSize,
+    O::Buffer: ReportBuffer,
+    R: ReportCount,
+    R::IdleStorage: IdleStorage,
 {
-    pub fn write_report(&mut self, report: &R) -> Result<(), UsbHidError> {
+    pub fn write_report(&mut self, report: &Report) -> Result<(), UsbHidError> {
         if self.idle_manager.is_duplicate(report) {
             Err(UsbHidError::Duplicate)
         } else {
@@ -131,12 +158,19 @@ where
     }
 }
 
-impl<'a, B: UsbBus, R, const IN_BUF: usize, const OUT_BUF: usize> InterfaceClass<'a, B>
-    for ManagedInterface<'a, B, R, IN_BUF, OUT_BUF>
+impl<'a, B: UsbBus, Report, I, O, R> InterfaceClass<'a, B>
+    for ManagedInterface<'a, B, Report, I, O, R>
 where
-    R: Copy + Eq,
+    Report: Copy + Eq,
+    B: UsbBus,
+    I: InSize,
+    I::Buffer: ReportBuffer,
+    O: OutSize,
+    O::Buffer: ReportBuffer,
+    R: ReportCount,
+    R::IdleStorage: IdleStorage,
 {
-    type I = RawInterface<'a, B, IN_BUF, OUT_BUF>;
+    type I = RawInterface<'a, B, I, O, R>;
 
     fn interface(&mut self) -> &mut Self::I {
         &mut self.inner
@@ -148,16 +182,30 @@ where
     }
 }
 
-pub struct ManagedInterfaceConfig<'a, R, const IN_BUF: usize, const OUT_BUF: usize> {
-    report: PhantomData<R>,
-    inner_config: RawInterfaceConfig<'a, IN_BUF, OUT_BUF>,
+pub struct ManagedInterfaceConfig<'a, Report, I, O, R>
+where
+    I: InSize,
+    I::Buffer: ReportBuffer,
+    O: OutSize,
+    O::Buffer: ReportBuffer,
+    R: ReportCount,
+    R::IdleStorage: IdleStorage,
+{
+    report: PhantomData<Report>,
+    inner_config: RawInterfaceConfig<'a, I, O, R>,
 }
 
-impl<'a, R, const IN_BUF: usize, const OUT_BUF: usize>
-    ManagedInterfaceConfig<'a, R, IN_BUF, OUT_BUF>
+impl<'a, Report, I, O, R> ManagedInterfaceConfig<'a, Report, I, O, R>
+where
+    I: InSize,
+    I::Buffer: ReportBuffer,
+    O: OutSize,
+    O::Buffer: ReportBuffer,
+    R: ReportCount,
+    R::IdleStorage: IdleStorage,
 {
     #[must_use]
-    pub fn new(inner_config: RawInterfaceConfig<'a, IN_BUF, OUT_BUF>) -> Self {
+    pub fn new(inner_config: RawInterfaceConfig<'a, I, O, R>) -> Self {
         Self {
             inner_config,
             report: PhantomData::default(),
@@ -165,13 +213,18 @@ impl<'a, R, const IN_BUF: usize, const OUT_BUF: usize>
     }
 }
 
-impl<'a, B, R, const IN_BUF: usize, const OUT_BUF: usize> UsbAllocatable<'a, B>
-    for ManagedInterfaceConfig<'a, R, IN_BUF, OUT_BUF>
+impl<'a, B, Report, I, O, R> UsbAllocatable<'a, B> for ManagedInterfaceConfig<'a, Report, I, O, R>
 where
     B: UsbBus + 'a,
-    R: Copy + Eq,
+    Report: Copy + Eq,
+    I: InSize,
+    I::Buffer: ReportBuffer,
+    O: OutSize,
+    O::Buffer: ReportBuffer,
+    R: ReportCount,
+    R::IdleStorage: IdleStorage,
 {
-    type Allocated = ManagedInterface<'a, B, R, IN_BUF, OUT_BUF>;
+    type Allocated = ManagedInterface<'a, B, Report, I, O, R>;
 
     fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
         ManagedInterface::new(self.inner_config.allocate(usb_alloc), ())

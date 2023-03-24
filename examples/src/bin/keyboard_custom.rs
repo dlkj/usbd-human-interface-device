@@ -20,6 +20,9 @@ use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_human_interface_device::device::keyboard::{BootKeyboardReport, KeyboardLedsReport};
 use usbd_human_interface_device::hid_class::prelude::*;
+use usbd_human_interface_device::interface::raw::InBytes8;
+use usbd_human_interface_device::interface::raw::OutBytes8;
+use usbd_human_interface_device::interface::raw::SingleReport;
 use usbd_human_interface_device::page::Keyboard;
 
 use rp_pico as bsp;
@@ -102,16 +105,18 @@ fn main() -> ! {
 
     let mut keyboard = UsbHidClassBuilder::new()
         .add_interface(
-            RawInterfaceBuilder::<8, 8>::new(LOGITECH_GAMING_KEYBOARD_REPORT_DESCRIPTOR)
-                .unwrap()
-                .description("Custom Keyboard")
-                .idle_default(500.millis())
-                .unwrap()
-                .in_endpoint(UsbPacketSize::Bytes8, 10.millis())
-                .unwrap()
-                .with_out_endpoint(UsbPacketSize::Bytes8, 100.millis())
-                .unwrap()
-                .build(),
+            RawInterfaceBuilder::<InBytes8, OutBytes8, SingleReport>::new(
+                LOGITECH_GAMING_KEYBOARD_REPORT_DESCRIPTOR,
+            )
+            .unwrap()
+            .description("Custom Keyboard")
+            .idle_default(500.millis())
+            .unwrap()
+            .in_endpoint(UsbPacketSize::Bytes8, 10.millis())
+            .unwrap()
+            .with_out_endpoint(UsbPacketSize::Bytes8, 100.millis())
+            .unwrap()
+            .build(),
         )
         .build(&usb_bus);
 

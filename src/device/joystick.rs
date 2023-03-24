@@ -6,7 +6,7 @@ use usb_device::bus::UsbBus;
 use usb_device::class_prelude::UsbBusAllocator;
 
 use crate::hid_class::prelude::*;
-use crate::interface::raw::{RawInterface, RawInterfaceConfig};
+use crate::interface::raw::{InBytes8, OutNone, RawInterface, RawInterfaceConfig, SingleReport};
 use crate::interface::{InterfaceClass, UsbAllocatable};
 use crate::UsbHidError;
 
@@ -48,7 +48,7 @@ pub struct JoystickReport {
 }
 
 pub struct JoystickInterface<'a, B: UsbBus> {
-    inner: RawInterface<'a, B, 0, 8>,
+    inner: RawInterface<'a, B, InBytes8, OutNone, SingleReport>,
 }
 
 impl<'a, B: UsbBus> JoystickInterface<'a, B> {
@@ -65,7 +65,7 @@ impl<'a, B: UsbBus> JoystickInterface<'a, B> {
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a, B> for JoystickInterface<'a, B> {
-    type I = RawInterface<'a, B, 0, 8>;
+    type I = RawInterface<'a, B, InBytes8, OutNone, SingleReport>;
 
     fn interface(&mut self) -> &mut Self::I {
         &mut self.inner
@@ -75,7 +75,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a, B> for JoystickInterface<'a, B> {
 }
 
 pub struct JoystickConfig<'a> {
-    interface: RawInterfaceConfig<'a, 0, 8>,
+    interface: RawInterfaceConfig<'a, InBytes8, OutNone, SingleReport>,
 }
 
 impl<'a> Default for JoystickConfig<'a> {
@@ -94,7 +94,7 @@ impl<'a> Default for JoystickConfig<'a> {
 
 impl<'a> JoystickConfig<'a> {
     #[must_use]
-    pub fn new(interface: RawInterfaceConfig<'a, 0, 8>) -> Self {
+    pub fn new(interface: RawInterfaceConfig<'a, InBytes8, OutNone, SingleReport>) -> Self {
         Self { interface }
     }
 }

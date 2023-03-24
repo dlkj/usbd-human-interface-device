@@ -7,7 +7,7 @@ use usb_device::class_prelude::*;
 use usb_device::UsbError;
 
 use crate::hid_class::prelude::*;
-use crate::interface::raw::{RawInterface, RawInterfaceConfig};
+use crate::interface::raw::{InBytes8, OutNone, RawInterface, RawInterfaceConfig, SingleReport};
 use crate::interface::{InterfaceClass, UsbAllocatable};
 use crate::page::Consumer;
 
@@ -92,7 +92,7 @@ pub struct FixedFunctionReport {
 }
 
 pub struct ConsumerControlInterface<'a, B: UsbBus> {
-    inner: RawInterface<'a, B, 0, 8>,
+    inner: RawInterface<'a, B, InBytes8, OutNone, SingleReport>,
 }
 
 impl<'a, B: UsbBus> ConsumerControlInterface<'a, B> {
@@ -106,7 +106,7 @@ impl<'a, B: UsbBus> ConsumerControlInterface<'a, B> {
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a, B> for ConsumerControlInterface<'a, B> {
-    type I = RawInterface<'a, B, 0, 8>;
+    type I = RawInterface<'a, B, InBytes8, OutNone, SingleReport>;
 
     fn interface(&mut self) -> &mut Self::I {
         &mut self.inner
@@ -116,11 +116,11 @@ impl<'a, B: UsbBus> InterfaceClass<'a, B> for ConsumerControlInterface<'a, B> {
 }
 
 pub struct ConsumerControlConfig<'a> {
-    interface: RawInterfaceConfig<'a, 0, 8>,
+    interface: RawInterfaceConfig<'a, InBytes8, OutNone, SingleReport>,
 }
 
 impl<'a> ConsumerControlConfig<'a> {
-    fn new(interface: RawInterfaceConfig<'a, 0, 8>) -> Self {
+    fn new(interface: RawInterfaceConfig<'a, InBytes8, OutNone, SingleReport>) -> Self {
         Self { interface }
     }
 }
@@ -151,7 +151,7 @@ impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for ConsumerControlConfig<'a> {
 }
 
 pub struct ConsumerControlFixedInterface<'a, B: UsbBus> {
-    inner: RawInterface<'a, B, 0, 8>,
+    inner: RawInterface<'a, B, InBytes8, OutNone, SingleReport>,
 }
 
 impl<'a, B: UsbBus> ConsumerControlFixedInterface<'a, B> {
@@ -165,7 +165,7 @@ impl<'a, B: UsbBus> ConsumerControlFixedInterface<'a, B> {
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a, B> for ConsumerControlFixedInterface<'a, B> {
-    type I = RawInterface<'a, B, 0, 8>;
+    type I = RawInterface<'a, B, InBytes8, OutNone, SingleReport>;
 
     fn interface(&mut self) -> &mut Self::I {
         &mut self.inner
@@ -175,10 +175,10 @@ impl<'a, B: UsbBus> InterfaceClass<'a, B> for ConsumerControlFixedInterface<'a, 
 }
 
 pub struct ConsumerControlFixedConfig<'a> {
-    interface: RawInterfaceConfig<'a, 0, 8>,
+    interface: RawInterfaceConfig<'a, InBytes8, OutNone, SingleReport>,
 }
 impl<'a> ConsumerControlFixedConfig<'a> {
-    fn new(interface: RawInterfaceConfig<'a, 0, 8>) -> Self {
+    fn new(interface: RawInterfaceConfig<'a, InBytes8, OutNone, SingleReport>) -> Self {
         Self { interface }
     }
 }
