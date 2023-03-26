@@ -2,7 +2,6 @@
 
 use delegate::delegate;
 use fugit::ExtU32;
-use log::error;
 use packed_struct::prelude::*;
 #[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
@@ -100,7 +99,7 @@ pub struct ConsumerControlInterface<'a, B: UsbBus> {
 impl<'a, B: UsbBus> ConsumerControlInterface<'a, B> {
     pub fn write_report(&self, report: &MultipleConsumerReport) -> usb_device::Result<usize> {
         let data = report.pack().map_err(|e| {
-            error!("Error packing MultipleConsumerReport: {:?}", e);
+            crate::error!("Error packing MultipleConsumerReport: {:?}", e);
             UsbError::ParseError
         })?;
         self.inner.write_report(&data)
@@ -155,7 +154,7 @@ pub struct ConsumerControlFixedInterface<'a, B: UsbBus> {
 impl<'a, B: UsbBus> ConsumerControlFixedInterface<'a, B> {
     pub fn write_report(&self, report: &FixedFunctionReport) -> usb_device::Result<usize> {
         let data = report.pack().map_err(|e| {
-            error!("Error packing MultipleConsumerReport: {:?}", e);
+            crate::error!("Error packing MultipleConsumerReport: {:?}", e);
             UsbError::ParseError
         })?;
         self.inner.write_report(&data)

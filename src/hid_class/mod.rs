@@ -7,7 +7,6 @@ use core::marker::PhantomData;
 use descriptor::{DescriptorType, HidProtocol};
 use frunk::hlist::{HList, Selector};
 use frunk::{HCons, HNil};
-use log::{error, info, trace, warn};
 use num_enum::IntoPrimitive;
 use packed_struct::prelude::*;
 #[allow(clippy::wildcard_imports)]
@@ -130,9 +129,9 @@ impl<B: UsbBus, I> UsbHidClass<B, I> {
         match DescriptorType::from_primitive((request.value >> 8) as u8) {
             Some(DescriptorType::Report) => {
                 match transfer.accept_with(interface.report_descriptor()) {
-                    Err(e) => error!("Failed to send report descriptor - {:?}", e),
+                    Err(e) => crate::error!("Failed to send report descriptor - {:?}", e),
                     Ok(_) => {
-                        trace!("Sent report descriptor");
+                        crate::trace!("Sent report descriptor");
                     }
                 }
             }
@@ -144,17 +143,19 @@ impl<B: UsbBus, I> UsbHidClass<B, I> {
                 (buffer[2..]).copy_from_slice(&interface.hid_descriptor_body());
                 match transfer.accept_with(&buffer) {
                     Err(e) => {
-                        error!("Failed to send Hid descriptor - {:?}", e);
+                        crate::error!("Failed to send Hid descriptor - {:?}", e);
                     }
                     Ok(_) => {
-                        trace!("Sent hid descriptor");
+                        crate::trace!("Sent hid descriptor");
                     }
                 }
             }
             _ => {
-                warn!(
+                crate::warn!(
                     "Unsupported descriptor type, request type:{:X?}, request:{:X}, value:{:X}",
-                    request.request_type, request.request, request.value
+                    request.request_type,
+                    request.request,
+                    request.value
                 );
             }
         }
@@ -168,7 +169,7 @@ where
 {
     fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
         self.interfaces.write_descriptors(writer)?;
-        info!("wrote class config descriptor");
+        crate::info!("wrote class config descriptor");
         Ok(())
     }
 
@@ -177,7 +178,7 @@ where
     }
 
     fn reset(&mut self) {
-        info!("Reset");
+        crate::info!("Reset");
         self.interfaces.reset();
     }
 
@@ -201,7 +202,7 @@ where
 
         let interface = interface.unwrap();
 
-        trace!(
+        crate::trace!(
             "ctrl_out: request type: {:?}, request: {:X}, value: {:X}",
             request.request_type,
             request.request,
@@ -215,7 +216,7 @@ where
             }
             Some(HidRequest::SetIdle) => {
                 if request.length != 0 {
-                    warn!(
+                    crate::warn!(
                         "Expected SetIdle to have length 0, received {:X}",
                         request.length
                     );
@@ -226,7 +227,7 @@ where
             }
             Some(HidRequest::SetProtocol) => {
                 if request.length != 0 {
-                    warn!(
+                    crate::warn!(
                         "Expected SetProtocol to have length 0, received {:X}",
                         request.length
                     );
@@ -235,16 +236,18 @@ where
                     interface.set_protocol(protocol);
                     transfer.accept().ok();
                 } else {
-                    error!(
+                    crate::error!(
                         "Unable to set protocol, unsupported value:{:X}",
                         request.value
                     );
                 }
             }
             _ => {
-                warn!(
+                crate::warn!(
                     "Unsupported control_out request type: {:?}, request: {:X}, value: {:X}",
-                    request.request_type, request.request, request.value
+                    request.request_type,
+                    request.request,
+                    request.value
                 );
             }
         }
@@ -264,7 +267,7 @@ where
         }
         let interface_id = interface_id.unwrap();
 
-        trace!(
+        crate::trace!(
             "ctrl_in: request type: {:?}, request: {:X}, value: {:X}",
             request.request_type,
             request.request,
@@ -281,7 +284,7 @@ where
                 let interface = interface.unwrap();
 
                 if request.request == Request::GET_DESCRIPTOR {
-                    info!("Get descriptor");
+                    crate::info!("Get descriptor");
                     Self::get_descriptor(transfer, interface);
                 }
             }
@@ -299,23 +302,23 @@ where
                         let mut data = [0_u8; 64];
                         if let Ok(n) = interface.get_report(&mut data) {
                             if n != transfer.request().length as usize {
-                                warn!(
+                                crate::warn!(
                                     "GetReport expected {:X} bytes, got {:X} bytes",
                                     transfer.request().length,
                                     data.len()
                                 );
                             }
                             if let Err(e) = transfer.accept_with(&data[..n]) {
-                                error!("Failed to send report - {:?}", e);
+                                crate::error!("Failed to send report - {:?}", e);
                             } else {
-                                trace!("Sent report, {:X} bytes", n);
+                                crate::trace!("Sent report, {:X} bytes", n);
                                 interface.get_report_ack().unwrap();
                             }
                         }
                     }
                     Some(HidRequest::GetIdle) => {
                         if request.length != 1 {
-                            warn!(
+                            crate::warn!(
                                 "Expected GetIdle to have length 1, received {:X}",
                                 request.length
                             );
@@ -324,14 +327,14 @@ where
                         let report_id = (request.value & 0xFF) as u8;
                         let idle = interface.get_idle(report_id);
                         if let Err(e) = transfer.accept_with(&[idle]) {
-                            error!("Failed to send idle data - {:?}", e);
+                            crate::error!("Failed to send idle data - {:?}", e);
                         } else {
-                            info!("Get Idle for ID{:X}: {:X}", report_id, idle);
+                            crate::info!("Get Idle for ID{:X}: {:X}", report_id, idle);
                         }
                     }
                     Some(HidRequest::GetProtocol) => {
                         if request.length != 1 {
-                            warn!(
+                            crate::warn!(
                                 "Expected GetProtocol to have length 1, received {:X}",
                                 request.length
                             );
@@ -339,15 +342,17 @@ where
 
                         let protocol = interface.get_protocol();
                         if let Err(e) = transfer.accept_with(&[protocol as u8]) {
-                            error!("Failed to send protocol data - {:?}", e);
+                            crate::error!("Failed to send protocol data - {:?}", e);
                         } else {
-                            info!("Get protocol: {:?}", protocol);
+                            crate::info!("Get protocol: {:?}", protocol);
                         }
                     }
                     _ => {
-                        warn!(
+                        crate::warn!(
                             "Unsupported control_in request type: {:?}, request: {:X}, value: {:X}",
-                            request.request_type, request.request, request.value
+                            request.request_type,
+                            request.request,
+                            request.value
                         );
                     }
                 }

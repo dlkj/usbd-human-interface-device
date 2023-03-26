@@ -137,10 +137,11 @@
 
 //Allow the use of std in tests
 #[cfg(test)]
-#[macro_use]
 extern crate std;
 
 use usb_device::UsbError;
+
+pub(crate) mod fmt;
 
 pub mod device;
 pub mod hid_class;

@@ -3,7 +3,6 @@ use core::marker::PhantomData;
 
 use delegate::delegate;
 use fugit::{ExtU32, MillisDurationU32};
-use log::error;
 use packed_struct::PackedStruct;
 use usb_device::bus::UsbBus;
 #[allow(clippy::wildcard_imports)]
@@ -92,7 +91,7 @@ where
             Err(UsbHidError::Duplicate)
         } else {
             let data = report.pack().map_err(|e| {
-                error!("Error packing report: {:?}", e);
+                crate::error!("Error packing report: {:?}", e);
                 UsbHidError::SerializationError
             })?;
 
@@ -112,7 +111,7 @@ where
             Ok(())
         } else if let Some(r) = idle_manager.last_report() {
             let data = r.pack().map_err(|e| {
-                error!("Error packing report: {:?}", e);
+                crate::error!("Error packing report: {:?}", e);
                 UsbHidError::SerializationError
             })?;
             match self.inner.write_report(&data) {

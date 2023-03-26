@@ -3,7 +3,6 @@ use crate::hid_class::descriptor::HidProtocol;
 use core::default::Default;
 use delegate::delegate;
 use fugit::ExtU32;
-use log::error;
 use packed_struct::prelude::*;
 use usb_device::bus::{InterfaceNumber, StringIndex, UsbBus};
 use usb_device::class_prelude::DescriptorWriter;
@@ -57,7 +56,7 @@ pub struct JoystickInterface<'a, B: UsbBus> {
 impl<'a, B: UsbBus> JoystickInterface<'a, B> {
     pub fn write_report(&self, report: &JoystickReport) -> Result<(), UsbHidError> {
         let data = report.pack().map_err(|e| {
-            error!("Error packing JoystickReport: {:?}", e);
+            crate::error!("Error packing JoystickReport: {:?}", e);
             UsbHidError::SerializationError
         })?;
         self.inner
