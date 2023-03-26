@@ -6,6 +6,8 @@
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::missing_panics_doc)]
 #![allow(clippy::struct_excessive_bools)]
+#![warn(clippy::unwrap_used)]
+#![warn(clippy::expect_used)]
 
 //! ```rust, no_run
 //! # use core::option::Option;
@@ -135,13 +137,13 @@
 
 #![doc = include_str!("../README.md")]
 
+pub(crate) mod fmt;
+
 //Allow the use of std in tests
 #[cfg(test)]
 extern crate std;
 
 use usb_device::UsbError;
-
-pub(crate) mod fmt;
 
 pub mod device;
 pub mod hid_class;

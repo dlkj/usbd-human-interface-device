@@ -66,15 +66,9 @@ pub trait InterfaceClass<'a> {
     fn set_protocol(&mut self, protocol: HidProtocol);
     fn get_protocol(&self) -> HidProtocol;
     fn hid_descriptor_body(&self) -> [u8; 7] {
-        let descriptor_len = {
-            // Doing this allows the llvm dead code elimination to correctly not include fmt in the resulting binary
-            match u16::try_from(self.report_descriptor().len()) {
-                Ok(t) => t,
-                Err(_) => panic!("Report descriptor too long, must be < u16::MAX"),
-            }
-        };
+        let descriptor_len = u16::try_from(self.report_descriptor().len())
+            .expect("Report descriptor too long, must be < u16::MAX");
 
-        // let descriptor_len = crate::unwrap!(u16::try_from(self.report_descriptor().len()));
         HidDescriptorBody {
             bcd_hid: SPEC_VERSION_1_11,
             country_code: COUNTRY_CODE_NOT_SUPPORTED,

@@ -98,8 +98,8 @@ pub struct ConsumerControlInterface<'a, B: UsbBus> {
 
 impl<'a, B: UsbBus> ConsumerControlInterface<'a, B> {
     pub fn write_report(&self, report: &MultipleConsumerReport) -> usb_device::Result<usize> {
-        let data = report.pack().map_err(|e| {
-            crate::error!("Error packing MultipleConsumerReport: {:?}", e);
+        let data = report.pack().map_err(|_| {
+            error!("Error packing MultipleConsumerReport");
             UsbError::ParseError
         })?;
         self.inner.write_report(&data)
@@ -108,12 +108,11 @@ impl<'a, B: UsbBus> ConsumerControlInterface<'a, B> {
     #[must_use]
     pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
         WrappedInterfaceConfig::new(
-            RawInterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
+            unwrap!(RawInterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
                 .description("Consumer Control")
-                .in_endpoint(UsbPacketSize::Bytes8, 50.millis())
-                .unwrap()
-                .without_out_endpoint()
-                .build(),
+                .in_endpoint(UsbPacketSize::Bytes8, 50.millis()))
+            .without_out_endpoint()
+            .build(),
             (),
         )
     }
@@ -153,8 +152,8 @@ pub struct ConsumerControlFixedInterface<'a, B: UsbBus> {
 
 impl<'a, B: UsbBus> ConsumerControlFixedInterface<'a, B> {
     pub fn write_report(&self, report: &FixedFunctionReport) -> usb_device::Result<usize> {
-        let data = report.pack().map_err(|e| {
-            crate::error!("Error packing MultipleConsumerReport: {:?}", e);
+        let data = report.pack().map_err(|_| {
+            error!("Error packing MultipleConsumerReport");
             UsbError::ParseError
         })?;
         self.inner.write_report(&data)
@@ -163,12 +162,11 @@ impl<'a, B: UsbBus> ConsumerControlFixedInterface<'a, B> {
     #[must_use]
     pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
         WrappedInterfaceConfig::new(
-            RawInterfaceBuilder::new(FIXED_FUNCTION_REPORT_DESCRIPTOR)
+            unwrap!(RawInterfaceBuilder::new(FIXED_FUNCTION_REPORT_DESCRIPTOR)
                 .description("Consumer Control")
-                .in_endpoint(UsbPacketSize::Bytes8, 50.millis())
-                .unwrap()
-                .without_out_endpoint()
-                .build(),
+                .in_endpoint(UsbPacketSize::Bytes8, 50.millis()))
+            .without_out_endpoint()
+            .build(),
             (),
         )
     }

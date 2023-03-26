@@ -41,6 +41,7 @@ pub enum UsbPacketSize {
     Bytes64 = 64,
 }
 
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UsbHidBuilderError {
     ValueOverflow,
@@ -129,9 +130,9 @@ impl<B: UsbBus, I> UsbHidClass<B, I> {
         match DescriptorType::from_primitive((request.value >> 8) as u8) {
             Some(DescriptorType::Report) => {
                 match transfer.accept_with(interface.report_descriptor()) {
-                    Err(e) => crate::error!("Failed to send report descriptor - {:?}", e),
+                    Err(e) => error!("Failed to send report descriptor - {:?}", e),
                     Ok(_) => {
-                        crate::trace!("Sent report descriptor");
+                        trace!("Sent report descriptor");
                     }
                 }
             }
@@ -143,19 +144,17 @@ impl<B: UsbBus, I> UsbHidClass<B, I> {
                 (buffer[2..]).copy_from_slice(&interface.hid_descriptor_body());
                 match transfer.accept_with(&buffer) {
                     Err(e) => {
-                        crate::error!("Failed to send Hid descriptor - {:?}", e);
+                        error!("Failed to send Hid descriptor - {:?}", e);
                     }
                     Ok(_) => {
-                        crate::trace!("Sent hid descriptor");
+                        trace!("Sent hid descriptor");
                     }
                 }
             }
             _ => {
-                crate::warn!(
-                    "Unsupported descriptor type, request type:{:X?}, request:{:X}, value:{:X}",
-                    request.request_type,
-                    request.request,
-                    request.value
+                warn!(
+                    "Unsupported descriptor type, request type:{:?}, request:{}, value:{}",
+                    request.request_type, request.request, request.value
                 );
             }
         }
@@ -169,7 +168,7 @@ where
 {
     fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
         self.interfaces.write_descriptors(writer)?;
-        crate::info!("wrote class config descriptor");
+        info!("wrote class config descriptor");
         Ok(())
     }
 
@@ -178,7 +177,7 @@ where
     }
 
     fn reset(&mut self) {
-        crate::info!("Reset");
+        info!("Reset");
         self.interfaces.reset();
     }
 
@@ -202,8 +201,8 @@ where
 
         let interface = interface.unwrap();
 
-        crate::trace!(
-            "ctrl_out: request type: {:?}, request: {:X}, value: {:X}",
+        trace!(
+            "ctrl_out: request type: {:?}, request: {}, value: {}",
             request.request_type,
             request.request,
             request.value
@@ -216,8 +215,8 @@ where
             }
             Some(HidRequest::SetIdle) => {
                 if request.length != 0 {
-                    crate::warn!(
-                        "Expected SetIdle to have length 0, received {:X}",
+                    warn!(
+                        "Expected SetIdle to have length 0, received {}",
                         request.length
                     );
                 }
@@ -227,8 +226,8 @@ where
             }
             Some(HidRequest::SetProtocol) => {
                 if request.length != 0 {
-                    crate::warn!(
-                        "Expected SetProtocol to have length 0, received {:X}",
+                    warn!(
+                        "Expected SetProtocol to have length 0, received {}",
                         request.length
                     );
                 }
@@ -236,18 +235,16 @@ where
                     interface.set_protocol(protocol);
                     transfer.accept().ok();
                 } else {
-                    crate::error!(
-                        "Unable to set protocol, unsupported value:{:X}",
+                    error!(
+                        "Unable to set protocol, unsupported value:{}",
                         request.value
                     );
                 }
             }
             _ => {
-                crate::warn!(
-                    "Unsupported control_out request type: {:?}, request: {:X}, value: {:X}",
-                    request.request_type,
-                    request.request,
-                    request.value
+                warn!(
+                    "Unsupported control_out request type: {:?}, request: {}, value: {}",
+                    request.request_type, request.request, request.value
                 );
             }
         }
@@ -267,8 +264,8 @@ where
         }
         let interface_id = interface_id.unwrap();
 
-        crate::trace!(
-            "ctrl_in: request type: {:?}, request: {:X}, value: {:X}",
+        trace!(
+            "ctrl_in: request type: {:?}, request: {}, value: {}",
             request.request_type,
             request.request,
             request.value
@@ -284,7 +281,7 @@ where
                 let interface = interface.unwrap();
 
                 if request.request == Request::GET_DESCRIPTOR {
-                    crate::info!("Get descriptor");
+                    info!("Get descriptor");
                     Self::get_descriptor(transfer, interface);
                 }
             }
@@ -302,24 +299,24 @@ where
                         let mut data = [0_u8; 64];
                         if let Ok(n) = interface.get_report(&mut data) {
                             if n != transfer.request().length as usize {
-                                crate::warn!(
-                                    "GetReport expected {:X} bytes, got {:X} bytes",
+                                warn!(
+                                    "GetReport expected {} bytes, got {} bytes",
                                     transfer.request().length,
                                     data.len()
                                 );
                             }
                             if let Err(e) = transfer.accept_with(&data[..n]) {
-                                crate::error!("Failed to send report - {:?}", e);
+                                error!("Failed to send report - {:?}", e);
                             } else {
-                                crate::trace!("Sent report, {:X} bytes", n);
+                                trace!("Sent report, {} bytes", n);
                                 interface.get_report_ack().unwrap();
                             }
                         }
                     }
                     Some(HidRequest::GetIdle) => {
                         if request.length != 1 {
-                            crate::warn!(
-                                "Expected GetIdle to have length 1, received {:X}",
+                            warn!(
+                                "Expected GetIdle to have length 1, received {}",
                                 request.length
                             );
                         }
@@ -327,32 +324,30 @@ where
                         let report_id = (request.value & 0xFF) as u8;
                         let idle = interface.get_idle(report_id);
                         if let Err(e) = transfer.accept_with(&[idle]) {
-                            crate::error!("Failed to send idle data - {:?}", e);
+                            error!("Failed to send idle data - {:?}", e);
                         } else {
-                            crate::info!("Get Idle for ID{:X}: {:X}", report_id, idle);
+                            info!("Get Idle for ID{}: {}", report_id, idle);
                         }
                     }
                     Some(HidRequest::GetProtocol) => {
                         if request.length != 1 {
-                            crate::warn!(
-                                "Expected GetProtocol to have length 1, received {:X}",
+                            warn!(
+                                "Expected GetProtocol to have length 1, received {}",
                                 request.length
                             );
                         }
 
                         let protocol = interface.get_protocol();
                         if let Err(e) = transfer.accept_with(&[protocol as u8]) {
-                            crate::error!("Failed to send protocol data - {:?}", e);
+                            error!("Failed to send protocol data - {:?}", e);
                         } else {
-                            crate::info!("Get protocol: {:?}", protocol);
+                            info!("Get protocol: {:?}", protocol);
                         }
                     }
                     _ => {
-                        crate::warn!(
-                            "Unsupported control_in request type: {:?}, request: {:X}, value: {:X}",
-                            request.request_type,
-                            request.request,
-                            request.value
+                        warn!(
+                            "Unsupported control_in request type: {:?}, request: {}, value: {}",
+                            request.request_type, request.request, request.value
                         );
                     }
                 }

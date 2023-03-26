@@ -90,8 +90,8 @@ where
         if self.idle_manager.borrow().is_duplicate(report) {
             Err(UsbHidError::Duplicate)
         } else {
-            let data = report.pack().map_err(|e| {
-                crate::error!("Error packing report: {:?}", e);
+            let data = report.pack().map_err(|_| {
+                error!("Error packing report");
                 UsbHidError::SerializationError
             })?;
 
@@ -110,8 +110,8 @@ where
         if !(idle_manager.tick()) {
             Ok(())
         } else if let Some(r) = idle_manager.last_report() {
-            let data = r.pack().map_err(|e| {
-                crate::error!("Error packing report: {:?}", e);
+            let data = r.pack().map_err(|_| {
+                error!("Error packing report");
                 UsbHidError::SerializationError
             })?;
             match self.inner.write_report(&data) {

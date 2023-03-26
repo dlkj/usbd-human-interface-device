@@ -55,8 +55,8 @@ pub struct JoystickInterface<'a, B: UsbBus> {
 
 impl<'a, B: UsbBus> JoystickInterface<'a, B> {
     pub fn write_report(&self, report: &JoystickReport) -> Result<(), UsbHidError> {
-        let data = report.pack().map_err(|e| {
-            crate::error!("Error packing JoystickReport: {:?}", e);
+        let data = report.pack().map_err(|_| {
+            error!("Error packing JoystickReport");
             UsbHidError::SerializationError
         })?;
         self.inner
@@ -68,13 +68,12 @@ impl<'a, B: UsbBus> JoystickInterface<'a, B> {
     #[must_use]
     pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
         WrappedInterfaceConfig::new(
-            RawInterfaceBuilder::new(JOYSTICK_DESCRIPTOR)
+            unwrap!(RawInterfaceBuilder::new(JOYSTICK_DESCRIPTOR)
                 .boot_device(InterfaceProtocol::None)
                 .description("Joystick")
-                .in_endpoint(UsbPacketSize::Bytes8, 10.millis())
-                .unwrap()
-                .without_out_endpoint()
-                .build(),
+                .in_endpoint(UsbPacketSize::Bytes8, 10.millis()))
+            .without_out_endpoint()
+            .build(),
             (),
         )
     }

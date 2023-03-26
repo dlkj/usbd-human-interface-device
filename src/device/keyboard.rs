@@ -57,18 +57,17 @@ where
     ) -> WrappedInterfaceConfig<Self, ManagedInterfaceConfig<'a, BootKeyboardReport>> {
         WrappedInterfaceConfig::new(
             ManagedInterfaceConfig::new(
-                RawInterfaceBuilder::new(BOOT_KEYBOARD_REPORT_DESCRIPTOR)
-                    .boot_device(InterfaceProtocol::Keyboard)
-                    .description("Keyboard")
-                    .idle_default(500.millis())
-                    .unwrap()
-                    .in_endpoint(UsbPacketSize::Bytes8, 10.millis())
-                    .unwrap()
-                    //.without_out_endpoint()
-                    //Shouldn't require a dedicated out endpoint, but leds are flaky without it
-                    .with_out_endpoint(UsbPacketSize::Bytes8, 100.millis())
-                    .unwrap()
-                    .build(),
+                unwrap!(unwrap!(unwrap!(RawInterfaceBuilder::new(
+                    BOOT_KEYBOARD_REPORT_DESCRIPTOR
+                )
+                .boot_device(InterfaceProtocol::Keyboard)
+                .description("Keyboard")
+                .idle_default(500.millis()))
+                .in_endpoint(UsbPacketSize::Bytes8, 10.millis()))
+                //.without_out_endpoint()
+                //Shouldn't require a dedicated out endpoint, but leds are flaky without it
+                .with_out_endpoint(UsbPacketSize::Bytes8, 100.millis()))
+                .build(),
             ),
             (),
         )
@@ -443,16 +442,15 @@ where
     ) -> WrappedInterfaceConfig<Self, ManagedInterfaceConfig<'a, NKROBootKeyboardReport>> {
         WrappedInterfaceConfig::new(
             ManagedInterfaceConfig::new(
-                RawInterfaceBuilder::new(NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR)
-                    .description("NKRO Keyboard")
-                    .boot_device(InterfaceProtocol::Keyboard)
-                    .idle_default(500.millis())
-                    .unwrap()
-                    .in_endpoint(UsbPacketSize::Bytes32, 10.millis())
-                    .unwrap()
-                    .with_out_endpoint(UsbPacketSize::Bytes8, 100.millis())
-                    .unwrap()
-                    .build(),
+                unwrap!(unwrap!(unwrap!(RawInterfaceBuilder::new(
+                    NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR
+                )
+                .description("NKRO Keyboard")
+                .boot_device(InterfaceProtocol::Keyboard)
+                .idle_default(500.millis()))
+                .in_endpoint(UsbPacketSize::Bytes32, 10.millis()))
+                .with_out_endpoint(UsbPacketSize::Bytes8, 100.millis()))
+                .build(),
             ),
             (),
         )

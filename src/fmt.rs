@@ -1,9 +1,37 @@
+// Fetched from https://github.com/embassy-rs/embassy/blob/e3efda2249640e0b4881289aa609c96a26a7479a/embassy-hal-common/src/fmt.rs
+
+// Copyright (c) 2019-2022 Embassy project contributors
+
+// Permission is hereby granted, free of charge, to any
+// person obtaining a copy of this software and associated
+// documentation files (the "Software"), to deal in the
+// Software without restriction, including without
+// limitation the rights to use, copy, modify, merge,
+// publish, distribute, sublicense, and/or sell copies of
+// the Software, and to permit persons to whom the Software
+// is furnished to do so, subject to the following
+// conditions:
+
+// The above copyright notice and this permission notice
+// shall be included in all copies or substantial portions
+// of the Software.
+
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+// ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+// TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+// PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+// SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+// CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+// OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+// IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+// DEALINGS IN THE SOFTWARE.
+
+#![macro_use]
 #![allow(unused_macros)]
 
 #[cfg(all(feature = "defmt", feature = "log"))]
 compile_error!("You may not enable both `defmt` and `log` features.");
 
-#[macro_export]
 macro_rules! assert {
     ($($x:tt)*) => {
         {
@@ -15,7 +43,6 @@ macro_rules! assert {
     };
 }
 
-#[macro_export]
 macro_rules! assert_eq {
     ($($x:tt)*) => {
         {
@@ -27,7 +54,6 @@ macro_rules! assert_eq {
     };
 }
 
-#[macro_export]
 macro_rules! assert_ne {
     ($($x:tt)*) => {
         {
@@ -39,7 +65,6 @@ macro_rules! assert_ne {
     };
 }
 
-#[macro_export]
 macro_rules! debug_assert {
     ($($x:tt)*) => {
         {
@@ -51,7 +76,6 @@ macro_rules! debug_assert {
     };
 }
 
-#[macro_export]
 macro_rules! debug_assert_eq {
     ($($x:tt)*) => {
         {
@@ -63,7 +87,6 @@ macro_rules! debug_assert_eq {
     };
 }
 
-#[macro_export]
 macro_rules! debug_assert_ne {
     ($($x:tt)*) => {
         {
@@ -75,7 +98,6 @@ macro_rules! debug_assert_ne {
     };
 }
 
-#[macro_export]
 macro_rules! todo {
     ($($x:tt)*) => {
         {
@@ -87,7 +109,6 @@ macro_rules! todo {
     };
 }
 
-#[macro_export]
 macro_rules! unreachable {
     ($($x:tt)*) => {
         {
@@ -99,7 +120,6 @@ macro_rules! unreachable {
     };
 }
 
-#[macro_export]
 macro_rules! panic {
     ($($x:tt)*) => {
         {
@@ -111,7 +131,6 @@ macro_rules! panic {
     };
 }
 
-#[macro_export]
 macro_rules! trace {
     ($s:literal $(, $x:expr)* $(,)?) => {
         {
@@ -125,7 +144,6 @@ macro_rules! trace {
     };
 }
 
-#[macro_export]
 macro_rules! debug {
     ($s:literal $(, $x:expr)* $(,)?) => {
         {
@@ -139,7 +157,6 @@ macro_rules! debug {
     };
 }
 
-#[macro_export]
 macro_rules! info {
     ($s:literal $(, $x:expr)* $(,)?) => {
         {
@@ -153,7 +170,6 @@ macro_rules! info {
     };
 }
 
-#[macro_export]
 macro_rules! warn {
     ($s:literal $(, $x:expr)* $(,)?) => {
         {
@@ -167,7 +183,6 @@ macro_rules! warn {
     };
 }
 
-#[macro_export]
 macro_rules! error {
     ($s:literal $(, $x:expr)* $(,)?) => {
         {
@@ -182,7 +197,6 @@ macro_rules! error {
 }
 
 #[cfg(feature = "defmt")]
-#[macro_export]
 macro_rules! unwrap {
     ($($x:tt)*) => {
         ::defmt::unwrap!($($x)*)
@@ -190,7 +204,6 @@ macro_rules! unwrap {
 }
 
 #[cfg(not(feature = "defmt"))]
-#[macro_export]
 macro_rules! unwrap {
     ($arg:expr) => {
         match $crate::fmt::Try::into_result($arg) {

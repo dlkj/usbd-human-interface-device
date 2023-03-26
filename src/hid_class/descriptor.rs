@@ -37,6 +37,7 @@ impl From<InterfaceProtocol> for InterfaceSubClass {
     }
 }
 
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PrimitiveEnum, IntoPrimitive)]
 #[repr(u8)]
 pub enum HidProtocol {

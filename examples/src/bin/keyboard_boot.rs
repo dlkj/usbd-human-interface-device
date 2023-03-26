@@ -6,13 +6,12 @@ use core::convert::Infallible;
 use bsp::entry;
 use bsp::hal;
 use cortex_m::prelude::*;
-// use defmt::*;
-// use defmt_rtt as _;
+use defmt::*;
+use defmt_rtt as _;
 use embedded_hal::digital::v2::*;
 use fugit::ExtU32;
 use hal::pac;
-// use panic_probe as _;
-use panic_halt as _;
+use panic_probe as _;
 #[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
@@ -48,7 +47,7 @@ fn main() -> ! {
         &mut pac.RESETS,
     );
 
-    // info!("Starting");
+    info!("Starting");
 
     //USB
     let usb_bus = UsbBusAllocator::new(hal::usb::UsbBus::new(

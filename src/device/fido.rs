@@ -67,13 +67,11 @@ impl<'a, B: UsbBus> RawFidoInterface<'a, B> {
     #[must_use]
     pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
         WrappedInterfaceConfig::new(
-            RawInterfaceBuilder::new(FIDO_REPORT_DESCRIPTOR)
+            unwrap!(unwrap!(RawInterfaceBuilder::new(FIDO_REPORT_DESCRIPTOR)
                 .description("U2F Token")
-                .in_endpoint(UsbPacketSize::Bytes64, 5.millis())
-                .unwrap()
-                .with_out_endpoint(UsbPacketSize::Bytes64, 5.millis())
-                .unwrap()
-                .build(),
+                .in_endpoint(UsbPacketSize::Bytes64, 5.millis()))
+            .with_out_endpoint(UsbPacketSize::Bytes64, 5.millis()))
+            .build(),
             (),
         )
     }
