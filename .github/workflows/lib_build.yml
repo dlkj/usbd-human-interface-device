@@ -1,5 +1,3 @@
-# Based on https://github.com/actions-rs/meta/blob/master/recipes/quickstart.md
-
 on: [push, pull_request]
 
 name: Lib build
@@ -11,32 +9,31 @@ jobs:
     steps:
       #Checkout source
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       #toolchain and tools
       - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
           toolchain: stable
-          target: thumbv6m-none-eabi
-          override: true
           components: rustfmt, clippy
       #build and lint
       - name: Run cargo check
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
+        run: cargo check
       - name: Run cargo fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+        run: cargo fmt --all -- --check
       - name: Run cargo clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: -- -D warnings
+        run: cargo clippy -- -D warnings
+      - name: Run cargo clippy with log
+        run: cargo clippy --features log -- -D warnings
+      - name: Run cargo clippy with defmt
+        run: cargo clippy --features defmt -- -D warnings
+      - name: Run cargo clippy on tests
+        run: cargo clippy --tests -- -D warnings
       - name: Run cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+        run: cargo test
+      - name: Run cargo build
+        run: cargo build
+      - name: Run cargo build with log
+        run: cargo build --features log
+      - name: Run cargo build with defmt
+        run: cargo build --features defmt
