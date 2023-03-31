@@ -68,7 +68,7 @@ impl<'a, B: UsbBus> JoystickInterface<'a, B> {
     #[must_use]
     pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
         WrappedInterfaceConfig::new(
-            unwrap!(RawInterfaceBuilder::new(JOYSTICK_DESCRIPTOR)
+            unwrap!(unwrap!(RawInterfaceBuilder::new(JOYSTICK_DESCRIPTOR))
                 .boot_device(InterfaceProtocol::None)
                 .description("Joystick")
                 .in_endpoint(UsbPacketSize::Bytes8, 10.millis()))
@@ -95,6 +95,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for JoystickInterface<'a, B> {
            fn get_idle(&self, report_id: u8) -> u8;
            fn set_protocol(&mut self, protocol: HidProtocol);
            fn get_protocol(&self) -> HidProtocol;
+           fn hid_descriptor_body(&self) -> [u8; 7];
         }
     }
 }

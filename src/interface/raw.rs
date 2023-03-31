@@ -1,5 +1,6 @@
 use crate::hid_class::descriptor::{
-    DescriptorType, HidProtocol, InterfaceProtocol, InterfaceSubClass, USB_CLASS_HID,
+    DescriptorType, HidProtocol, InterfaceProtocol, InterfaceSubClass, COUNTRY_CODE_NOT_SUPPORTED,
+    SPEC_VERSION_1_11, USB_CLASS_HID,
 };
 use crate::hid_class::{BuilderResult, UsbHidBuilderError, UsbPacketSize};
 use crate::interface::{InterfaceClass, UsbAllocatable};
@@ -7,14 +8,18 @@ use core::cell::RefCell;
 use fugit::{ExtU32, MillisDurationU32};
 use heapless::Vec;
 use option_block::Block32;
+use packed_struct::PackedStruct;
 use usb_device::bus::{InterfaceNumber, StringIndex, UsbBus, UsbBusAllocator};
 #[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
 use usb_device::UsbError;
 
+use super::HidDescriptorBody;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RawInterfaceConfig<'a> {
     pub report_descriptor: &'a [u8],
+    pub report_descriptor_length: u16,
     pub description: Option<&'a str>,
     pub protocol: InterfaceProtocol,
     pub idle_default: u8,
@@ -183,6 +188,21 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for RawInterface<'a, B> {
     fn get_protocol(&self) -> HidProtocol {
         self.protocol
     }
+
+    fn hid_descriptor_body(&self) -> [u8; 7] {
+        match (HidDescriptorBody {
+            bcd_hid: SPEC_VERSION_1_11,
+            country_code: COUNTRY_CODE_NOT_SUPPORTED,
+            num_descriptors: 1,
+            descriptor_type: DescriptorType::Report,
+            descriptor_length: self.config.report_descriptor_length,
+        }
+        .pack())
+        {
+            Ok(d) => d,
+            Err(_) => panic!("Failed to pack HidDescriptor"),
+        }
+    }
 }
 
 impl<'a, B: UsbBus> RawInterface<'a, B> {
@@ -274,10 +294,12 @@ pub struct RawInterfaceBuilder<'a> {
 }
 
 impl<'a> RawInterfaceBuilder<'a> {
-    pub fn new(report_descriptor: &'a [u8]) -> Self {
-        RawInterfaceBuilder {
+    pub fn new(report_descriptor: &'a [u8]) -> BuilderResult<Self> {
+        Ok(RawInterfaceBuilder {
             config: RawInterfaceConfig {
                 report_descriptor,
+                report_descriptor_length: u16::try_from(report_descriptor.len())
+                    .map_err(|_| UsbHidBuilderError::SliceLengthOverflow)?,
                 description: None,
                 protocol: InterfaceProtocol::None,
                 idle_default: 0,
@@ -287,7 +309,7 @@ impl<'a> RawInterfaceBuilder<'a> {
                     poll_interval: 20,
                 },
             },
-        }
+        })
     }
 
     pub fn boot_device(mut self, protocol: InterfaceProtocol) -> Self {

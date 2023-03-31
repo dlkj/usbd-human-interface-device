@@ -45,6 +45,7 @@ pub enum UsbPacketSize {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UsbHidBuilderError {
     ValueOverflow,
+    SliceLengthOverflow,
 }
 
 #[must_use = "this `UsbHidClassBuilder` must be assigned or consumed by `::build()`"]
@@ -137,9 +138,12 @@ impl<B: UsbBus, I> UsbHidClass<B, I> {
                 }
             }
             Some(DescriptorType::Hid) => {
-                let mut buffer = [0; 9];
-                buffer[0] = u8::try_from(buffer.len())
-                    .expect("hid descriptor length expected to be less than u8::MAX");
+                // Yuk, waiting for #![feature(const_num_from_num)] to be stable
+                // https://github.com/rust-lang/rust/issues/87852
+                const LEN_USIZE: usize = 9;
+                const LEN_U8: u8 = 9;
+                let mut buffer = [0; LEN_USIZE];
+                buffer[0] = LEN_U8;
                 buffer[1] = u8::from(DescriptorType::Hid);
                 (buffer[2..]).copy_from_slice(&interface.hid_descriptor_body());
                 match transfer.accept_with(&buffer) {
@@ -191,15 +195,9 @@ where
             return;
         }
 
-        let interface = u8::try_from(request.index)
-            .ok()
-            .and_then(|id| self.interfaces.get_id_mut(id));
-
-        if interface.is_none() {
-            return;
-        }
-
-        let interface = interface.unwrap();
+        let Some(interface) = u8::try_from(request.index)
+                    .ok()
+                    .and_then(|id| self.interfaces.get_id_mut(id)) else { return };
 
         trace!(
             "ctrl_out: request type: {:?}, request: {}, value: {}",
@@ -257,12 +255,9 @@ where
             return;
         }
 
-        let interface_id = u8::try_from(request.index).ok();
-
-        if interface_id.is_none() {
+        let Ok(interface_id) = u8::try_from(request.index) else {
             return;
-        }
-        let interface_id = interface_id.unwrap();
+        };
 
         trace!(
             "ctrl_in: request type: {:?}, request: {}, value: {}",
@@ -273,26 +268,18 @@ where
 
         match request.request_type {
             RequestType::Standard => {
-                let interface = self.interfaces.get_id(interface_id);
-
-                if interface.is_none() {
-                    return;
-                }
-                let interface = interface.unwrap();
-
-                if request.request == Request::GET_DESCRIPTOR {
-                    info!("Get descriptor");
-                    Self::get_descriptor(transfer, interface);
+                if let Some(interface) = self.interfaces.get_id(interface_id) {
+                    if request.request == Request::GET_DESCRIPTOR {
+                        info!("Get descriptor");
+                        Self::get_descriptor(transfer, interface);
+                    }
                 }
             }
 
             RequestType::Class => {
-                let interface = self.interfaces.get_id_mut(interface_id);
-
-                if interface.is_none() {
+                let Some(interface) = self.interfaces.get_id_mut(interface_id) else {
                     return;
-                }
-                let interface = interface.unwrap();
+                };
 
                 match HidRequest::from_primitive(request.request) {
                     Some(HidRequest::GetReport) => {
@@ -309,7 +296,7 @@ where
                                 error!("Failed to send report - {:?}", e);
                             } else {
                                 trace!("Sent report, {} bytes", n);
-                                interface.get_report_ack().unwrap();
+                                unwrap!(interface.get_report_ack());
                             }
                         }
                     }

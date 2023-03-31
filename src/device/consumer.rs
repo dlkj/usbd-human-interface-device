@@ -108,9 +108,11 @@ impl<'a, B: UsbBus> ConsumerControlInterface<'a, B> {
     #[must_use]
     pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
         WrappedInterfaceConfig::new(
-            unwrap!(RawInterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
-                .description("Consumer Control")
-                .in_endpoint(UsbPacketSize::Bytes8, 50.millis()))
+            unwrap!(
+                unwrap!(RawInterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR))
+                    .description("Consumer Control")
+                    .in_endpoint(UsbPacketSize::Bytes8, 50.millis())
+            )
             .without_out_endpoint()
             .build(),
             (),
@@ -134,6 +136,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for ConsumerControlInterface<'a, B> {
            fn get_idle(&self, report_id: u8) -> u8;
            fn set_protocol(&mut self, protocol: HidProtocol);
            fn get_protocol(&self) -> HidProtocol;
+           fn hid_descriptor_body(&self) -> [u8; 7];
         }
     }
 }
@@ -162,9 +165,11 @@ impl<'a, B: UsbBus> ConsumerControlFixedInterface<'a, B> {
     #[must_use]
     pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
         WrappedInterfaceConfig::new(
-            unwrap!(RawInterfaceBuilder::new(FIXED_FUNCTION_REPORT_DESCRIPTOR)
-                .description("Consumer Control")
-                .in_endpoint(UsbPacketSize::Bytes8, 50.millis()))
+            unwrap!(
+                unwrap!(RawInterfaceBuilder::new(FIXED_FUNCTION_REPORT_DESCRIPTOR))
+                    .description("Consumer Control")
+                    .in_endpoint(UsbPacketSize::Bytes8, 50.millis())
+            )
             .without_out_endpoint()
             .build(),
             (),
@@ -188,6 +193,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for ConsumerControlFixedInterface<'a, B> 
            fn get_idle(&self, report_id: u8) -> u8;
            fn set_protocol(&mut self, protocol: HidProtocol);
            fn get_protocol(&self) -> HidProtocol;
+           fn hid_descriptor_body(&self) -> [u8; 7];
         }
     }
 }
