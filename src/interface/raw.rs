@@ -48,7 +48,8 @@ impl ReportBuffer for () {
 }
 
 impl<const N: usize> ReportBuffer for Vec<u8, N> {
-    // no easy compile time check for this in stable at the moment
+    // N must be < u16::MAX
+    // not currently enforceable in stable
     #[allow(clippy::cast_possible_truncation)]
     const CAPACITY: u16 = N as u16;
 
