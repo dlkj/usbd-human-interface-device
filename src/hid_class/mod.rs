@@ -138,14 +138,11 @@ impl<B: UsbBus, I> UsbHidClass<B, I> {
                 }
             }
             Some(DescriptorType::Hid) => {
-                // Yuk, waiting for #![feature(const_num_from_num)] to be stable
-                // https://github.com/rust-lang/rust/issues/87852
-                const LEN_USIZE: usize = 9;
-                const LEN_U8: u8 = 9;
-                let mut buffer = [0; LEN_USIZE];
-                buffer[0] = LEN_U8;
+                const LEN: u8 = 9;
+                let mut buffer = [0; LEN as usize];
+                buffer[0] = LEN;
                 buffer[1] = u8::from(DescriptorType::Hid);
-                (buffer[2..]).copy_from_slice(&interface.hid_descriptor_body());
+                (buffer[2..LEN as usize]).copy_from_slice(&interface.hid_descriptor_body());
                 match transfer.accept_with(&buffer) {
                     Err(e) => {
                         error!("Failed to send Hid descriptor - {:?}", e);
