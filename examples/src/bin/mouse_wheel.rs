@@ -54,9 +54,7 @@ fn main() -> ! {
     ));
 
     let mut mouse = UsbHidClassBuilder::new()
-        .add_interface(
-            usbd_human_interface_device::device::mouse::WheelMouseInterface::<hal::usb::UsbBus>::default_config(),
-        )
+        .add_interface(usbd_human_interface_device::device::mouse::WheelMouseConfig::default())
         .build(&usb_bus);
 
     //https://pid.codes
