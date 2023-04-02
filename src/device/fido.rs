@@ -40,8 +40,8 @@ pub struct RawFidoMsg {
     pub packet: [u8; 64],
 }
 impl Default for RawFidoMsg {
-    fn default() -> RawFidoMsg {
-        RawFidoMsg { packet: [0u8; 64] }
+    fn default() -> Self {
+        Self { packet: [0u8; 64] }
     }
 }
 

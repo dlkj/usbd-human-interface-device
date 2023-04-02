@@ -29,7 +29,7 @@ pub trait UsbAllocatable<'a, B: UsbBus> {
 }
 
 impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for HNil {
-    type Allocated = HNil;
+    type Allocated = Self;
 
     fn allocate(self, _: &'a UsbBusAllocator<B>) -> Self::Allocated {
         self

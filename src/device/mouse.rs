@@ -203,7 +203,7 @@ pub struct BootMouseConfig<'a> {
 impl<'a> Default for BootMouseConfig<'a> {
     #[must_use]
     fn default() -> Self {
-        BootMouseConfig::new(
+        Self::new(
             RawInterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR)
                 .boot_device(InterfaceProtocol::Mouse)
                 .description("Mouse")
@@ -226,7 +226,7 @@ impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for BootMouseConfig<'a> {
     type Allocated = BootMouseInterface<'a, B>;
 
     fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
-        BootMouseInterface {
+        Self::Allocated {
             inner: RawInterface::new(usb_alloc, self.interface),
         }
     }
@@ -371,7 +371,7 @@ impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for AbsoluteWheelMouseConfig<'a> 
     type Allocated = AbsoluteWheelMouseInterface<'a, B>;
 
     fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
-        AbsoluteWheelMouseInterface {
+        Self::Allocated {
             inner: self.interface.allocate(usb_alloc),
         }
     }

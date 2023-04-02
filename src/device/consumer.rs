@@ -10,7 +10,7 @@ use usb_device::{Result, UsbError};
 
 use crate::hid_class::prelude::*;
 use crate::interface::raw::{RawInterface, RawInterfaceConfig};
-use crate::interface::{InterfaceClass, WrappedInterface, WrappedInterfaceConfig};
+use crate::interface::{InterfaceClass, UsbAllocatable};
 use crate::page::Consumer;
 
 ///Consumer control report descriptor - Four `u16` consumer control usage codes as an array (8 bytes)
@@ -105,19 +105,6 @@ impl<'a, B: UsbBus> ConsumerControlInterface<'a, B> {
         })?;
         self.inner.write_report(&data)
     }
-
-    #[must_use]
-    pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
-        WrappedInterfaceConfig::new(
-            RawInterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
-                .description("Consumer Control")
-                .in_endpoint(UsbPacketSize::Bytes8, 50.millis())
-                .unwrap()
-                .without_out_endpoint()
-                .build(),
-            (),
-        )
-    }
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a> for ConsumerControlInterface<'a, B> {
@@ -140,11 +127,37 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for ConsumerControlInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> WrappedInterface<'a, B, RawInterface<'a, B>>
-    for ConsumerControlInterface<'a, B>
-{
-    fn new(interface: RawInterface<'a, B>, _: ()) -> Self {
-        Self { inner: interface }
+pub struct ConsumerControlConfig<'a> {
+    interface: RawInterfaceConfig<'a>,
+}
+
+impl<'a> ConsumerControlConfig<'a> {
+    fn new(interface: RawInterfaceConfig<'a>) -> Self {
+        Self { interface }
+    }
+}
+
+impl<'a> Default for ConsumerControlConfig<'a> {
+    #[must_use]
+    fn default() -> Self {
+        Self::new(
+            RawInterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
+                .description("Consumer Control")
+                .in_endpoint(UsbPacketSize::Bytes8, 50.millis())
+                .unwrap()
+                .without_out_endpoint()
+                .build(),
+        )
+    }
+}
+
+impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for ConsumerControlConfig<'a> {
+    type Allocated = ConsumerControlInterface<'a, B>;
+
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
+        Self::Allocated {
+            inner: RawInterface::new(usb_alloc, self.interface),
+        }
     }
 }
 
@@ -159,19 +172,6 @@ impl<'a, B: UsbBus> ConsumerControlFixedInterface<'a, B> {
             UsbError::ParseError
         })?;
         self.inner.write_report(&data)
-    }
-
-    #[must_use]
-    pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
-        WrappedInterfaceConfig::new(
-            RawInterfaceBuilder::new(FIXED_FUNCTION_REPORT_DESCRIPTOR)
-                .description("Consumer Control")
-                .in_endpoint(UsbPacketSize::Bytes8, 50.millis())
-                .unwrap()
-                .without_out_endpoint()
-                .build(),
-            (),
-        )
     }
 }
 
@@ -195,10 +195,35 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for ConsumerControlFixedInterface<'a, B> 
     }
 }
 
-impl<'a, B: UsbBus> WrappedInterface<'a, B, RawInterface<'a, B>>
-    for ConsumerControlFixedInterface<'a, B>
-{
-    fn new(interface: RawInterface<'a, B>, _: ()) -> Self {
-        Self { inner: interface }
+pub struct ConsumerControlFixedConfig<'a> {
+    interface: RawInterfaceConfig<'a>,
+}
+impl<'a> ConsumerControlFixedConfig<'a> {
+    fn new(interface: RawInterfaceConfig<'a>) -> Self {
+        Self { interface }
+    }
+}
+
+impl<'a> Default for ConsumerControlFixedConfig<'a> {
+    #[must_use]
+    fn default() -> Self {
+        Self::new(
+            RawInterfaceBuilder::new(FIXED_FUNCTION_REPORT_DESCRIPTOR)
+                .description("Consumer Control")
+                .in_endpoint(UsbPacketSize::Bytes8, 50.millis())
+                .unwrap()
+                .without_out_endpoint()
+                .build(),
+        )
+    }
+}
+
+impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for ConsumerControlFixedConfig<'a> {
+    type Allocated = ConsumerControlFixedInterface<'a, B>;
+
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
+        Self::Allocated {
+            inner: RawInterface::new(usb_alloc, self.interface),
+        }
     }
 }

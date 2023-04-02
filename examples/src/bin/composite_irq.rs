@@ -101,7 +101,7 @@ fn main() -> ! {
         )
         .add_interface(usbd_human_interface_device::device::mouse::WheelMouseConfig::default())
         .add_interface(
-            usbd_human_interface_device::device::consumer::ConsumerControlInterface::default_config(),
+            usbd_human_interface_device::device::consumer::ConsumerControlConfig::default(),
         )
         //Build
         .build(usb_alloc);

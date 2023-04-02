@@ -30,9 +30,9 @@ pub enum InterfaceSubClass {
 impl From<InterfaceProtocol> for InterfaceSubClass {
     fn from(protocol: InterfaceProtocol) -> Self {
         if protocol == InterfaceProtocol::None {
-            InterfaceSubClass::None
+            Self::None
         } else {
-            InterfaceSubClass::Boot
+            Self::Boot
         }
     }
 }
