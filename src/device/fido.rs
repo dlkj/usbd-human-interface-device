@@ -3,11 +3,11 @@ use crate::hid_class::descriptor::HidProtocol;
 use delegate::delegate;
 use fugit::ExtU32;
 use usb_device::bus::{InterfaceNumber, StringIndex, UsbBus};
-use usb_device::class_prelude::DescriptorWriter;
+use usb_device::class_prelude::{DescriptorWriter, UsbBusAllocator};
 
 use crate::hid_class::prelude::*;
 use crate::interface::raw::{RawInterface, RawInterfaceConfig};
-use crate::interface::{InterfaceClass, WrappedInterface, WrappedInterfaceConfig};
+use crate::interface::{InterfaceClass, UsbAllocatable};
 use crate::UsbHidError;
 
 /// Raw FIDO report descriptor.
@@ -63,20 +63,6 @@ impl<'a, B: UsbBus> RawFidoInterface<'a, B> {
             Ok(_) => Ok(report),
         }
     }
-
-    #[must_use]
-    pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
-        WrappedInterfaceConfig::new(
-            RawInterfaceBuilder::new(FIDO_REPORT_DESCRIPTOR)
-                .description("U2F Token")
-                .in_endpoint(UsbPacketSize::Bytes64, 5.millis())
-                .unwrap()
-                .with_out_endpoint(UsbPacketSize::Bytes64, 5.millis())
-                .unwrap()
-                .build(),
-            (),
-        )
-    }
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a> for RawFidoInterface<'a, B> {
@@ -99,8 +85,38 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for RawFidoInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> WrappedInterface<'a, B, RawInterface<'a, B>> for RawFidoInterface<'a, B> {
-    fn new(interface: RawInterface<'a, B>, _: ()) -> Self {
-        Self { inner: interface }
+pub struct RawFidoConfig<'a> {
+    interface: RawInterfaceConfig<'a>,
+}
+
+impl<'a> Default for RawFidoConfig<'a> {
+    #[must_use]
+    fn default() -> Self {
+        Self::new(
+            RawInterfaceBuilder::new(FIDO_REPORT_DESCRIPTOR)
+                .description("U2F Token")
+                .in_endpoint(UsbPacketSize::Bytes64, 5.millis())
+                .unwrap()
+                .with_out_endpoint(UsbPacketSize::Bytes64, 5.millis())
+                .unwrap()
+                .build(),
+        )
+    }
+}
+
+impl<'a> RawFidoConfig<'a> {
+    #[must_use]
+    pub fn new(interface: RawInterfaceConfig<'a>) -> Self {
+        Self { interface }
+    }
+}
+
+impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for RawFidoConfig<'a> {
+    type Allocated = RawFidoInterface<'a, B>;
+
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
+        Self::Allocated {
+            inner: RawInterface::new(usb_alloc, self.interface),
+        }
     }
 }

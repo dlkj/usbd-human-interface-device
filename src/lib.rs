@@ -15,7 +15,7 @@
 //! # use usb_device::bus::PollResult;
 //! # use fugit::{ExtU32, MillisDurationU32};
 //! use usbd_human_interface_device::page::Keyboard;
-//! use usbd_human_interface_device::device::keyboard::{KeyboardLedsReport, NKROBootKeyboardInterface};
+//! use usbd_human_interface_device::device::keyboard::{KeyboardLedsReport, NKROBootKeyboardConfig};
 //! use usbd_human_interface_device::prelude::*;
 //! # use usb_device::class_prelude::*;
 //! # use usb_device::prelude::*;
@@ -94,7 +94,7 @@
 //!
 //! let mut keyboard = UsbHidClassBuilder::new()
 //!     .add_interface(
-//!         NKROBootKeyboardInterface::default_config(),
+//!         NKROBootKeyboardConfig::default(),
 //!     )
 //!     .build(&usb_alloc);
 //!
