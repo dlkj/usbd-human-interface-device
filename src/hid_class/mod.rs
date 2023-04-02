@@ -49,52 +49,42 @@ pub enum UsbHidBuilderError {
 
 #[must_use = "this `UsbHidClassBuilder` must be assigned or consumed by `::build()`"]
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct UsbHidClassBuilder<'a, B, InterfaceList> {
+pub struct UsbHidClassBuilder<InterfaceList> {
     interface_list: InterfaceList,
-    _marker: PhantomData<&'a B>,
 }
 
-impl<'a, B> UsbHidClassBuilder<'a, B, HNil> {
+impl UsbHidClassBuilder<HNil> {
     pub fn new() -> Self {
         Self {
             interface_list: HNil,
-            _marker: PhantomData::default(),
         }
     }
 }
 
-impl<'a, B> Default for UsbHidClassBuilder<'a, B, HNil> {
+impl Default for UsbHidClassBuilder<HNil> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'a, B: UsbBus, I: HList> UsbHidClassBuilder<'a, B, I> {
-    pub fn add_interface<Conf, Class>(
-        self,
-        interface_config: Conf,
-    ) -> UsbHidClassBuilder<'a, B, HCons<Conf, I>>
-    where
-        Conf: UsbAllocatable<'a, B, Allocated = Class>,
-        Class: InterfaceClass<'a>,
-    {
+impl<I: HList> UsbHidClassBuilder<I> {
+    pub fn add_interface<Conf>(self, interface_config: Conf) -> UsbHidClassBuilder<HCons<Conf, I>> {
         UsbHidClassBuilder {
             interface_list: self.interface_list.prepend(interface_config),
-            _marker: PhantomData::default(),
         }
     }
 }
 
-impl<'a, B, C, Tail> UsbHidClassBuilder<'a, B, HCons<C, Tail>>
-where
-    B: UsbBus,
-    Tail: UsbAllocatable<'a, B>,
-    C: UsbAllocatable<'a, B>,
-{
-    pub fn build(
+impl<C, Tail> UsbHidClassBuilder<HCons<C, Tail>> {
+    pub fn build<'a, B>(
         self,
         usb_alloc: &'a UsbBusAllocator<B>,
-    ) -> UsbHidClass<B, HCons<C::Allocated, Tail::Allocated>> {
+    ) -> UsbHidClass<B, HCons<C::Allocated, Tail::Allocated>>
+    where
+        B: UsbBus,
+        Tail: UsbAllocatable<'a, B>,
+        C: UsbAllocatable<'a, B>,
+    {
         UsbHidClass {
             interfaces: self.interface_list.allocate(usb_alloc),
             _marker: PhantomData::default(),

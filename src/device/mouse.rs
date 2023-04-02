@@ -184,6 +184,12 @@ pub struct BootMouseInterface<'a, B: UsbBus> {
 }
 
 impl<'a, B: UsbBus> BootMouseInterface<'a, B> {
+    pub fn new(usb_alloc: &'a UsbBusAllocator<B>, config: &BootMouseConfig<'a>) -> Self {
+        BootMouseInterface {
+            inner: RawInterface::new(usb_alloc, config.inner_config),
+        }
+    }
+
     pub fn write_report(&self, report: &BootMouseReport) -> Result<(), UsbHidError> {
         let data = report.pack().map_err(|e| {
             error!("Error packing BootMouseReport: {:?}", e);
@@ -194,9 +200,15 @@ impl<'a, B: UsbBus> BootMouseInterface<'a, B> {
             .map(|_| ())
             .map_err(UsbHidError::from)
     }
+}
 
+pub struct BootMouseConfig<'a> {
+    inner_config: RawInterfaceConfig<'a>,
+}
+
+impl<'a> Default for BootMouseConfig<'a> {
     #[must_use]
-    pub fn default_config() -> BootMouseConfig<'a> {
+    fn default() -> Self {
         BootMouseConfig::new(
             RawInterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR)
                 .boot_device(InterfaceProtocol::Mouse)
@@ -207,10 +219,6 @@ impl<'a, B: UsbBus> BootMouseInterface<'a, B> {
                 .build(),
         )
     }
-}
-
-pub struct BootMouseConfig<'a> {
-    inner_config: RawInterfaceConfig<'a>,
 }
 
 impl<'a> BootMouseConfig<'a> {
@@ -224,9 +232,7 @@ impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for BootMouseConfig<'a> {
     type Allocated = BootMouseInterface<'a, B>;
 
     fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
-        BootMouseInterface {
-            inner: self.inner_config.allocate(usb_alloc),
-        }
+        BootMouseInterface::new(usb_alloc, &self)
     }
 }
 
