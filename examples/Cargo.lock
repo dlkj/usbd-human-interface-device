@@ -157,9 +157,9 @@ checksum = "f578e8e2c440e7297e008bb5486a3a8a194775224bbc23729b0dbdfaeebf162e"
 
 [[package]]
 name = "defmt"
-version = "0.3.3"
+version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d03193cde597714ff8a5005ccd61cd1b7aff5616eaca7c67905982cb6f347ff4"
+checksum = "956673bd3cb347512bf988d1e8d89ac9a82b64f6eec54d3c01c3529dac019882"
 dependencies = [
  "bitflags",
  "defmt-macros",
