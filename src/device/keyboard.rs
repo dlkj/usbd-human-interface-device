@@ -1,6 +1,5 @@
 //!HID keyboards
 
-use delegate::delegate;
 use fugit::ExtU32;
 use packed_struct::prelude::*;
 #[allow(clippy::wildcard_imports)]
@@ -24,12 +23,9 @@ impl<'a, B> BootKeyboardInterface<'a, B>
 where
     B: UsbBus,
 {
-    #![allow(clippy::inline_always)]
-    delegate! {
-        to self.inner {
-            /// Call every 1ms / at 1 KHz
-            pub fn tick(&self) -> Result<(), UsbHidError>;
-        }
+    /// Call every 1ms / at 1KHz
+    pub fn tick(&self) -> Result<(), UsbHidError> {
+        self.inner.tick()
     }
 
     pub fn write_report<K: IntoIterator<Item = Keyboard>>(
@@ -79,26 +75,15 @@ impl<'a, B> InterfaceClass<'a, B> for BootKeyboardInterface<'a, B>
 where
     B: UsbBus,
 {
-    #![allow(clippy::inline_always)]
-    delegate! {
-        to self.inner{
-           fn report_descriptor(&self) -> &'_ [u8];
-           fn id(&self) -> InterfaceNumber;
-           fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-           fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str>;
-           fn reset(&mut self);
-           fn set_report(&mut self, data: &[u8]) -> usb_device::Result<()>;
-           fn get_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize>;
-           fn get_report_ack(&mut self) -> usb_device::Result<()>;
-           fn set_idle(&mut self, report_id: u8, value: u8);
-           fn get_idle(&self, report_id: u8) -> u8;
-           fn set_protocol(&mut self, protocol: HidProtocol);
-           fn get_protocol(&self) -> HidProtocol;
-        }
-    }
-
     fn interface(&self) -> &RawInterface<'a, B> {
         self.inner.interface()
+    }
+
+    fn interface_mut(&mut self) -> &mut RawInterface<'a, B> {
+        self.inner.interface_mut()
+    }
+    fn reset(&mut self) {
+        self.inner.reset();
     }
 }
 
@@ -414,12 +399,9 @@ impl<'a, B> NKROBootKeyboardInterface<'a, B>
 where
     B: UsbBus,
 {
-    #![allow(clippy::inline_always)]
-    delegate! {
-        to self.inner {
-            /// Call every 1ms / at 1 KHz
-            pub fn tick(&self) -> Result<(), UsbHidError>;
-        }
+    /// Call every 1ms / at 1KHz
+    pub fn tick(&self) -> Result<(), UsbHidError> {
+        self.inner.tick()
     }
 
     pub fn write_report<K: IntoIterator<Item = Keyboard>>(
@@ -467,26 +449,15 @@ impl<'a, B> InterfaceClass<'a, B> for NKROBootKeyboardInterface<'a, B>
 where
     B: UsbBus,
 {
-    #![allow(clippy::inline_always)]
-    delegate! {
-        to self.inner{
-            fn report_descriptor(&self) -> &'_ [u8];
-            fn id(&self) -> InterfaceNumber;
-            fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-            fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str>;
-            fn set_report(&mut self, data: &[u8]) -> usb_device::Result<()>;
-            fn get_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize>;
-            fn get_report_ack(&mut self) -> usb_device::Result<()>;
-            fn get_idle(&self, report_id: u8) -> u8;
-            fn set_protocol(&mut self, protocol: HidProtocol);
-            fn get_protocol(&self) -> HidProtocol;
-            fn reset(&mut self);
-            fn set_idle(&mut self, report_id: u8, value: u8);
-        }
-    }
-
     fn interface(&self) -> &RawInterface<'a, B> {
         self.inner.interface()
+    }
+    fn interface_mut(&mut self) -> &mut RawInterface<'a, B> {
+        self.inner.interface_mut()
+    }
+
+    fn reset(&mut self) {
+        self.inner.reset();
     }
 }
 

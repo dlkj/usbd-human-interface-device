@@ -1,12 +1,9 @@
 //!HID mice
-use crate::hid_class::descriptor::HidProtocol;
 use core::default::Default;
-use delegate::delegate;
 use fugit::ExtU32;
 use log::error;
 use packed_struct::prelude::*;
-use usb_device::bus::{InterfaceNumber, StringIndex, UsbBus};
-use usb_device::class_prelude::DescriptorWriter;
+use usb_device::bus::UsbBus;
 
 use crate::hid_class::prelude::*;
 use crate::interface::raw::{RawInterface, RawInterfaceConfig};
@@ -211,27 +208,15 @@ impl<'a, B: UsbBus> BootMouseInterface<'a, B> {
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a, B> for BootMouseInterface<'a, B> {
-    #![allow(clippy::inline_always)]
-    delegate! {
-        to self.inner{
-           fn report_descriptor(&self) -> &'_ [u8];
-           fn id(&self) -> InterfaceNumber;
-           fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-           fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str>;
-           fn reset(&mut self);
-           fn set_report(&mut self, data: &[u8]) -> usb_device::Result<()>;
-           fn get_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize>;
-           fn get_report_ack(&mut self) -> usb_device::Result<()>;
-           fn set_idle(&mut self, report_id: u8, value: u8);
-           fn get_idle(&self, report_id: u8) -> u8;
-           fn set_protocol(&mut self, protocol: HidProtocol);
-           fn get_protocol(&self) -> HidProtocol;
-        }
-    }
-
     fn interface(&self) -> &RawInterface<'a, B> {
         &self.inner
     }
+
+    fn interface_mut(&mut self) -> &mut RawInterface<'a, B> {
+        &mut self.inner
+    }
+
+    fn reset(&mut self) {}
 }
 
 impl<'a, B: UsbBus> WrappedInterface<'a, B, RawInterface<'a, B>> for BootMouseInterface<'a, B> {
@@ -272,27 +257,15 @@ impl<'a, B: UsbBus> WheelMouseInterface<'a, B> {
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a, B> for WheelMouseInterface<'a, B> {
-    #![allow(clippy::inline_always)]
-    delegate! {
-        to self.inner{
-           fn report_descriptor(&self) -> &'_ [u8];
-           fn id(&self) -> InterfaceNumber;
-           fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-           fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str>;
-           fn reset(&mut self);
-           fn set_report(&mut self, data: &[u8]) -> usb_device::Result<()>;
-           fn get_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize>;
-           fn get_report_ack(&mut self) -> usb_device::Result<()>;
-           fn set_idle(&mut self, report_id: u8, value: u8);
-           fn get_idle(&self, report_id: u8) -> u8;
-           fn set_protocol(&mut self, protocol: HidProtocol);
-           fn get_protocol(&self) -> HidProtocol;
-        }
-    }
-
     fn interface(&self) -> &RawInterface<'a, B> {
         &self.inner
     }
+
+    fn interface_mut(&mut self) -> &mut RawInterface<'a, B> {
+        &mut self.inner
+    }
+
+    fn reset(&mut self) {}
 }
 
 impl<'a, B: UsbBus> WrappedInterface<'a, B, RawInterface<'a, B>> for WheelMouseInterface<'a, B> {
@@ -332,27 +305,15 @@ impl<'a, B: UsbBus> AbsoluteWheelMouseInterface<'a, B> {
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a, B> for AbsoluteWheelMouseInterface<'a, B> {
-    #![allow(clippy::inline_always)]
-    delegate! {
-        to self.inner{
-           fn report_descriptor(&self) -> &'_ [u8];
-           fn id(&self) -> InterfaceNumber;
-           fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-           fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str>;
-           fn reset(&mut self);
-           fn set_report(&mut self, data: &[u8]) -> usb_device::Result<()>;
-           fn get_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize>;
-           fn get_report_ack(&mut self) -> usb_device::Result<()>;
-           fn set_idle(&mut self, report_id: u8, value: u8);
-           fn get_idle(&self, report_id: u8) -> u8;
-           fn set_protocol(&mut self, protocol: HidProtocol);
-           fn get_protocol(&self) -> HidProtocol;
-        }
-    }
-
     fn interface(&self) -> &RawInterface<'a, B> {
         &self.inner
     }
+
+    fn interface_mut(&mut self) -> &mut RawInterface<'a, B> {
+        &mut self.inner
+    }
+
+    fn reset(&mut self) {}
 }
 
 impl<'a, B: UsbBus> WrappedInterface<'a, B, RawInterface<'a, B>>

@@ -1,7 +1,6 @@
 use core::cell::RefCell;
 use core::marker::PhantomData;
 
-use delegate::delegate;
 use fugit::{ExtU32, MillisDurationU32};
 use log::error;
 use packed_struct::PackedStruct;
@@ -11,8 +10,7 @@ use usb_device::class_prelude::*;
 use usb_device::UsbError;
 
 use crate::interface::raw::{RawInterface, RawInterfaceConfig};
-use crate::interface::InterfaceNumber;
-use crate::interface::{HidProtocol, UsbAllocatable};
+use crate::interface::UsbAllocatable;
 use crate::interface::{InterfaceClass, WrappedInterface};
 use crate::UsbHidError;
 
@@ -108,6 +106,9 @@ where
     /// Call every 1ms
     pub fn tick(&self) -> Result<(), UsbHidError> {
         let mut idle_manager = self.idle_manager.borrow_mut();
+
+        idle_manager.set_duration(self.inner.global_idle());
+
         if !(idle_manager.tick()) {
             Ok(())
         } else if let Some(r) = idle_manager.last_report() {
@@ -129,10 +130,8 @@ where
         }
     }
 
-    delegate! {
-        to self.inner{
-            pub fn read_report(&self, data: &mut [u8]) -> usb_device::Result<usize>;
-        }
+    pub fn read_report(&self, data: &mut [u8]) -> usb_device::Result<usize> {
+        self.inner.read_report(data)
     }
 }
 
@@ -141,36 +140,17 @@ where
     R: Copy + Eq,
 {
     #![allow(clippy::inline_always)]
-    delegate! {
-        to self.inner{
-           fn report_descriptor(&self) -> &'_ [u8];
-           fn id(&self) -> InterfaceNumber;
-           fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-           fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str>;
-           fn set_report(&mut self, data: &[u8]) -> usb_device::Result<()>;
-           fn get_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize>;
-           fn get_report_ack(&mut self) -> usb_device::Result<()>;
-           fn get_idle(&self, report_id: u8) -> u8;
-           fn set_protocol(&mut self, protocol: HidProtocol);
-           fn get_protocol(&self) -> HidProtocol;
-        }
-    }
 
     fn interface(&self) -> &RawInterface<'a, B> {
         &self.inner
     }
 
-    fn reset(&mut self) {
-        self.inner.reset();
-        self.idle_manager.borrow_mut().reset();
+    fn interface_mut(&mut self) -> &mut RawInterface<'a, B> {
+        &mut self.inner
     }
-    fn set_idle(&mut self, report_id: u8, value: u8) {
-        self.inner.set_idle(report_id, value);
-        if report_id == 0 {
-            self.idle_manager
-                .borrow_mut()
-                .set_duration(self.inner.global_idle());
-        }
+
+    fn reset(&mut self) {
+        self.idle_manager.borrow_mut().reset();
     }
 }
 

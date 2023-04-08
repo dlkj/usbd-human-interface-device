@@ -2,12 +2,10 @@
 use core::marker::PhantomData;
 use frunk::{HCons, HNil, ToRef};
 use packed_struct::prelude::*;
-use usb_device::bus::{InterfaceNumber, StringIndex, UsbBus, UsbBusAllocator};
+use usb_device::bus::{StringIndex, UsbBus, UsbBusAllocator};
 use usb_device::class_prelude::DescriptorWriter;
 
-use crate::hid_class::descriptor::{
-    DescriptorType, HidProtocol, COUNTRY_CODE_NOT_SUPPORTED, SPEC_VERSION_1_11,
-};
+use crate::hid_class::descriptor::DescriptorType;
 
 use self::raw::RawInterface;
 
@@ -55,34 +53,9 @@ where
 }
 
 pub trait InterfaceClass<'a, B: UsbBus> {
-    fn report_descriptor(&self) -> &'_ [u8];
-    fn id(&self) -> InterfaceNumber;
-    fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str>;
-    fn reset(&mut self);
-    fn set_report(&mut self, data: &[u8]) -> usb_device::Result<()>;
-    fn get_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize>;
-    fn get_report_ack(&mut self) -> usb_device::Result<()>;
-    fn set_idle(&mut self, report_id: u8, value: u8);
-    fn get_idle(&self, report_id: u8) -> u8;
-    fn set_protocol(&mut self, protocol: HidProtocol);
-    fn get_protocol(&self) -> HidProtocol;
-    fn hid_descriptor_body(&self) -> [u8; 7] {
-        let descriptor_len = u16::try_from(self.report_descriptor().len())
-            .expect("Report descriptor too long, must be < u16::MAX");
-
-        HidDescriptorBody {
-            bcd_hid: SPEC_VERSION_1_11,
-            country_code: COUNTRY_CODE_NOT_SUPPORTED,
-            num_descriptors: 1,
-            descriptor_type: DescriptorType::Report,
-            descriptor_length: descriptor_len,
-        }
-        .pack()
-        .map_err(drop) // Avoid pulling all the core::fmt code into final binary
-        .expect("Failed to pack HidDescriptor")
-    }
     fn interface(&self) -> &RawInterface<'a, B>;
+    fn interface_mut(&mut self) -> &mut RawInterface<'a, B>;
+    fn reset(&mut self);
 }
 
 pub trait InterfaceHList<'a, B>: ToRef<'a> {
@@ -90,7 +63,7 @@ pub trait InterfaceHList<'a, B>: ToRef<'a> {
     fn get_id(&self, id: u8) -> Option<&dyn InterfaceClass<'a, B>>;
     fn reset(&mut self);
     fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str>;
+    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'a str>;
 }
 
 impl<'a, B> InterfaceHList<'a, B> for HNil {
@@ -113,11 +86,11 @@ impl<'a, B> InterfaceHList<'a, B> for HNil {
     }
 }
 
-impl<'a, B: UsbBus, Head: InterfaceClass<'a, B> + 'a, Tail: InterfaceHList<'a, B>>
+impl<'a, B: UsbBus + 'a, Head: InterfaceClass<'a, B> + 'a, Tail: InterfaceHList<'a, B>>
     InterfaceHList<'a, B> for HCons<Head, Tail>
 {
     fn get_id_mut(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a, B>> {
-        if id == u8::from(self.head.id()) {
+        if id == u8::from(self.head.interface().id()) {
             Some(&mut self.head)
         } else {
             self.tail.get_id_mut(id)
@@ -125,7 +98,7 @@ impl<'a, B: UsbBus, Head: InterfaceClass<'a, B> + 'a, Tail: InterfaceHList<'a, B
     }
 
     fn get_id(&self, id: u8) -> Option<&dyn InterfaceClass<'a, B>> {
-        if id == u8::from(self.head.id()) {
+        if id == u8::from(self.head.interface().id()) {
             Some(&self.head)
         } else {
             self.tail.get_id(id)
@@ -133,17 +106,18 @@ impl<'a, B: UsbBus, Head: InterfaceClass<'a, B> + 'a, Tail: InterfaceHList<'a, B
     }
 
     fn reset(&mut self) {
+        self.head.interface_mut().reset();
         self.head.reset();
         self.tail.reset();
     }
 
     fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()> {
-        self.head.write_descriptors(writer)?;
+        self.head.interface().write_descriptors(writer)?;
         self.tail.write_descriptors(writer)
     }
 
-    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str> {
-        let s = self.head.get_string(index, lang_id);
+    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'a str> {
+        let s = self.head.interface().get_string(index, lang_id);
         if s.is_some() {
             s
         } else {
