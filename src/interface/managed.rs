@@ -136,7 +136,7 @@ where
     }
 }
 
-impl<'a, B: UsbBus, R> InterfaceClass<'a> for ManagedInterface<'a, B, R>
+impl<'a, B: UsbBus, R> InterfaceClass<'a, B> for ManagedInterface<'a, B, R>
 where
     R: Copy + Eq,
 {
@@ -154,6 +154,10 @@ where
            fn set_protocol(&mut self, protocol: HidProtocol);
            fn get_protocol(&self) -> HidProtocol;
         }
+    }
+
+    fn interface(&self) -> &RawInterface<'a, B> {
+        &self.inner
     }
 
     fn reset(&mut self) {

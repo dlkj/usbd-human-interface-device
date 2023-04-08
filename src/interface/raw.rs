@@ -65,7 +65,7 @@ impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for RawInterfaceConfig<'a> {
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a> for RawInterface<'a, B> {
+impl<'a, B: UsbBus> InterfaceClass<'a, B> for RawInterface<'a, B> {
     fn report_descriptor(&self) -> &'_ [u8] {
         self.config.report_descriptor
     }
@@ -183,6 +183,10 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for RawInterface<'a, B> {
 
     fn get_protocol(&self) -> HidProtocol {
         self.protocol
+    }
+
+    fn interface(&self) -> &RawInterface<'a, B> {
+        self
     }
 }
 

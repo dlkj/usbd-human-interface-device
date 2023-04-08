@@ -120,7 +120,7 @@ impl<'a, B: UsbBus> ConsumerControlInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a> for ConsumerControlInterface<'a, B> {
+impl<'a, B: UsbBus> InterfaceClass<'a, B> for ConsumerControlInterface<'a, B> {
     #![allow(clippy::inline_always)]
     delegate! {
         to self.inner{
@@ -137,6 +137,10 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for ConsumerControlInterface<'a, B> {
            fn set_protocol(&mut self, protocol: HidProtocol);
            fn get_protocol(&self) -> HidProtocol;
         }
+    }
+
+    fn interface(&self) -> &RawInterface<'a, B> {
+        &self.inner
     }
 }
 
@@ -175,7 +179,7 @@ impl<'a, B: UsbBus> ConsumerControlFixedInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a> for ConsumerControlFixedInterface<'a, B> {
+impl<'a, B: UsbBus> InterfaceClass<'a, B> for ConsumerControlFixedInterface<'a, B> {
     #![allow(clippy::inline_always)]
     delegate! {
         to self.inner{
@@ -192,6 +196,10 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for ConsumerControlFixedInterface<'a, B> 
            fn set_protocol(&mut self, protocol: HidProtocol);
            fn get_protocol(&self) -> HidProtocol;
         }
+    }
+
+    fn interface(&self) -> &RawInterface<'a, B> {
+        &self.inner
     }
 }
 

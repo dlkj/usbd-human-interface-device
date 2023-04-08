@@ -75,7 +75,7 @@ where
     }
 }
 
-impl<'a, B> InterfaceClass<'a> for BootKeyboardInterface<'a, B>
+impl<'a, B> InterfaceClass<'a, B> for BootKeyboardInterface<'a, B>
 where
     B: UsbBus,
 {
@@ -95,6 +95,10 @@ where
            fn set_protocol(&mut self, protocol: HidProtocol);
            fn get_protocol(&self) -> HidProtocol;
         }
+    }
+
+    fn interface(&self) -> &RawInterface<'a, B> {
+        self.inner.interface()
     }
 }
 
@@ -459,7 +463,7 @@ where
     }
 }
 
-impl<'a, B> InterfaceClass<'a> for NKROBootKeyboardInterface<'a, B>
+impl<'a, B> InterfaceClass<'a, B> for NKROBootKeyboardInterface<'a, B>
 where
     B: UsbBus,
 {
@@ -479,6 +483,10 @@ where
             fn reset(&mut self);
             fn set_idle(&mut self, report_id: u8, value: u8);
         }
+    }
+
+    fn interface(&self) -> &RawInterface<'a, B> {
+        self.inner.interface()
     }
 }
 

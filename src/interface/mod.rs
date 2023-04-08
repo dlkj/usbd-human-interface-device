@@ -9,6 +9,8 @@ use crate::hid_class::descriptor::{
     DescriptorType, HidProtocol, COUNTRY_CODE_NOT_SUPPORTED, SPEC_VERSION_1_11,
 };
 
+use self::raw::RawInterface;
+
 pub mod managed;
 pub mod raw;
 
@@ -52,7 +54,7 @@ where
     }
 }
 
-pub trait InterfaceClass<'a> {
+pub trait InterfaceClass<'a, B: UsbBus> {
     fn report_descriptor(&self) -> &'_ [u8];
     fn id(&self) -> InterfaceNumber;
     fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
@@ -80,22 +82,23 @@ pub trait InterfaceClass<'a> {
         .map_err(drop) // Avoid pulling all the core::fmt code into final binary
         .expect("Failed to pack HidDescriptor")
     }
+    fn interface(&self) -> &RawInterface<'a, B>;
 }
 
-pub trait InterfaceHList<'a>: ToRef<'a> {
-    fn get_id_mut(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a>>;
-    fn get_id(&self, id: u8) -> Option<&dyn InterfaceClass<'a>>;
+pub trait InterfaceHList<'a, B>: ToRef<'a> {
+    fn get_id_mut(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a, B>>;
+    fn get_id(&self, id: u8) -> Option<&dyn InterfaceClass<'a, B>>;
     fn reset(&mut self);
     fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
     fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str>;
 }
 
-impl<'a> InterfaceHList<'a> for HNil {
-    fn get_id_mut(&mut self, _: u8) -> Option<&mut dyn InterfaceClass<'a>> {
+impl<'a, B> InterfaceHList<'a, B> for HNil {
+    fn get_id_mut(&mut self, _: u8) -> Option<&mut dyn InterfaceClass<'a, B>> {
         None
     }
 
-    fn get_id(&self, _: u8) -> Option<&dyn InterfaceClass<'a>> {
+    fn get_id(&self, _: u8) -> Option<&dyn InterfaceClass<'a, B>> {
         None
     }
 
@@ -110,10 +113,10 @@ impl<'a> InterfaceHList<'a> for HNil {
     }
 }
 
-impl<'a, Head: InterfaceClass<'a> + 'a, Tail: InterfaceHList<'a>> InterfaceHList<'a>
-    for HCons<Head, Tail>
+impl<'a, B: UsbBus, Head: InterfaceClass<'a, B> + 'a, Tail: InterfaceHList<'a, B>>
+    InterfaceHList<'a, B> for HCons<Head, Tail>
 {
-    fn get_id_mut(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a>> {
+    fn get_id_mut(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a, B>> {
         if id == u8::from(self.head.id()) {
             Some(&mut self.head)
         } else {
@@ -121,7 +124,7 @@ impl<'a, Head: InterfaceClass<'a> + 'a, Tail: InterfaceHList<'a>> InterfaceHList
         }
     }
 
-    fn get_id(&self, id: u8) -> Option<&dyn InterfaceClass<'a>> {
+    fn get_id(&self, id: u8) -> Option<&dyn InterfaceClass<'a, B>> {
         if id == u8::from(self.head.id()) {
             Some(&self.head)
         } else {
@@ -149,10 +152,10 @@ impl<'a, Head: InterfaceClass<'a> + 'a, Tail: InterfaceHList<'a>> InterfaceHList
     }
 }
 
-pub trait WrappedInterface<'a, B, I, Config = ()>: Sized + InterfaceClass<'a>
+pub trait WrappedInterface<'a, B, I, Config = ()>: Sized + InterfaceClass<'a, B>
 where
     B: UsbBus,
-    I: InterfaceClass<'a>,
+    I: InterfaceClass<'a, B>,
 {
     fn new(interface: I, config: Config) -> Self;
 }
@@ -179,7 +182,7 @@ where
     B: UsbBus + 'a,
     InnerConfig: UsbAllocatable<'a, B>,
     I: WrappedInterface<'a, B, InnerConfig::Allocated, Config>,
-    InnerConfig::Allocated: InterfaceClass<'a>,
+    InnerConfig::Allocated: InterfaceClass<'a, B>,
 {
     type Allocated = I;
 

@@ -79,7 +79,7 @@ impl<'a, B: UsbBus> RawFidoInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a> for RawFidoInterface<'a, B> {
+impl<'a, B: UsbBus> InterfaceClass<'a, B> for RawFidoInterface<'a, B> {
     #![allow(clippy::inline_always)]
     delegate! {
         to self.inner{
@@ -96,6 +96,10 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for RawFidoInterface<'a, B> {
            fn set_protocol(&mut self, protocol: HidProtocol);
            fn get_protocol(&self) -> HidProtocol;
         }
+    }
+
+    fn interface(&self) -> &RawInterface<'a, B> {
+        &self.inner
     }
 }
 

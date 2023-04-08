@@ -210,7 +210,7 @@ impl<'a, B: UsbBus> BootMouseInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a> for BootMouseInterface<'a, B> {
+impl<'a, B: UsbBus> InterfaceClass<'a, B> for BootMouseInterface<'a, B> {
     #![allow(clippy::inline_always)]
     delegate! {
         to self.inner{
@@ -227,6 +227,10 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for BootMouseInterface<'a, B> {
            fn set_protocol(&mut self, protocol: HidProtocol);
            fn get_protocol(&self) -> HidProtocol;
         }
+    }
+
+    fn interface(&self) -> &RawInterface<'a, B> {
+        &self.inner
     }
 }
 
@@ -267,7 +271,7 @@ impl<'a, B: UsbBus> WheelMouseInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a> for WheelMouseInterface<'a, B> {
+impl<'a, B: UsbBus> InterfaceClass<'a, B> for WheelMouseInterface<'a, B> {
     #![allow(clippy::inline_always)]
     delegate! {
         to self.inner{
@@ -284,6 +288,10 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for WheelMouseInterface<'a, B> {
            fn set_protocol(&mut self, protocol: HidProtocol);
            fn get_protocol(&self) -> HidProtocol;
         }
+    }
+
+    fn interface(&self) -> &RawInterface<'a, B> {
+        &self.inner
     }
 }
 
@@ -323,7 +331,7 @@ impl<'a, B: UsbBus> AbsoluteWheelMouseInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a> for AbsoluteWheelMouseInterface<'a, B> {
+impl<'a, B: UsbBus> InterfaceClass<'a, B> for AbsoluteWheelMouseInterface<'a, B> {
     #![allow(clippy::inline_always)]
     delegate! {
         to self.inner{
@@ -340,6 +348,10 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for AbsoluteWheelMouseInterface<'a, B> {
            fn set_protocol(&mut self, protocol: HidProtocol);
            fn get_protocol(&self) -> HidProtocol;
         }
+    }
+
+    fn interface(&self) -> &RawInterface<'a, B> {
+        &self.inner
     }
 }
 
