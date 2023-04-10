@@ -52,7 +52,7 @@ pub struct JoystickInterface<'a, B: UsbBus> {
 }
 
 impl<'a, B: UsbBus> JoystickInterface<'a, B> {
-    pub fn write_report(&self, report: &JoystickReport) -> Result<(), UsbHidError> {
+    pub fn write_report(&mut self, report: &JoystickReport) -> Result<(), UsbHidError> {
         let data = report.pack().map_err(|e| {
             error!("Error packing JoystickReport: {:?}", e);
             UsbHidError::SerializationError

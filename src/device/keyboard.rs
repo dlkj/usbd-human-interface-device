@@ -24,12 +24,12 @@ where
     B: UsbBus,
 {
     /// Call every 1ms / at 1KHz
-    pub fn tick(&self) -> Result<(), UsbHidError> {
+    pub fn tick(&mut self) -> Result<(), UsbHidError> {
         self.inner.tick()
     }
 
     pub fn write_report<K: IntoIterator<Item = Keyboard>>(
-        &self,
+        &mut self,
         keys: K,
     ) -> Result<(), UsbHidError> {
         self.inner
@@ -37,7 +37,7 @@ where
             .map(|_| ())
     }
 
-    pub fn read_report(&self) -> usb_device::Result<KeyboardLedsReport> {
+    pub fn read_report(&mut self) -> usb_device::Result<KeyboardLedsReport> {
         let data = &mut [0];
         match self.inner.read_report(data) {
             Err(e) => Err(e),
@@ -400,12 +400,12 @@ where
     B: UsbBus,
 {
     /// Call every 1ms / at 1KHz
-    pub fn tick(&self) -> Result<(), UsbHidError> {
+    pub fn tick(&mut self) -> Result<(), UsbHidError> {
         self.inner.tick()
     }
 
     pub fn write_report<K: IntoIterator<Item = Keyboard>>(
-        &self,
+        &mut self,
         keys: K,
     ) -> Result<(), UsbHidError> {
         self.inner
@@ -413,7 +413,7 @@ where
             .map(|_| ())
     }
 
-    pub fn read_report(&self) -> usb_device::Result<KeyboardLedsReport> {
+    pub fn read_report(&mut self) -> usb_device::Result<KeyboardLedsReport> {
         let data = &mut [0];
         match self.inner.read_report(data) {
             Err(e) => Err(e),

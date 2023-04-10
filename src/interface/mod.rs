@@ -1,6 +1,6 @@
 //! Abstract Human Interface Device Interfaces
 use core::marker::PhantomData;
-use frunk::{HCons, HNil, ToRef};
+use frunk::{HCons, HNil, ToMut, ToRef};
 use packed_struct::prelude::*;
 use usb_device::bus::{StringIndex, UsbBus, UsbBusAllocator};
 use usb_device::class_prelude::DescriptorWriter;
@@ -58,7 +58,7 @@ pub trait InterfaceClass<'a, B: UsbBus> {
     fn reset(&mut self);
 }
 
-pub trait InterfaceHList<'a, B>: ToRef<'a> {
+pub trait InterfaceHList<'a, B>: ToRef<'a> + ToMut<'a> {
     fn get_id_mut(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a, B>>;
     fn get_id(&self, id: u8) -> Option<&dyn InterfaceClass<'a, B>>;
     fn reset(&mut self);

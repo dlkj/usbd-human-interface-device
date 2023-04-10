@@ -47,13 +47,13 @@ pub struct RawFidoInterface<'a, B: UsbBus> {
 }
 
 impl<'a, B: UsbBus> RawFidoInterface<'a, B> {
-    pub fn write_report(&self, report: &RawFidoMsg) -> Result<(), UsbHidError> {
+    pub fn write_report(&mut self, report: &RawFidoMsg) -> Result<(), UsbHidError> {
         self.inner
             .write_report(&report.packet)
             .map(|_| ())
             .map_err(UsbHidError::from)
     }
-    pub fn read_report(&self) -> usb_device::Result<RawFidoMsg> {
+    pub fn read_report(&mut self) -> usb_device::Result<RawFidoMsg> {
         let mut report = RawFidoMsg::default();
         match self.inner.read_report(&mut report.packet) {
             Err(e) => Err(e),

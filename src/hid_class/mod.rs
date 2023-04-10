@@ -6,7 +6,7 @@ use core::default::Default;
 use core::marker::PhantomData;
 use descriptor::{DescriptorType, HidProtocol};
 use frunk::hlist::{HList, Selector};
-use frunk::{HCons, HNil};
+use frunk::{HCons, HNil, ToMut};
 use log::{error, info, trace, warn};
 use num_enum::IntoPrimitive;
 use packed_struct::prelude::*;
@@ -112,15 +112,15 @@ pub struct UsbHidClass<'a, B, I> {
 }
 
 impl<'a, B, InterfaceList: InterfaceHList<'a, B>> UsbHidClass<'a, B, InterfaceList> {
-    pub fn interface<T, Index>(&self) -> &T
+    pub fn interface<T, Index>(&mut self) -> &mut T
     where
         InterfaceList: Selector<T, Index>,
     {
-        self.interfaces.get()
+        self.interfaces.get_mut()
     }
 
-    pub fn interfaces(&'a self) -> InterfaceList::Output {
-        self.interfaces.to_ref()
+    pub fn interfaces(&'a mut self) -> <InterfaceList as ToMut>::Output {
+        self.interfaces.to_mut()
     }
 }
 

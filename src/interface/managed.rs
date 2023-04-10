@@ -72,7 +72,7 @@ impl<'a, B: UsbBus, R, const LEN: usize> ManagedInterface<'a, B, R>
 where
     R: Copy + Eq + PackedStruct<ByteArray = [u8; LEN]>,
 {
-    pub fn write_report(&self, report: &R) -> Result<(), UsbHidError> {
+    pub fn write_report(&mut self, report: &R) -> Result<(), UsbHidError> {
         if self.idle_manager.borrow().is_duplicate(report) {
             Err(UsbHidError::Duplicate)
         } else {
@@ -91,7 +91,7 @@ where
     }
 
     /// Call every 1ms
-    pub fn tick(&self) -> Result<(), UsbHidError> {
+    pub fn tick(&mut self) -> Result<(), UsbHidError> {
         let mut idle_manager = self.idle_manager.borrow_mut();
 
         if !(idle_manager.tick(self.inner.global_idle())) {
@@ -115,7 +115,7 @@ where
         }
     }
 
-    pub fn read_report(&self, data: &mut [u8]) -> usb_device::Result<usize> {
+    pub fn read_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize> {
         self.inner.read_report(data)
     }
 }
