@@ -16,38 +16,25 @@ use crate::UsbHidError;
 
 pub struct IdleManager<R> {
     last_report: Option<R>,
-    current_timeout: MillisDurationU32,
-    default_timeout: MillisDurationU32,
     since_last_report: MillisDurationU32,
+}
+
+impl<R> Default for IdleManager<R> {
+    fn default() -> Self {
+        Self {
+            last_report: Option::None,
+            since_last_report: 0.millis(),
+        }
+    }
 }
 
 impl<R> IdleManager<R>
 where
     R: Eq + Copy,
 {
-    #[must_use]
-    pub fn new(default: MillisDurationU32) -> Self {
-        Self {
-            last_report: None,
-            current_timeout: default,
-            default_timeout: default,
-            since_last_report: 0.millis(),
-        }
-    }
-
-    pub fn reset(&mut self) {
-        self.last_report = None;
-        self.current_timeout = self.default_timeout;
-        self.since_last_report = 0.millis();
-    }
-
     pub fn report_written(&mut self, report: R) {
         self.last_report = Some(report);
         self.since_last_report = 0.millis();
-    }
-
-    pub fn set_duration(&mut self, duration: MillisDurationU32) {
-        self.current_timeout = duration;
     }
 
     pub fn is_duplicate(&self, report: &R) -> bool {
@@ -55,13 +42,13 @@ where
     }
 
     /// Call every 1ms
-    pub fn tick(&mut self) -> bool {
-        if self.current_timeout.ticks() == 0 {
+    pub fn tick(&mut self, timeout: MillisDurationU32) -> bool {
+        if timeout.ticks() == 0 {
             self.since_last_report = 0.millis();
             return false;
         }
 
-        if self.since_last_report >= self.current_timeout {
+        if self.since_last_report >= timeout {
             self.since_last_report = 0.millis();
             true
         } else {
@@ -107,9 +94,7 @@ where
     pub fn tick(&self) -> Result<(), UsbHidError> {
         let mut idle_manager = self.idle_manager.borrow_mut();
 
-        idle_manager.set_duration(self.inner.global_idle());
-
-        if !(idle_manager.tick()) {
+        if !(idle_manager.tick(self.inner.global_idle())) {
             Ok(())
         } else if let Some(r) = idle_manager.last_report() {
             let data = r.pack().map_err(|e| {
@@ -150,7 +135,7 @@ where
     }
 
     fn reset(&mut self) {
-        self.idle_manager.borrow_mut().reset();
+        self.idle_manager.take();
     }
 }
 
@@ -160,10 +145,9 @@ where
     R: Copy + Eq,
 {
     fn new(interface: RawInterface<'a, B>, _config: ()) -> Self {
-        let default_idle = interface.global_idle();
         Self {
             inner: interface,
-            idle_manager: RefCell::new(IdleManager::new(default_idle)),
+            idle_manager: RefCell::new(IdleManager::default()),
         }
     }
 }
