@@ -69,11 +69,7 @@ impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for RawInterfaceConfig<'a> {
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a, B> for RawInterface<'a, B> {
-    fn interface(&self) -> &RawInterface<'a, B> {
-        self
-    }
-
-    fn interface_mut(&mut self) -> &mut RawInterface<'a, B> {
+    fn interface(&mut self) -> &mut RawInterface<'a, B> {
         self
     }
 

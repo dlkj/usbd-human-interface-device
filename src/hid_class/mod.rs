@@ -2,6 +2,7 @@
 
 use crate::interface::InterfaceHList;
 use crate::interface::{InterfaceClass, UsbAllocatable};
+use core::cell::RefCell;
 use core::default::Default;
 use core::marker::PhantomData;
 use descriptor::{DescriptorType, HidProtocol};
@@ -96,7 +97,10 @@ where
         usb_alloc: &'a UsbBusAllocator<B>,
     ) -> UsbHidClass<'a, B, HCons<C::Allocated, Tail::Allocated>> {
         UsbHidClass {
-            interfaces: self.interface_list.allocate(usb_alloc),
+            // report_descriptors,
+            // hid_descriptor_body,
+            // strings,
+            interfaces: RefCell::new(self.interface_list.allocate(usb_alloc)),
             _marker: PhantomData::default(),
         }
     }
@@ -105,9 +109,12 @@ where
 pub type BuilderResult<B> = core::result::Result<B, UsbHidBuilderError>;
 
 /// USB Human Interface Device class
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct UsbHidClass<'a, B, I> {
-    interfaces: I,
+    // Using a RefCell makes it simpler to implement devices as all calls to interfaces are mut
+    // this could be removed, but then each usb device would need to implement a non mut borrow
+    // of its `RawInterface`.
+    interfaces: RefCell<I>,
     _marker: PhantomData<&'a B>,
 }
 
@@ -116,16 +123,16 @@ impl<'a, B, InterfaceList: InterfaceHList<'a, B>> UsbHidClass<'a, B, InterfaceLi
     where
         InterfaceList: Selector<T, Index>,
     {
-        self.interfaces.get_mut()
+        self.interfaces.get_mut().get_mut()
     }
 
     pub fn interfaces(&'a mut self) -> <InterfaceList as ToMut>::Output {
-        self.interfaces.to_mut()
+        self.interfaces.get_mut().to_mut()
     }
 }
 
 impl<'a, B: UsbBus + 'a, I> UsbHidClass<'a, B, I> {
-    fn get_descriptor(transfer: ControlIn<B>, interface: &dyn InterfaceClass<'a, B>) {
+    fn get_descriptor(transfer: ControlIn<B>, interface: &mut dyn InterfaceClass<'a, B>) {
         let request: &Request = transfer.request();
         match DescriptorType::from_primitive((request.value >> 8) as u8) {
             Some(DescriptorType::Report) => {
@@ -167,18 +174,18 @@ where
     I: InterfaceHList<'a, B>,
 {
     fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
-        self.interfaces.write_descriptors(writer)?;
+        self.interfaces.borrow_mut().write_descriptors(writer)?;
         info!("wrote class config descriptor");
         Ok(())
     }
 
     fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&str> {
-        self.interfaces.get_string(index, lang_id)
+        self.interfaces.borrow_mut().get_string(index, lang_id)
     }
 
     fn reset(&mut self) {
         info!("Reset");
-        self.interfaces.reset();
+        self.interfaces.get_mut().reset();
     }
 
     fn control_out(&mut self, transfer: ControlOut<B>) {
@@ -193,7 +200,7 @@ where
 
         let interface = u8::try_from(request.index)
             .ok()
-            .and_then(|id| self.interfaces.get_id_mut(id));
+            .and_then(|id| self.interfaces.get_mut().get(id));
 
         if interface.is_none() {
             return;
@@ -210,7 +217,7 @@ where
 
         match HidRequest::from_primitive(request.request) {
             Some(HidRequest::SetReport) => {
-                interface.interface_mut().set_report(transfer.data()).ok();
+                interface.interface().set_report(transfer.data()).ok();
                 transfer.accept().ok();
             }
             Some(HidRequest::SetIdle) => {
@@ -222,7 +229,7 @@ where
                 }
 
                 interface
-                    .interface_mut()
+                    .interface()
                     .set_idle((request.value & 0xFF) as u8, (request.value >> 8) as u8);
                 transfer.accept().ok();
             }
@@ -234,7 +241,7 @@ where
                     );
                 }
                 if let Some(protocol) = HidProtocol::from_primitive((request.value & 0xFF) as u8) {
-                    interface.interface_mut().set_protocol(protocol);
+                    interface.interface().set_protocol(protocol);
                     transfer.accept().ok();
                 } else {
                     error!(
@@ -275,7 +282,7 @@ where
 
         match request.request_type {
             RequestType::Standard => {
-                let interface = self.interfaces.get_id(interface_id);
+                let interface = self.interfaces.get_mut().get(interface_id);
 
                 if interface.is_none() {
                     return;
@@ -289,7 +296,7 @@ where
             }
 
             RequestType::Class => {
-                let interface = self.interfaces.get_id_mut(interface_id);
+                let interface = self.interfaces.get_mut().get(interface_id);
 
                 if interface.is_none() {
                     return;
@@ -299,7 +306,7 @@ where
                 match HidRequest::from_primitive(request.request) {
                     Some(HidRequest::GetReport) => {
                         let mut data = [0_u8; 64];
-                        if let Ok(n) = interface.interface_mut().get_report(&mut data) {
+                        if let Ok(n) = interface.interface().get_report(&mut data) {
                             if n != transfer.request().length as usize {
                                 warn!(
                                     "GetReport expected {:X} bytes, got {:X} bytes",
@@ -311,7 +318,7 @@ where
                                 error!("Failed to send report - {:?}", e);
                             } else {
                                 trace!("Sent report, {:X} bytes", n);
-                                interface.interface_mut().get_report_ack().unwrap();
+                                interface.interface().get_report_ack().unwrap();
                             }
                         }
                     }

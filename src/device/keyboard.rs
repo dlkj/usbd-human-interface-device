@@ -75,12 +75,8 @@ impl<'a, B> InterfaceClass<'a, B> for BootKeyboardInterface<'a, B>
 where
     B: UsbBus,
 {
-    fn interface(&self) -> &RawInterface<'a, B> {
+    fn interface(&mut self) -> &mut RawInterface<'a, B> {
         self.inner.interface()
-    }
-
-    fn interface_mut(&mut self) -> &mut RawInterface<'a, B> {
-        self.inner.interface_mut()
     }
     fn reset(&mut self) {
         self.inner.reset();
@@ -449,11 +445,8 @@ impl<'a, B> InterfaceClass<'a, B> for NKROBootKeyboardInterface<'a, B>
 where
     B: UsbBus,
 {
-    fn interface(&self) -> &RawInterface<'a, B> {
+    fn interface(&mut self) -> &mut RawInterface<'a, B> {
         self.inner.interface()
-    }
-    fn interface_mut(&mut self) -> &mut RawInterface<'a, B> {
-        self.inner.interface_mut()
     }
 
     fn reset(&mut self) {

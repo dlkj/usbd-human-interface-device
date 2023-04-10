@@ -208,11 +208,7 @@ impl<'a, B: UsbBus> BootMouseInterface<'a, B> {
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a, B> for BootMouseInterface<'a, B> {
-    fn interface(&self) -> &RawInterface<'a, B> {
-        &self.inner
-    }
-
-    fn interface_mut(&mut self) -> &mut RawInterface<'a, B> {
+    fn interface(&mut self) -> &mut RawInterface<'a, B> {
         &mut self.inner
     }
 
@@ -257,11 +253,7 @@ impl<'a, B: UsbBus> WheelMouseInterface<'a, B> {
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a, B> for WheelMouseInterface<'a, B> {
-    fn interface(&self) -> &RawInterface<'a, B> {
-        &self.inner
-    }
-
-    fn interface_mut(&mut self) -> &mut RawInterface<'a, B> {
+    fn interface(&mut self) -> &mut RawInterface<'a, B> {
         &mut self.inner
     }
 
@@ -305,11 +297,7 @@ impl<'a, B: UsbBus> AbsoluteWheelMouseInterface<'a, B> {
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a, B> for AbsoluteWheelMouseInterface<'a, B> {
-    fn interface(&self) -> &RawInterface<'a, B> {
-        &self.inner
-    }
-
-    fn interface_mut(&mut self) -> &mut RawInterface<'a, B> {
+    fn interface(&mut self) -> &mut RawInterface<'a, B> {
         &mut self.inner
     }
 

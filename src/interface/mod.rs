@@ -53,35 +53,29 @@ where
 }
 
 pub trait InterfaceClass<'a, B: UsbBus> {
-    fn interface(&self) -> &RawInterface<'a, B>;
-    fn interface_mut(&mut self) -> &mut RawInterface<'a, B>;
+    fn interface(&mut self) -> &mut RawInterface<'a, B>;
     fn reset(&mut self);
 }
 
 pub trait InterfaceHList<'a, B>: ToRef<'a> + ToMut<'a> {
-    fn get_id_mut(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a, B>>;
-    fn get_id(&self, id: u8) -> Option<&dyn InterfaceClass<'a, B>>;
+    fn get(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a, B>>;
     fn reset(&mut self);
-    fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'a str>;
+    fn write_descriptors(&mut self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
+    fn get_string(&mut self, index: StringIndex, lang_id: u16) -> Option<&'a str>;
 }
 
 impl<'a, B> InterfaceHList<'a, B> for HNil {
-    fn get_id_mut(&mut self, _: u8) -> Option<&mut dyn InterfaceClass<'a, B>> {
-        None
-    }
-
-    fn get_id(&self, _: u8) -> Option<&dyn InterfaceClass<'a, B>> {
+    fn get(&mut self, _: u8) -> Option<&mut dyn InterfaceClass<'a, B>> {
         None
     }
 
     fn reset(&mut self) {}
 
-    fn write_descriptors(&self, _: &mut DescriptorWriter) -> usb_device::Result<()> {
+    fn write_descriptors(&mut self, _: &mut DescriptorWriter) -> usb_device::Result<()> {
         Ok(())
     }
 
-    fn get_string(&self, _: StringIndex, _: u16) -> Option<&'static str> {
+    fn get_string(&mut self, _: StringIndex, _: u16) -> Option<&'static str> {
         None
     }
 }
@@ -89,34 +83,26 @@ impl<'a, B> InterfaceHList<'a, B> for HNil {
 impl<'a, B: UsbBus + 'a, Head: InterfaceClass<'a, B> + 'a, Tail: InterfaceHList<'a, B>>
     InterfaceHList<'a, B> for HCons<Head, Tail>
 {
-    fn get_id_mut(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a, B>> {
+    fn get(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a, B>> {
         if id == u8::from(self.head.interface().id()) {
             Some(&mut self.head)
         } else {
-            self.tail.get_id_mut(id)
-        }
-    }
-
-    fn get_id(&self, id: u8) -> Option<&dyn InterfaceClass<'a, B>> {
-        if id == u8::from(self.head.interface().id()) {
-            Some(&self.head)
-        } else {
-            self.tail.get_id(id)
+            self.tail.get(id)
         }
     }
 
     fn reset(&mut self) {
-        self.head.interface_mut().reset();
+        self.head.interface().reset();
         self.head.reset();
         self.tail.reset();
     }
 
-    fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()> {
+    fn write_descriptors(&mut self, writer: &mut DescriptorWriter) -> usb_device::Result<()> {
         self.head.interface().write_descriptors(writer)?;
         self.tail.write_descriptors(writer)
     }
 
-    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'a str> {
+    fn get_string(&mut self, index: StringIndex, lang_id: u16) -> Option<&'a str> {
         let s = self.head.interface().get_string(index, lang_id);
         if s.is_some() {
             s

@@ -79,11 +79,7 @@ impl<'a, B: UsbBus> JoystickInterface<'a, B> {
 }
 
 impl<'a, B: UsbBus> InterfaceClass<'a, B> for JoystickInterface<'a, B> {
-    fn interface(&self) -> &RawInterface<'a, B> {
-        &self.inner
-    }
-
-    fn interface_mut(&mut self) -> &mut RawInterface<'a, B> {
+    fn interface(&mut self) -> &mut RawInterface<'a, B> {
         &mut self.inner
     }
 

@@ -123,11 +123,7 @@ where
 {
     #![allow(clippy::inline_always)]
 
-    fn interface(&self) -> &RawInterface<'a, B> {
-        &self.inner
-    }
-
-    fn interface_mut(&mut self) -> &mut RawInterface<'a, B> {
+    fn interface(&mut self) -> &mut RawInterface<'a, B> {
         &mut self.inner
     }
 
