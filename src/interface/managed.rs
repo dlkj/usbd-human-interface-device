@@ -1,4 +1,3 @@
-use core::cell::RefCell;
 use core::marker::PhantomData;
 
 use fugit::{ExtU32, MillisDurationU32};
@@ -64,7 +63,7 @@ where
 
 pub struct ManagedInterface<'a, B: UsbBus, R> {
     inner: RawInterface<'a, B>,
-    idle_manager: RefCell<IdleManager<R>>,
+    idle_manager: IdleManager<R>,
 }
 
 #[allow(clippy::inline_always)]
@@ -73,7 +72,7 @@ where
     R: Copy + Eq + PackedStruct<ByteArray = [u8; LEN]>,
 {
     pub fn write_report(&mut self, report: &R) -> Result<(), UsbHidError> {
-        if self.idle_manager.borrow().is_duplicate(report) {
+        if self.idle_manager.is_duplicate(report) {
             Err(UsbHidError::Duplicate)
         } else {
             let data = report.pack().map_err(|e| {
@@ -85,25 +84,23 @@ where
                 .write_report(&data)
                 .map_err(UsbHidError::from)
                 .map(|_| {
-                    self.idle_manager.borrow_mut().report_written(*report);
+                    self.idle_manager.report_written(*report);
                 })
         }
     }
 
     /// Call every 1ms
     pub fn tick(&mut self) -> Result<(), UsbHidError> {
-        let mut idle_manager = self.idle_manager.borrow_mut();
-
-        if !(idle_manager.tick(self.inner.global_idle())) {
+        if !(self.idle_manager.tick(self.inner.global_idle())) {
             Ok(())
-        } else if let Some(r) = idle_manager.last_report() {
+        } else if let Some(r) = self.idle_manager.last_report() {
             let data = r.pack().map_err(|e| {
                 error!("Error packing report: {:?}", e);
                 UsbHidError::SerializationError
             })?;
             match self.inner.write_report(&data) {
                 Ok(n) => {
-                    idle_manager.report_written(r);
+                    self.idle_manager.report_written(r);
                     Ok(n)
                 }
                 Err(UsbError::WouldBlock) => Err(UsbHidError::WouldBlock),
@@ -135,7 +132,7 @@ where
     }
 
     fn reset(&mut self) {
-        self.idle_manager.take();
+        self.idle_manager = IdleManager::default();
     }
 }
 
@@ -147,7 +144,7 @@ where
     fn new(interface: RawInterface<'a, B>, _config: ()) -> Self {
         Self {
             inner: interface,
-            idle_manager: RefCell::new(IdleManager::default()),
+            idle_manager: IdleManager::default(),
         }
     }
 }
