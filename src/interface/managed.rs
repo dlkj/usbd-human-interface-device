@@ -3,7 +3,6 @@ use core::marker::PhantomData;
 
 use delegate::delegate;
 use fugit::{ExtU32, MillisDurationU32};
-use log::error;
 use packed_struct::PackedStruct;
 use usb_device::bus::UsbBus;
 #[allow(clippy::wildcard_imports)]
@@ -91,8 +90,8 @@ where
         if self.idle_manager.borrow().is_duplicate(report) {
             Err(UsbHidError::Duplicate)
         } else {
-            let data = report.pack().map_err(|e| {
-                error!("Error packing report: {:?}", e);
+            let data = report.pack().map_err(|_| {
+                error!("Error packing report");
                 UsbHidError::SerializationError
             })?;
 
@@ -111,8 +110,8 @@ where
         if !(idle_manager.tick()) {
             Ok(())
         } else if let Some(r) = idle_manager.last_report() {
-            let data = r.pack().map_err(|e| {
-                error!("Error packing report: {:?}", e);
+            let data = r.pack().map_err(|_| {
+                error!("Error packing report");
                 UsbHidError::SerializationError
             })?;
             match self.inner.write_report(&data) {
@@ -153,6 +152,7 @@ where
            fn get_idle(&self, report_id: u8) -> u8;
            fn set_protocol(&mut self, protocol: HidProtocol);
            fn get_protocol(&self) -> HidProtocol;
+           fn hid_descriptor_body(&self) -> [u8; 7];
         }
     }
 

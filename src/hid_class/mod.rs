@@ -7,7 +7,6 @@ use core::marker::PhantomData;
 use descriptor::{DescriptorType, HidProtocol};
 use frunk::hlist::{HList, Selector};
 use frunk::{HCons, HNil};
-use log::{error, info, trace, warn};
 use num_enum::IntoPrimitive;
 use packed_struct::prelude::*;
 #[allow(clippy::wildcard_imports)]
@@ -42,9 +41,11 @@ pub enum UsbPacketSize {
     Bytes64 = 64,
 }
 
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UsbHidBuilderError {
     ValueOverflow,
+    SliceLengthOverflow,
 }
 
 #[must_use = "this `UsbHidClassBuilder` must be assigned or consumed by `::build()`"]
@@ -137,11 +138,11 @@ impl<B: UsbBus, I> UsbHidClass<B, I> {
                 }
             }
             Some(DescriptorType::Hid) => {
-                let mut buffer = [0; 9];
-                buffer[0] = u8::try_from(buffer.len())
-                    .expect("hid descriptor length expected to be less than u8::MAX");
+                const LEN: u8 = 9;
+                let mut buffer = [0; LEN as usize];
+                buffer[0] = LEN;
                 buffer[1] = u8::from(DescriptorType::Hid);
-                (buffer[2..]).copy_from_slice(&interface.hid_descriptor_body());
+                (buffer[2..LEN as usize]).copy_from_slice(&interface.hid_descriptor_body());
                 match transfer.accept_with(&buffer) {
                     Err(e) => {
                         error!("Failed to send Hid descriptor - {:?}", e);
@@ -153,7 +154,7 @@ impl<B: UsbBus, I> UsbHidClass<B, I> {
             }
             _ => {
                 warn!(
-                    "Unsupported descriptor type, request type:{:X?}, request:{:X}, value:{:X}",
+                    "Unsupported descriptor type, request type:{:?}, request:{}, value:{}",
                     request.request_type, request.request, request.value
                 );
             }
@@ -191,18 +192,12 @@ where
             return;
         }
 
-        let interface = u8::try_from(request.index)
-            .ok()
-            .and_then(|id| self.interfaces.get_id_mut(id));
-
-        if interface.is_none() {
-            return;
-        }
-
-        let interface = interface.unwrap();
+        let Some(interface) = u8::try_from(request.index)
+                    .ok()
+                    .and_then(|id| self.interfaces.get_id_mut(id)) else { return };
 
         trace!(
-            "ctrl_out: request type: {:?}, request: {:X}, value: {:X}",
+            "ctrl_out: request type: {:?}, request: {}, value: {}",
             request.request_type,
             request.request,
             request.value
@@ -216,7 +211,7 @@ where
             Some(HidRequest::SetIdle) => {
                 if request.length != 0 {
                     warn!(
-                        "Expected SetIdle to have length 0, received {:X}",
+                        "Expected SetIdle to have length 0, received {}",
                         request.length
                     );
                 }
@@ -227,7 +222,7 @@ where
             Some(HidRequest::SetProtocol) => {
                 if request.length != 0 {
                     warn!(
-                        "Expected SetProtocol to have length 0, received {:X}",
+                        "Expected SetProtocol to have length 0, received {}",
                         request.length
                     );
                 }
@@ -236,14 +231,14 @@ where
                     transfer.accept().ok();
                 } else {
                     error!(
-                        "Unable to set protocol, unsupported value:{:X}",
+                        "Unable to set protocol, unsupported value:{}",
                         request.value
                     );
                 }
             }
             _ => {
                 warn!(
-                    "Unsupported control_out request type: {:?}, request: {:X}, value: {:X}",
+                    "Unsupported control_out request type: {:?}, request: {}, value: {}",
                     request.request_type, request.request, request.value
                 );
             }
@@ -257,15 +252,12 @@ where
             return;
         }
 
-        let interface_id = u8::try_from(request.index).ok();
-
-        if interface_id.is_none() {
+        let Ok(interface_id) = u8::try_from(request.index) else {
             return;
-        }
-        let interface_id = interface_id.unwrap();
+        };
 
         trace!(
-            "ctrl_in: request type: {:?}, request: {:X}, value: {:X}",
+            "ctrl_in: request type: {:?}, request: {}, value: {}",
             request.request_type,
             request.request,
             request.value
@@ -273,26 +265,18 @@ where
 
         match request.request_type {
             RequestType::Standard => {
-                let interface = self.interfaces.get_id(interface_id);
-
-                if interface.is_none() {
-                    return;
-                }
-                let interface = interface.unwrap();
-
-                if request.request == Request::GET_DESCRIPTOR {
-                    info!("Get descriptor");
-                    Self::get_descriptor(transfer, interface);
+                if let Some(interface) = self.interfaces.get_id(interface_id) {
+                    if request.request == Request::GET_DESCRIPTOR {
+                        info!("Get descriptor");
+                        Self::get_descriptor(transfer, interface);
+                    }
                 }
             }
 
             RequestType::Class => {
-                let interface = self.interfaces.get_id_mut(interface_id);
-
-                if interface.is_none() {
+                let Some(interface) = self.interfaces.get_id_mut(interface_id) else {
                     return;
-                }
-                let interface = interface.unwrap();
+                };
 
                 match HidRequest::from_primitive(request.request) {
                     Some(HidRequest::GetReport) => {
@@ -300,7 +284,7 @@ where
                         if let Ok(n) = interface.get_report(&mut data) {
                             if n != transfer.request().length as usize {
                                 warn!(
-                                    "GetReport expected {:X} bytes, got {:X} bytes",
+                                    "GetReport expected {} bytes, got {} bytes",
                                     transfer.request().length,
                                     data.len()
                                 );
@@ -308,15 +292,15 @@ where
                             if let Err(e) = transfer.accept_with(&data[..n]) {
                                 error!("Failed to send report - {:?}", e);
                             } else {
-                                trace!("Sent report, {:X} bytes", n);
-                                interface.get_report_ack().unwrap();
+                                trace!("Sent report, {} bytes", n);
+                                unwrap!(interface.get_report_ack());
                             }
                         }
                     }
                     Some(HidRequest::GetIdle) => {
                         if request.length != 1 {
                             warn!(
-                                "Expected GetIdle to have length 1, received {:X}",
+                                "Expected GetIdle to have length 1, received {}",
                                 request.length
                             );
                         }
@@ -326,13 +310,13 @@ where
                         if let Err(e) = transfer.accept_with(&[idle]) {
                             error!("Failed to send idle data - {:?}", e);
                         } else {
-                            info!("Get Idle for ID{:X}: {:X}", report_id, idle);
+                            info!("Get Idle for ID{}: {}", report_id, idle);
                         }
                     }
                     Some(HidRequest::GetProtocol) => {
                         if request.length != 1 {
                             warn!(
-                                "Expected GetProtocol to have length 1, received {:X}",
+                                "Expected GetProtocol to have length 1, received {}",
                                 request.length
                             );
                         }
@@ -346,7 +330,7 @@ where
                     }
                     _ => {
                         warn!(
-                            "Unsupported control_in request type: {:?}, request: {:X}, value: {:X}",
+                            "Unsupported control_in request type: {:?}, request: {}, value: {}",
                             request.request_type, request.request, request.value
                         );
                     }

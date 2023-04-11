@@ -103,6 +103,7 @@ fn main() -> ! {
     let mut keyboard = UsbHidClassBuilder::new()
         .add_interface(
             RawInterfaceBuilder::new(LOGITECH_GAMING_KEYBOARD_REPORT_DESCRIPTOR)
+                .unwrap()
                 .description("Custom Keyboard")
                 .idle_default(500.millis())
                 .unwrap()

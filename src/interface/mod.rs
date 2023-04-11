@@ -5,9 +5,7 @@ use packed_struct::prelude::*;
 use usb_device::bus::{InterfaceNumber, StringIndex, UsbBus, UsbBusAllocator};
 use usb_device::class_prelude::DescriptorWriter;
 
-use crate::hid_class::descriptor::{
-    DescriptorType, HidProtocol, COUNTRY_CODE_NOT_SUPPORTED, SPEC_VERSION_1_11,
-};
+use crate::hid_class::descriptor::{DescriptorType, HidProtocol};
 
 pub mod managed;
 pub mod raw;
@@ -65,21 +63,7 @@ pub trait InterfaceClass<'a> {
     fn get_idle(&self, report_id: u8) -> u8;
     fn set_protocol(&mut self, protocol: HidProtocol);
     fn get_protocol(&self) -> HidProtocol;
-    fn hid_descriptor_body(&self) -> [u8; 7] {
-        let descriptor_len = u16::try_from(self.report_descriptor().len())
-            .expect("Report descriptor too long, must be < u16::MAX");
-
-        HidDescriptorBody {
-            bcd_hid: SPEC_VERSION_1_11,
-            country_code: COUNTRY_CODE_NOT_SUPPORTED,
-            num_descriptors: 1,
-            descriptor_type: DescriptorType::Report,
-            descriptor_length: descriptor_len,
-        }
-        .pack()
-        .map_err(drop) // Avoid pulling all the core::fmt code into final binary
-        .expect("Failed to pack HidDescriptor")
-    }
+    fn hid_descriptor_body(&self) -> [u8; 7];
 }
 
 pub trait InterfaceHList<'a>: ToRef<'a> {

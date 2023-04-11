@@ -3,7 +3,6 @@ use crate::hid_class::descriptor::HidProtocol;
 use core::default::Default;
 use delegate::delegate;
 use fugit::ExtU32;
-use log::error;
 use packed_struct::prelude::*;
 use usb_device::bus::{InterfaceNumber, StringIndex, UsbBus};
 use usb_device::class_prelude::DescriptorWriter;
@@ -56,8 +55,8 @@ pub struct JoystickInterface<'a, B: UsbBus> {
 
 impl<'a, B: UsbBus> JoystickInterface<'a, B> {
     pub fn write_report(&self, report: &JoystickReport) -> Result<(), UsbHidError> {
-        let data = report.pack().map_err(|e| {
-            error!("Error packing JoystickReport: {:?}", e);
+        let data = report.pack().map_err(|_| {
+            error!("Error packing JoystickReport");
             UsbHidError::SerializationError
         })?;
         self.inner
@@ -69,13 +68,12 @@ impl<'a, B: UsbBus> JoystickInterface<'a, B> {
     #[must_use]
     pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
         WrappedInterfaceConfig::new(
-            RawInterfaceBuilder::new(JOYSTICK_DESCRIPTOR)
+            unwrap!(unwrap!(RawInterfaceBuilder::new(JOYSTICK_DESCRIPTOR))
                 .boot_device(InterfaceProtocol::None)
                 .description("Joystick")
-                .in_endpoint(UsbPacketSize::Bytes8, 10.millis())
-                .unwrap()
-                .without_out_endpoint()
-                .build(),
+                .in_endpoint(UsbPacketSize::Bytes8, 10.millis()))
+            .without_out_endpoint()
+            .build(),
             (),
         )
     }
@@ -97,6 +95,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for JoystickInterface<'a, B> {
            fn get_idle(&self, report_id: u8) -> u8;
            fn set_protocol(&mut self, protocol: HidProtocol);
            fn get_protocol(&self) -> HidProtocol;
+           fn hid_descriptor_body(&self) -> [u8; 7];
         }
     }
 }

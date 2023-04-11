@@ -9,7 +9,7 @@ license = "MIT"
 [workspace]
 
 [dependencies]
-usbd-human-interface-device = { path = ".." }
+usbd-human-interface-device = { path = "..", features = ["defmt"]}
 usb-device = "0.2"
 packed_struct = { version = "0.10", default-features = false }
 frunk = { version = "0.4", default-features = false }

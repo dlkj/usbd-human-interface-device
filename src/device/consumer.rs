@@ -2,7 +2,6 @@
 
 use delegate::delegate;
 use fugit::ExtU32;
-use log::error;
 use packed_struct::prelude::*;
 #[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
@@ -99,8 +98,8 @@ pub struct ConsumerControlInterface<'a, B: UsbBus> {
 
 impl<'a, B: UsbBus> ConsumerControlInterface<'a, B> {
     pub fn write_report(&self, report: &MultipleConsumerReport) -> usb_device::Result<usize> {
-        let data = report.pack().map_err(|e| {
-            error!("Error packing MultipleConsumerReport: {:?}", e);
+        let data = report.pack().map_err(|_| {
+            error!("Error packing MultipleConsumerReport");
             UsbError::ParseError
         })?;
         self.inner.write_report(&data)
@@ -109,12 +108,13 @@ impl<'a, B: UsbBus> ConsumerControlInterface<'a, B> {
     #[must_use]
     pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
         WrappedInterfaceConfig::new(
-            RawInterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
-                .description("Consumer Control")
-                .in_endpoint(UsbPacketSize::Bytes8, 50.millis())
-                .unwrap()
-                .without_out_endpoint()
-                .build(),
+            unwrap!(
+                unwrap!(RawInterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR))
+                    .description("Consumer Control")
+                    .in_endpoint(UsbPacketSize::Bytes8, 50.millis())
+            )
+            .without_out_endpoint()
+            .build(),
             (),
         )
     }
@@ -136,6 +136,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for ConsumerControlInterface<'a, B> {
            fn get_idle(&self, report_id: u8) -> u8;
            fn set_protocol(&mut self, protocol: HidProtocol);
            fn get_protocol(&self) -> HidProtocol;
+           fn hid_descriptor_body(&self) -> [u8; 7];
         }
     }
 }
@@ -154,8 +155,8 @@ pub struct ConsumerControlFixedInterface<'a, B: UsbBus> {
 
 impl<'a, B: UsbBus> ConsumerControlFixedInterface<'a, B> {
     pub fn write_report(&self, report: &FixedFunctionReport) -> usb_device::Result<usize> {
-        let data = report.pack().map_err(|e| {
-            error!("Error packing MultipleConsumerReport: {:?}", e);
+        let data = report.pack().map_err(|_| {
+            error!("Error packing MultipleConsumerReport");
             UsbError::ParseError
         })?;
         self.inner.write_report(&data)
@@ -164,12 +165,13 @@ impl<'a, B: UsbBus> ConsumerControlFixedInterface<'a, B> {
     #[must_use]
     pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
         WrappedInterfaceConfig::new(
-            RawInterfaceBuilder::new(FIXED_FUNCTION_REPORT_DESCRIPTOR)
-                .description("Consumer Control")
-                .in_endpoint(UsbPacketSize::Bytes8, 50.millis())
-                .unwrap()
-                .without_out_endpoint()
-                .build(),
+            unwrap!(
+                unwrap!(RawInterfaceBuilder::new(FIXED_FUNCTION_REPORT_DESCRIPTOR))
+                    .description("Consumer Control")
+                    .in_endpoint(UsbPacketSize::Bytes8, 50.millis())
+            )
+            .without_out_endpoint()
+            .build(),
             (),
         )
     }
@@ -191,6 +193,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for ConsumerControlFixedInterface<'a, B> 
            fn get_idle(&self, report_id: u8) -> u8;
            fn set_protocol(&mut self, protocol: HidProtocol);
            fn get_protocol(&self) -> HidProtocol;
+           fn hid_descriptor_body(&self) -> [u8; 7];
         }
     }
 }

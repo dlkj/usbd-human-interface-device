@@ -67,13 +67,13 @@ impl<'a, B: UsbBus> RawFidoInterface<'a, B> {
     #[must_use]
     pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
         WrappedInterfaceConfig::new(
-            RawInterfaceBuilder::new(FIDO_REPORT_DESCRIPTOR)
-                .description("U2F Token")
-                .in_endpoint(UsbPacketSize::Bytes64, 5.millis())
-                .unwrap()
+            unwrap!(
+                unwrap!(unwrap!(RawInterfaceBuilder::new(FIDO_REPORT_DESCRIPTOR))
+                    .description("U2F Token")
+                    .in_endpoint(UsbPacketSize::Bytes64, 5.millis()))
                 .with_out_endpoint(UsbPacketSize::Bytes64, 5.millis())
-                .unwrap()
-                .build(),
+            )
+            .build(),
             (),
         )
     }
@@ -95,6 +95,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for RawFidoInterface<'a, B> {
            fn get_idle(&self, report_id: u8) -> u8;
            fn set_protocol(&mut self, protocol: HidProtocol);
            fn get_protocol(&self) -> HidProtocol;
+           fn hid_descriptor_body(&self) -> [u8; 7];
         }
     }
 }

@@ -3,7 +3,6 @@ use crate::hid_class::descriptor::HidProtocol;
 use core::default::Default;
 use delegate::delegate;
 use fugit::ExtU32;
-use log::error;
 use packed_struct::prelude::*;
 use usb_device::bus::{InterfaceNumber, StringIndex, UsbBus};
 use usb_device::class_prelude::DescriptorWriter;
@@ -185,8 +184,8 @@ pub struct BootMouseInterface<'a, B: UsbBus> {
 
 impl<'a, B: UsbBus> BootMouseInterface<'a, B> {
     pub fn write_report(&self, report: &BootMouseReport) -> Result<(), UsbHidError> {
-        let data = report.pack().map_err(|e| {
-            error!("Error packing BootMouseReport: {:?}", e);
+        let data = report.pack().map_err(|_| {
+            error!("Error packing BootMouseReport");
             UsbHidError::SerializationError
         })?;
         self.inner
@@ -198,13 +197,14 @@ impl<'a, B: UsbBus> BootMouseInterface<'a, B> {
     #[must_use]
     pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
         WrappedInterfaceConfig::new(
-            RawInterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR)
-                .boot_device(InterfaceProtocol::Mouse)
-                .description("Mouse")
-                .in_endpoint(UsbPacketSize::Bytes8, 10.millis())
-                .unwrap()
-                .without_out_endpoint()
-                .build(),
+            unwrap!(
+                unwrap!(RawInterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR))
+                    .boot_device(InterfaceProtocol::Mouse)
+                    .description("Mouse")
+                    .in_endpoint(UsbPacketSize::Bytes8, 10.millis())
+            )
+            .without_out_endpoint()
+            .build(),
             (),
         )
     }
@@ -226,6 +226,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for BootMouseInterface<'a, B> {
            fn get_idle(&self, report_id: u8) -> u8;
            fn set_protocol(&mut self, protocol: HidProtocol);
            fn get_protocol(&self) -> HidProtocol;
+           fn hid_descriptor_body(&self) -> [u8; 7];
         }
     }
 }
@@ -242,8 +243,8 @@ pub struct WheelMouseInterface<'a, B: UsbBus> {
 
 impl<'a, B: UsbBus> WheelMouseInterface<'a, B> {
     pub fn write_report(&self, report: &WheelMouseReport) -> Result<(), UsbHidError> {
-        let data = report.pack().map_err(|e| {
-            error!("Error packing WheelMouseReport: {:?}", e);
+        let data = report.pack().map_err(|_| {
+            error!("Error packing WheelMouseReport");
             UsbHidError::SerializationError
         })?;
         self.inner
@@ -255,13 +256,14 @@ impl<'a, B: UsbBus> WheelMouseInterface<'a, B> {
     #[must_use]
     pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
         WrappedInterfaceConfig::new(
-            RawInterfaceBuilder::new(WHEEL_MOUSE_REPORT_DESCRIPTOR)
-                .boot_device(InterfaceProtocol::Mouse)
-                .description("Wheel Mouse")
-                .in_endpoint(UsbPacketSize::Bytes8, 10.millis())
-                .unwrap()
-                .without_out_endpoint()
-                .build(),
+            unwrap!(
+                unwrap!(RawInterfaceBuilder::new(WHEEL_MOUSE_REPORT_DESCRIPTOR))
+                    .boot_device(InterfaceProtocol::Mouse)
+                    .description("Wheel Mouse")
+                    .in_endpoint(UsbPacketSize::Bytes8, 10.millis())
+            )
+            .without_out_endpoint()
+            .build(),
             (),
         )
     }
@@ -283,6 +285,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for WheelMouseInterface<'a, B> {
            fn get_idle(&self, report_id: u8) -> u8;
            fn set_protocol(&mut self, protocol: HidProtocol);
            fn get_protocol(&self) -> HidProtocol;
+           fn hid_descriptor_body(&self) -> [u8; 7];
         }
     }
 }
@@ -299,8 +302,8 @@ pub struct AbsoluteWheelMouseInterface<'a, B: UsbBus> {
 
 impl<'a, B: UsbBus> AbsoluteWheelMouseInterface<'a, B> {
     pub fn write_report(&self, report: &AbsoluteWheelMouseReport) -> Result<(), UsbHidError> {
-        let data = report.pack().map_err(|e| {
-            error!("Error packing WheelMouseReport: {:?}", e);
+        let data = report.pack().map_err(|_| {
+            error!("Error packing WheelMouseReport");
             UsbHidError::SerializationError
         })?;
         self.inner
@@ -312,12 +315,13 @@ impl<'a, B: UsbBus> AbsoluteWheelMouseInterface<'a, B> {
     #[must_use]
     pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
         WrappedInterfaceConfig::new(
-            RawInterfaceBuilder::new(ABSOLUTE_WHEEL_MOUSE_REPORT_DESCRIPTOR)
-                .description("Absolute Wheel Mouse")
-                .in_endpoint(UsbPacketSize::Bytes8, 10.millis())
-                .unwrap()
-                .without_out_endpoint()
-                .build(),
+            unwrap!(unwrap!(RawInterfaceBuilder::new(
+                ABSOLUTE_WHEEL_MOUSE_REPORT_DESCRIPTOR
+            ))
+            .description("Absolute Wheel Mouse")
+            .in_endpoint(UsbPacketSize::Bytes8, 10.millis()))
+            .without_out_endpoint()
+            .build(),
             (),
         )
     }
@@ -339,6 +343,7 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for AbsoluteWheelMouseInterface<'a, B> {
            fn get_idle(&self, report_id: u8) -> u8;
            fn set_protocol(&mut self, protocol: HidProtocol);
            fn get_protocol(&self) -> HidProtocol;
+           fn hid_descriptor_body(&self) -> [u8; 7];
         }
     }
 }

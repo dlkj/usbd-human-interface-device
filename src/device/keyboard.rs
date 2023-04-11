@@ -57,18 +57,17 @@ where
     ) -> WrappedInterfaceConfig<Self, ManagedInterfaceConfig<'a, BootKeyboardReport>> {
         WrappedInterfaceConfig::new(
             ManagedInterfaceConfig::new(
-                RawInterfaceBuilder::new(BOOT_KEYBOARD_REPORT_DESCRIPTOR)
-                    .boot_device(InterfaceProtocol::Keyboard)
-                    .description("Keyboard")
-                    .idle_default(500.millis())
-                    .unwrap()
-                    .in_endpoint(UsbPacketSize::Bytes8, 10.millis())
-                    .unwrap()
-                    //.without_out_endpoint()
-                    //Shouldn't require a dedicated out endpoint, but leds are flaky without it
-                    .with_out_endpoint(UsbPacketSize::Bytes8, 100.millis())
-                    .unwrap()
-                    .build(),
+                unwrap!(unwrap!(unwrap!(unwrap!(RawInterfaceBuilder::new(
+                    BOOT_KEYBOARD_REPORT_DESCRIPTOR
+                ))
+                .boot_device(InterfaceProtocol::Keyboard)
+                .description("Keyboard")
+                .idle_default(500.millis()))
+                .in_endpoint(UsbPacketSize::Bytes8, 10.millis()))
+                //.without_out_endpoint()
+                //Shouldn't require a dedicated out endpoint, but leds are flaky without it
+                .with_out_endpoint(UsbPacketSize::Bytes8, 100.millis()))
+                .build(),
             ),
             (),
         )
@@ -94,6 +93,7 @@ where
            fn get_idle(&self, report_id: u8) -> u8;
            fn set_protocol(&mut self, protocol: HidProtocol);
            fn get_protocol(&self) -> HidProtocol;
+           fn hid_descriptor_body(&self) -> [u8; 7];
         }
     }
 }
@@ -443,16 +443,15 @@ where
     ) -> WrappedInterfaceConfig<Self, ManagedInterfaceConfig<'a, NKROBootKeyboardReport>> {
         WrappedInterfaceConfig::new(
             ManagedInterfaceConfig::new(
-                RawInterfaceBuilder::new(NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR)
-                    .description("NKRO Keyboard")
-                    .boot_device(InterfaceProtocol::Keyboard)
-                    .idle_default(500.millis())
-                    .unwrap()
-                    .in_endpoint(UsbPacketSize::Bytes32, 10.millis())
-                    .unwrap()
-                    .with_out_endpoint(UsbPacketSize::Bytes8, 100.millis())
-                    .unwrap()
-                    .build(),
+                unwrap!(unwrap!(unwrap!(unwrap!(RawInterfaceBuilder::new(
+                    NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR
+                ))
+                .description("NKRO Keyboard")
+                .boot_device(InterfaceProtocol::Keyboard)
+                .idle_default(500.millis()))
+                .in_endpoint(UsbPacketSize::Bytes32, 10.millis()))
+                .with_out_endpoint(UsbPacketSize::Bytes8, 100.millis()))
+                .build(),
             ),
             (),
         )
@@ -478,6 +477,7 @@ where
             fn get_protocol(&self) -> HidProtocol;
             fn reset(&mut self);
             fn set_idle(&mut self, report_id: u8, value: u8);
+            fn hid_descriptor_body(&self) -> [u8; 7];
         }
     }
 }
@@ -535,6 +535,9 @@ pub const NKRO_COMPACT_KEYBOARD_REPORT_DESCRIPTOR: &[u8] = &[
 
 #[cfg(test)]
 mod test {
+    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::expect_used)]
+
     use packed_struct::prelude::*;
 
     use crate::device::keyboard::{BootKeyboardReport, KeyboardLedsReport};
