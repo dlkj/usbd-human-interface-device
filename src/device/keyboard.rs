@@ -350,7 +350,7 @@ impl NKROBootKeyboardReport {
                 }
                 Keyboard::NoEventIndicated => {}
                 Keyboard::ErrorRollOver | Keyboard::POSTFail | Keyboard::ErrorUndefine => {
-                    report.nkro_keys[0] |= 1 << k as u8;
+                    report.nkro_keys[0] |= 1 << u8::from(k);
 
                     if !boot_keys_error {
                         boot_keys_error = true;
@@ -359,10 +359,10 @@ impl NKROBootKeyboardReport {
                     }
                 }
                 _ => {
-                    if (k as usize) < report.nkro_keys.len() * 8 {
-                        let byte = (k as usize) / 8;
-                        let bit = (k as u8) % 8;
-                        report.nkro_keys[byte] |= 1 << bit;
+                    if report.nkro_keys.len() * 8 > u8::from(k).into() {
+                        let byte = u8::from(k) / 8;
+                        let bit = u8::from(k) % 8;
+                        report.nkro_keys[usize::from(byte)] |= 1 << bit;
                     }
 
                     if boot_keys_error {
@@ -564,15 +564,17 @@ mod test {
         .pack()
         .unwrap();
 
+        let key_mod: u8 = 0x1_u8 << (u8::from(Keyboard::LeftAlt) - u8::from(Keyboard::LeftControl))
+            | 0x1_u8 << (u8::from(Keyboard::RightGUI) - u8::from(Keyboard::LeftControl));
+
         assert_eq!(
             bytes,
             [
-                0x1_u8 << (Keyboard::LeftAlt as u8 - Keyboard::LeftControl as u8)
-                    | 0x1_u8 << (Keyboard::RightGUI as u8 - Keyboard::LeftControl as u8),
+                key_mod,
                 0,
-                Keyboard::A as u8,
-                Keyboard::B as u8,
-                Keyboard::C as u8,
+                Keyboard::A.into(),
+                Keyboard::B.into(),
+                Keyboard::C.into(),
                 0,
                 0,
                 0
@@ -598,12 +600,12 @@ mod test {
             [
                 0,
                 0,
-                Keyboard::A as u8,
-                Keyboard::B as u8,
-                Keyboard::C as u8,
-                Keyboard::D as u8,
-                Keyboard::E as u8,
-                Keyboard::F as u8
+                Keyboard::A.into(),
+                Keyboard::B.into(),
+                Keyboard::C.into(),
+                Keyboard::D.into(),
+                Keyboard::E.into(),
+                Keyboard::F.into()
             ]
         );
     }
@@ -624,18 +626,19 @@ mod test {
         .pack()
         .unwrap();
 
+        let key_mod: u8 = 0x1_u8 << (u8::from(Keyboard::LeftAlt) - u8::from(Keyboard::LeftControl))
+            | 0x1_u8 << (u8::from(Keyboard::RightGUI) - u8::from(Keyboard::LeftControl));
         assert_eq!(
             bytes,
             [
-                0x1_u8 << (Keyboard::LeftAlt as u8 - Keyboard::LeftControl as u8)
-                    | 0x1_u8 << (Keyboard::RightGUI as u8 - Keyboard::LeftControl as u8),
+                key_mod,
                 0,
-                Keyboard::ErrorRollOver as u8,
-                Keyboard::ErrorRollOver as u8,
-                Keyboard::ErrorRollOver as u8,
-                Keyboard::ErrorRollOver as u8,
-                Keyboard::ErrorRollOver as u8,
-                Keyboard::ErrorRollOver as u8,
+                Keyboard::ErrorRollOver.into(),
+                Keyboard::ErrorRollOver.into(),
+                Keyboard::ErrorRollOver.into(),
+                Keyboard::ErrorRollOver.into(),
+                Keyboard::ErrorRollOver.into(),
+                Keyboard::ErrorRollOver.into(),
             ]
         );
     }

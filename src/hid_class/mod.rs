@@ -9,8 +9,7 @@ use descriptor::{DescriptorType, HidProtocol};
 use frunk::hlist::{HList, Selector};
 use frunk::{HCons, HNil, ToMut};
 use log::{error, info, trace, warn};
-use num_enum::IntoPrimitive;
-use packed_struct::prelude::*;
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 #[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
 use usb_device::control::Recipient;
@@ -23,7 +22,7 @@ pub mod prelude;
 #[cfg(test)]
 mod test;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PrimitiveEnum, IntoPrimitive)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, TryFromPrimitive, IntoPrimitive)]
 #[repr(u8)]
 pub enum HidRequest {
     GetReport = 0x01,
@@ -34,8 +33,8 @@ pub enum HidRequest {
     SetProtocol = 0x0B,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, PrimitiveEnum, IntoPrimitive)]
-#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, TryFromPrimitive, IntoPrimitive)]
+#[repr(u16)]
 pub enum UsbPacketSize {
     Bytes8 = 8,
     Bytes16 = 16,
@@ -95,11 +94,8 @@ where
     pub fn build(
         self,
         usb_alloc: &'a UsbBusAllocator<B>,
-    ) -> UsbHidClass<'a, B, HCons<C::Allocated, Tail::Allocated>> {
+    ) -> UsbHidClass<B, HCons<C::Allocated, Tail::Allocated>> {
         UsbHidClass {
-            // report_descriptors,
-            // hid_descriptor_body,
-            // strings,
             interfaces: RefCell::new(self.interface_list.allocate(usb_alloc)),
             _marker: PhantomData::default(),
         }
@@ -134,8 +130,8 @@ impl<'a, B, InterfaceList: InterfaceHList<'a, B>> UsbHidClass<'a, B, InterfaceLi
 impl<'a, B: UsbBus + 'a, I> UsbHidClass<'a, B, I> {
     fn get_descriptor(transfer: ControlIn<B>, interface: &mut dyn InterfaceClass<'a, B>) {
         let request: &Request = transfer.request();
-        match DescriptorType::from_primitive((request.value >> 8) as u8) {
-            Some(DescriptorType::Report) => {
+        match DescriptorType::try_from((request.value >> 8) as u8) {
+            Ok(DescriptorType::Report) => {
                 match transfer.accept_with(interface.interface().report_descriptor()) {
                     Err(e) => error!("Failed to send report descriptor - {:?}", e),
                     Ok(_) => {
@@ -143,7 +139,7 @@ impl<'a, B: UsbBus + 'a, I> UsbHidClass<'a, B, I> {
                     }
                 }
             }
-            Some(DescriptorType::Hid) => {
+            Ok(DescriptorType::Hid) => {
                 let mut buffer = [0; 9];
                 buffer[0] = u8::try_from(buffer.len())
                     .expect("hid descriptor length expected to be less than u8::MAX");
@@ -215,12 +211,12 @@ where
             request.value
         );
 
-        match HidRequest::from_primitive(request.request) {
-            Some(HidRequest::SetReport) => {
+        match HidRequest::try_from(request.request) {
+            Ok(HidRequest::SetReport) => {
                 interface.interface().set_report(transfer.data()).ok();
                 transfer.accept().ok();
             }
-            Some(HidRequest::SetIdle) => {
+            Ok(HidRequest::SetIdle) => {
                 if request.length != 0 {
                     warn!(
                         "Expected SetIdle to have length 0, received {:X}",
@@ -233,14 +229,14 @@ where
                     .set_idle((request.value & 0xFF) as u8, (request.value >> 8) as u8);
                 transfer.accept().ok();
             }
-            Some(HidRequest::SetProtocol) => {
+            Ok(HidRequest::SetProtocol) => {
                 if request.length != 0 {
                     warn!(
                         "Expected SetProtocol to have length 0, received {:X}",
                         request.length
                     );
                 }
-                if let Some(protocol) = HidProtocol::from_primitive((request.value & 0xFF) as u8) {
+                if let Ok(protocol) = HidProtocol::try_from((request.value & 0xFF) as u8) {
                     interface.interface().set_protocol(protocol);
                     transfer.accept().ok();
                 } else {
@@ -303,11 +299,11 @@ where
                 }
                 let interface = interface.unwrap();
 
-                match HidRequest::from_primitive(request.request) {
-                    Some(HidRequest::GetReport) => {
+                match HidRequest::try_from(request.request) {
+                    Ok(HidRequest::GetReport) => {
                         let mut data = [0_u8; 64];
                         if let Ok(n) = interface.interface().get_report(&mut data) {
-                            if n != transfer.request().length as usize {
+                            if n != transfer.request().length.into() {
                                 warn!(
                                     "GetReport expected {:X} bytes, got {:X} bytes",
                                     transfer.request().length,
@@ -322,7 +318,7 @@ where
                             }
                         }
                     }
-                    Some(HidRequest::GetIdle) => {
+                    Ok(HidRequest::GetIdle) => {
                         if request.length != 1 {
                             warn!(
                                 "Expected GetIdle to have length 1, received {:X}",
@@ -338,7 +334,7 @@ where
                             info!("Get Idle for ID{:X}: {:X}", report_id, idle);
                         }
                     }
-                    Some(HidRequest::GetProtocol) => {
+                    Ok(HidRequest::GetProtocol) => {
                         if request.length != 1 {
                             warn!(
                                 "Expected GetProtocol to have length 1, received {:X}",
@@ -347,7 +343,7 @@ where
                         }
 
                         let protocol = interface.interface().get_protocol();
-                        if let Err(e) = transfer.accept_with(&[protocol as u8]) {
+                        if let Err(e) = transfer.accept_with(&[protocol.into()]) {
                             error!("Failed to send protocol data - {:?}", e);
                         } else {
                             info!("Get protocol: {:?}", protocol);

@@ -18,12 +18,12 @@ use super::HidDescriptorBody;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RawInterfaceConfig<'a> {
-    pub report_descriptor: &'a [u8],
-    pub description: Option<&'a str>,
-    pub protocol: InterfaceProtocol,
-    pub idle_default: u8,
-    pub out_endpoint: Option<EndpointConfig>,
-    pub in_endpoint: EndpointConfig,
+    report_descriptor: &'a [u8],
+    description: Option<&'a str>,
+    protocol: InterfaceProtocol,
+    idle_default: u8,
+    out_endpoint: Option<EndpointConfig>,
+    in_endpoint: EndpointConfig,
 }
 
 // TODO: make configurable, size depends on number of reports for given interface,
@@ -51,12 +51,12 @@ impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for RawInterfaceConfig<'a> {
             config: self,
             id: usb_alloc.interface(),
             in_endpoint: usb_alloc.interrupt(
-                self.in_endpoint.max_packet_size as u16,
+                self.in_endpoint.max_packet_size.into(),
                 self.in_endpoint.poll_interval,
             ),
             out_endpoint: self
                 .out_endpoint
-                .map(|c| usb_alloc.interrupt(c.max_packet_size as u16, c.poll_interval)),
+                .map(|c| usb_alloc.interrupt(c.max_packet_size.into(), c.poll_interval)),
             description_index: self.description.map(|_| usb_alloc.string()),
             //When initialized, all devices default to report protocol - Hid spec 7.2.6 Set_Protocol Request
             protocol: HidProtocol::Report,
@@ -82,7 +82,7 @@ impl<'a, B: UsbBus> RawInterface<'a, B> {
     }
     fn get_report_idle(&self, report_id: u8) -> Option<u8> {
         if u32::from(report_id) < ReportIdleArray::CAPACITY {
-            self.report_idle.get(report_id as usize).copied()
+            self.report_idle.get(report_id.into()).copied()
         } else {
             None
         }
@@ -183,13 +183,13 @@ impl<'a, B: UsbBus> RawInterface<'a, B> {
             self.id,
             usb_device::device::DEFAULT_ALTERNATE_SETTING,
             USB_CLASS_HID,
-            InterfaceSubClass::from(self.config.protocol) as u8,
-            self.config.protocol as u8,
+            InterfaceSubClass::from(self.config.protocol).into(),
+            self.config.protocol.into(),
             self.description_index,
         )?;
 
         //Hid descriptor
-        writer.write(DescriptorType::Hid as u8, &self.hid_descriptor_body())?;
+        writer.write(DescriptorType::Hid.into(), &self.hid_descriptor_body())?;
 
         //Endpoint descriptors
         writer.endpoint(&self.in_endpoint)?;
@@ -269,7 +269,7 @@ impl<'a, B: UsbBus> RawInterface<'a, B> {
             self.clear_report_idle();
             info!("Set global idle to {:X}", value);
         } else if u32::from(report_id) < ReportIdleArray::CAPACITY {
-            self.report_idle.insert(report_id as usize, value);
+            self.report_idle.insert(report_id.into(), value);
             info!("Set report idle for ID{:X} to {:X}", report_id, value);
         } else {
             warn!(
@@ -303,7 +303,7 @@ pub struct EndpointConfig {
 }
 
 #[must_use = "this `UsbHidInterfaceBuilder` must be assigned or consumed by `::build_interface()`"]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct RawInterfaceBuilder<'a> {
     config: RawInterfaceConfig<'a>,
 }
@@ -347,7 +347,7 @@ impl<'a> RawInterfaceBuilder<'a> {
         Ok(self)
     }
 
-    pub fn description(mut self, s: &'static str) -> Self {
+    pub fn description(mut self, s: &'a str) -> Self {
         self.config.description = Some(s);
         self
     }

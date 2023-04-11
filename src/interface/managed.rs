@@ -66,7 +66,6 @@ pub struct ManagedInterface<'a, B: UsbBus, R> {
     idle_manager: IdleManager<R>,
 }
 
-#[allow(clippy::inline_always)]
 impl<'a, B: UsbBus, R, const LEN: usize> ManagedInterface<'a, B, R>
 where
     R: Copy + Eq + PackedStruct<ByteArray = [u8; LEN]>,
@@ -121,8 +120,6 @@ impl<'a, B: UsbBus, R> InterfaceClass<'a, B> for ManagedInterface<'a, B, R>
 where
     R: Copy + Eq,
 {
-    #![allow(clippy::inline_always)]
-
     fn interface(&mut self) -> &mut RawInterface<'a, B> {
         &mut self.inner
     }
