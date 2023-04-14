@@ -206,6 +206,27 @@ impl<'a, B: UsbBus> InterfaceClass<'a> for RawInterface<'a, B> {
 }
 
 impl<'a, B: UsbBus> RawInterface<'a, B> {
+    pub fn new(usb_alloc: &'a UsbBusAllocator<B>, config: RawInterfaceConfig<'a>) -> Self {
+        RawInterface {
+            config,
+            id: usb_alloc.interface(),
+            in_endpoint: usb_alloc.interrupt(
+                config.in_endpoint.max_packet_size as u16,
+                config.in_endpoint.poll_interval,
+            ),
+            out_endpoint: config
+                .out_endpoint
+                .map(|c| usb_alloc.interrupt(c.max_packet_size as u16, c.poll_interval)),
+            description_index: config.description.map(|_| usb_alloc.string()),
+            //When initialized, all devices default to report protocol - Hid spec 7.2.6 Set_Protocol Request
+            protocol: HidProtocol::Report,
+            report_idle: Block32::default(),
+            global_idle: config.idle_default,
+            control_in_report_buffer: RefCell::new(Vec::default()),
+            control_out_report_buffer: RefCell::new(Vec::default()),
+        }
+    }
+
     fn clear_report_idle(&mut self) {
         self.report_idle = Block32::default();
     }

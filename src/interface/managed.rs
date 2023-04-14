@@ -10,9 +10,9 @@ use usb_device::class_prelude::*;
 use usb_device::UsbError;
 
 use crate::interface::raw::{RawInterface, RawInterfaceConfig};
+use crate::interface::InterfaceClass;
 use crate::interface::InterfaceNumber;
 use crate::interface::{HidProtocol, UsbAllocatable};
-use crate::interface::{InterfaceClass, WrappedInterface};
 use crate::UsbHidError;
 
 pub struct IdleManager<R> {
@@ -79,6 +79,20 @@ where
 pub struct ManagedInterface<'a, B: UsbBus, R> {
     inner: RawInterface<'a, B>,
     idle_manager: RefCell<IdleManager<R>>,
+}
+
+#[allow(clippy::inline_always)]
+impl<'a, B: UsbBus, R> ManagedInterface<'a, B, R>
+where
+    R: Copy + Eq,
+{
+    fn new(interface: RawInterface<'a, B>, _config: ()) -> Self {
+        let default_idle = interface.global_idle();
+        Self {
+            inner: interface,
+            idle_manager: RefCell::new(IdleManager::new(default_idle)),
+        }
+    }
 }
 
 #[allow(clippy::inline_always)]
@@ -166,20 +180,6 @@ where
             self.idle_manager
                 .borrow_mut()
                 .set_duration(self.inner.global_idle());
-        }
-    }
-}
-
-impl<'a, B: UsbBus, R> WrappedInterface<'a, B, RawInterface<'a, B>, ()>
-    for ManagedInterface<'a, B, R>
-where
-    R: Copy + Eq,
-{
-    fn new(interface: RawInterface<'a, B>, _config: ()) -> Self {
-        let default_idle = interface.global_idle();
-        Self {
-            inner: interface,
-            idle_manager: RefCell::new(IdleManager::new(default_idle)),
         }
     }
 }

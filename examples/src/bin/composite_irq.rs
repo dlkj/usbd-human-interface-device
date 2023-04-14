@@ -97,11 +97,11 @@ fn main() -> ! {
 
     let composite = UsbHidClassBuilder::new()
         .add_interface(
-            usbd_human_interface_device::device::keyboard::NKROBootKeyboardInterface::default_config(),
+            usbd_human_interface_device::device::keyboard::NKROBootKeyboardConfig::default(),
         )
-        .add_interface(usbd_human_interface_device::device::mouse::WheelMouseInterface::default_config())
+        .add_interface(usbd_human_interface_device::device::mouse::WheelMouseConfig::default())
         .add_interface(
-            usbd_human_interface_device::device::consumer::ConsumerControlInterface::default_config(),
+            usbd_human_interface_device::device::consumer::ConsumerControlConfig::default(),
         )
         //Build
         .build(usb_alloc);

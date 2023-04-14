@@ -9,7 +9,7 @@ use usb_device::UsbError;
 
 use crate::hid_class::prelude::*;
 use crate::interface::managed::{ManagedInterface, ManagedInterfaceConfig};
-use crate::interface::{InterfaceClass, WrappedInterface, WrappedInterfaceConfig};
+use crate::interface::{InterfaceClass, UsbAllocatable};
 use crate::page::Keyboard;
 use crate::UsbHidError;
 
@@ -51,27 +51,6 @@ where
             },
         }
     }
-
-    #[must_use]
-    pub fn default_config(
-    ) -> WrappedInterfaceConfig<Self, ManagedInterfaceConfig<'a, BootKeyboardReport>> {
-        WrappedInterfaceConfig::new(
-            ManagedInterfaceConfig::new(
-                unwrap!(unwrap!(unwrap!(unwrap!(RawInterfaceBuilder::new(
-                    BOOT_KEYBOARD_REPORT_DESCRIPTOR
-                ))
-                .boot_device(InterfaceProtocol::Keyboard)
-                .description("Keyboard")
-                .idle_default(500.millis()))
-                .in_endpoint(UsbPacketSize::Bytes8, 10.millis()))
-                //.without_out_endpoint()
-                //Shouldn't require a dedicated out endpoint, but leds are flaky without it
-                .with_out_endpoint(UsbPacketSize::Bytes8, 100.millis()))
-                .build(),
-            ),
-            (),
-        )
-    }
 }
 
 impl<'a, B> InterfaceClass<'a> for BootKeyboardInterface<'a, B>
@@ -98,13 +77,43 @@ where
     }
 }
 
-impl<'a, B> WrappedInterface<'a, B, ManagedInterface<'a, B, BootKeyboardReport>>
-    for BootKeyboardInterface<'a, B>
-where
-    B: UsbBus,
-{
-    fn new(interface: ManagedInterface<'a, B, BootKeyboardReport>, _: ()) -> Self {
-        Self { inner: interface }
+pub struct BootKeyboardConfig<'a> {
+    interface: ManagedInterfaceConfig<'a, BootKeyboardReport>,
+}
+
+impl<'a> Default for BootKeyboardConfig<'a> {
+    #[must_use]
+    fn default() -> Self {
+        Self::new(ManagedInterfaceConfig::new(
+            unwrap!(unwrap!(unwrap!(unwrap!(RawInterfaceBuilder::new(
+                BOOT_KEYBOARD_REPORT_DESCRIPTOR
+            ))
+            .boot_device(InterfaceProtocol::Keyboard)
+            .description("Keyboard")
+            .idle_default(500.millis()))
+            .in_endpoint(UsbPacketSize::Bytes8, 10.millis()))
+            //.without_out_endpoint()
+            //Shouldn't require a dedicated out endpoint, but leds are flaky without it
+            .with_out_endpoint(UsbPacketSize::Bytes8, 100.millis()))
+            .build(),
+        ))
+    }
+}
+
+impl<'a> BootKeyboardConfig<'a> {
+    #[must_use]
+    pub fn new(interface: ManagedInterfaceConfig<'a, BootKeyboardReport>) -> Self {
+        Self { interface }
+    }
+}
+
+impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for BootKeyboardConfig<'a> {
+    type Allocated = BootKeyboardInterface<'a, B>;
+
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
+        Self::Allocated {
+            inner: self.interface.allocate(usb_alloc),
+        }
     }
 }
 
@@ -437,24 +446,43 @@ where
             },
         }
     }
+}
 
+pub struct NKROBootKeyboardConfig<'a> {
+    interface: ManagedInterfaceConfig<'a, NKROBootKeyboardReport>,
+}
+
+impl<'a> Default for NKROBootKeyboardConfig<'a> {
     #[must_use]
-    pub fn default_config(
-    ) -> WrappedInterfaceConfig<Self, ManagedInterfaceConfig<'a, NKROBootKeyboardReport>> {
-        WrappedInterfaceConfig::new(
-            ManagedInterfaceConfig::new(
-                unwrap!(unwrap!(unwrap!(unwrap!(RawInterfaceBuilder::new(
-                    NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR
-                ))
-                .description("NKRO Keyboard")
-                .boot_device(InterfaceProtocol::Keyboard)
-                .idle_default(500.millis()))
-                .in_endpoint(UsbPacketSize::Bytes32, 10.millis()))
-                .with_out_endpoint(UsbPacketSize::Bytes8, 100.millis()))
-                .build(),
-            ),
-            (),
-        )
+    fn default() -> Self {
+        Self::new(ManagedInterfaceConfig::new(
+            unwrap!(unwrap!(unwrap!(unwrap!(RawInterfaceBuilder::new(
+                NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR
+            ))
+            .description("NKRO Keyboard")
+            .boot_device(InterfaceProtocol::Keyboard)
+            .idle_default(500.millis()))
+            .in_endpoint(UsbPacketSize::Bytes32, 10.millis()))
+            .with_out_endpoint(UsbPacketSize::Bytes8, 100.millis()))
+            .build(),
+        ))
+    }
+}
+
+impl<'a> NKROBootKeyboardConfig<'a> {
+    #[must_use]
+    pub fn new(interface: ManagedInterfaceConfig<'a, NKROBootKeyboardReport>) -> Self {
+        Self { interface }
+    }
+}
+
+impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for NKROBootKeyboardConfig<'a> {
+    type Allocated = NKROBootKeyboardInterface<'a, B>;
+
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
+        Self::Allocated {
+            inner: self.interface.allocate(usb_alloc),
+        }
     }
 }
 
@@ -479,16 +507,6 @@ where
             fn set_idle(&mut self, report_id: u8, value: u8);
             fn hid_descriptor_body(&self) -> [u8; 7];
         }
-    }
-}
-
-impl<'a, B> WrappedInterface<'a, B, ManagedInterface<'a, B, NKROBootKeyboardReport>>
-    for NKROBootKeyboardInterface<'a, B>
-where
-    B: 'a + UsbBus,
-{
-    fn new(interface: ManagedInterface<'a, B, NKROBootKeyboardReport>, _: ()) -> Self {
-        Self { inner: interface }
     }
 }
 
