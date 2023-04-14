@@ -6,6 +6,9 @@
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::missing_panics_doc)]
 #![allow(clippy::struct_excessive_bools)]
+#![warn(clippy::unwrap_used)]
+#![warn(clippy::expect_used)]
+#![warn(clippy::use_self)]
 
 //! ```rust, no_run
 //! # use core::option::Option;
@@ -14,7 +17,7 @@
 //! # use usb_device::bus::PollResult;
 //! # use fugit::{ExtU32, MillisDurationU32};
 //! use usbd_human_interface_device::page::Keyboard;
-//! use usbd_human_interface_device::device::keyboard::{KeyboardLedsReport, NKROBootKeyboardInterface};
+//! use usbd_human_interface_device::device::keyboard::{KeyboardLedsReport, NKROBootKeyboardConfig};
 //! use usbd_human_interface_device::prelude::*;
 //! # use usb_device::class_prelude::*;
 //! # use usb_device::prelude::*;
@@ -93,7 +96,7 @@
 //!
 //! let mut keyboard = UsbHidClassBuilder::new()
 //!     .add_interface(
-//!         NKROBootKeyboardInterface::default_config(),
+//!         NKROBootKeyboardConfig::default(),
 //!     )
 //!     .build(&usb_alloc);
 //!
@@ -135,9 +138,10 @@
 
 #![doc = include_str!("../README.md")]
 
+pub(crate) mod fmt;
+
 //Allow the use of std in tests
 #[cfg(test)]
-#[macro_use]
 extern crate std;
 
 use usb_device::UsbError;
@@ -159,8 +163,8 @@ pub enum UsbHidError {
 impl From<UsbError> for UsbHidError {
     fn from(e: UsbError) -> Self {
         match e {
-            UsbError::WouldBlock => UsbHidError::WouldBlock,
-            _ => UsbHidError::UsbError(e),
+            UsbError::WouldBlock => Self::WouldBlock,
+            _ => Self::UsbError(e),
         }
     }
 }

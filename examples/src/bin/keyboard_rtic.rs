@@ -31,6 +31,7 @@ mod app {
     #[shared]
     struct Shared {
         keyboard: UsbHidClass<
+            'static,
             hal::usb::UsbBus,
             HList!(NKROBootKeyboardInterface<'static, hal::usb::UsbBus>),
         >,
@@ -92,10 +93,10 @@ mod app {
             )));
 
         let keyboard = UsbHidClassBuilder::new()
-        .add_interface(
-            usbd_human_interface_device::device::keyboard::NKROBootKeyboardInterface::default_config(),
-        )
-        .build(usb_alloc);
+            .add_interface(
+                usbd_human_interface_device::device::keyboard::NKROBootKeyboardConfig::default(),
+            )
+            .build(usb_alloc);
 
         // https://pid.codes
         let usb_device = UsbDeviceBuilder::new(usb_alloc, UsbVidPid(0x1209, 0x0001))

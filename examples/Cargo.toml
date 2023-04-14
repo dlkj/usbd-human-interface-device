@@ -9,7 +9,7 @@ license = "MIT"
 [workspace]
 
 [dependencies]
-usbd-human-interface-device = { path = ".." }
+usbd-human-interface-device = { path = "..", features = ["defmt"]}
 usb-device = "0.2"
 packed_struct = { version = "0.10", default-features = false }
 frunk = { version = "0.4", default-features = false }
@@ -19,7 +19,7 @@ cortex-m = "0.7"
 cortex-m-rt = "0.7"
 embedded-hal = { version = "0.2", features = ["unproven"] }
 rp2040-monotonic = "1.2"
-defmt = "0.3"
+defmt = "=0.3.2" # Blocked by https://github.com/knurling-rs/probe-run/issues/391
 defmt-rtt = "0.4"
 panic-probe = { version = "0.3", features = ["print-defmt"] }
 rp-pico = "0.7"

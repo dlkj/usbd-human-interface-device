@@ -1,6 +1,5 @@
 //!HID keyboards
 
-use delegate::delegate;
 use fugit::ExtU32;
 use packed_struct::prelude::*;
 #[allow(clippy::wildcard_imports)]
@@ -9,7 +8,7 @@ use usb_device::UsbError;
 
 use crate::hid_class::prelude::*;
 use crate::interface::managed::{ManagedInterface, ManagedInterfaceConfig};
-use crate::interface::{InterfaceClass, WrappedInterface, WrappedInterfaceConfig};
+use crate::interface::{InterfaceClass, UsbAllocatable};
 use crate::page::Keyboard;
 use crate::UsbHidError;
 
@@ -24,16 +23,13 @@ impl<'a, B> BootKeyboardInterface<'a, B>
 where
     B: UsbBus,
 {
-    #![allow(clippy::inline_always)]
-    delegate! {
-        to self.inner {
-            /// Call every 1ms / at 1 KHz
-            pub fn tick(&self) -> Result<(), UsbHidError>;
-        }
+    /// Call every 1ms / at 1KHz
+    pub fn tick(&mut self) -> Result<(), UsbHidError> {
+        self.inner.tick()
     }
 
     pub fn write_report<K: IntoIterator<Item = Keyboard>>(
-        &self,
+        &mut self,
         keys: K,
     ) -> Result<(), UsbHidError> {
         self.inner
@@ -41,7 +37,7 @@ where
             .map(|_| ())
     }
 
-    pub fn read_report(&self) -> usb_device::Result<KeyboardLedsReport> {
+    pub fn read_report(&mut self) -> usb_device::Result<KeyboardLedsReport> {
         let data = &mut [0];
         match self.inner.read_report(data) {
             Err(e) => Err(e),
@@ -51,60 +47,57 @@ where
             },
         }
     }
+}
 
+impl<'a, B> InterfaceClass<'a, B> for BootKeyboardInterface<'a, B>
+where
+    B: UsbBus,
+{
+    fn interface(&mut self) -> &mut RawInterface<'a, B> {
+        self.inner.interface()
+    }
+    fn reset(&mut self) {
+        self.inner.reset();
+    }
+}
+
+pub struct BootKeyboardConfig<'a> {
+    interface: ManagedInterfaceConfig<'a, BootKeyboardReport>,
+}
+
+impl<'a> Default for BootKeyboardConfig<'a> {
     #[must_use]
-    pub fn default_config(
-    ) -> WrappedInterfaceConfig<Self, ManagedInterfaceConfig<'a, BootKeyboardReport>> {
-        WrappedInterfaceConfig::new(
-            ManagedInterfaceConfig::new(
-                RawInterfaceBuilder::new(BOOT_KEYBOARD_REPORT_DESCRIPTOR)
-                    .boot_device(InterfaceProtocol::Keyboard)
-                    .description("Keyboard")
-                    .idle_default(500.millis())
-                    .unwrap()
-                    .in_endpoint(UsbPacketSize::Bytes8, 10.millis())
-                    .unwrap()
-                    //.without_out_endpoint()
-                    //Shouldn't require a dedicated out endpoint, but leds are flaky without it
-                    .with_out_endpoint(UsbPacketSize::Bytes8, 100.millis())
-                    .unwrap()
-                    .build(),
-            ),
-            (),
-        )
+    fn default() -> Self {
+        Self::new(ManagedInterfaceConfig::new(
+            unwrap!(unwrap!(unwrap!(unwrap!(RawInterfaceBuilder::new(
+                BOOT_KEYBOARD_REPORT_DESCRIPTOR
+            ))
+            .boot_device(InterfaceProtocol::Keyboard)
+            .description("Keyboard")
+            .idle_default(500.millis()))
+            .in_endpoint(UsbPacketSize::Bytes8, 10.millis()))
+            //.without_out_endpoint()
+            //Shouldn't require a dedicated out endpoint, but leds are flaky without it
+            .with_out_endpoint(UsbPacketSize::Bytes8, 100.millis()))
+            .build(),
+        ))
     }
 }
 
-impl<'a, B> InterfaceClass<'a> for BootKeyboardInterface<'a, B>
-where
-    B: UsbBus,
-{
-    #![allow(clippy::inline_always)]
-    delegate! {
-        to self.inner{
-           fn report_descriptor(&self) -> &'_ [u8];
-           fn id(&self) -> InterfaceNumber;
-           fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-           fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str>;
-           fn reset(&mut self);
-           fn set_report(&mut self, data: &[u8]) -> usb_device::Result<()>;
-           fn get_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize>;
-           fn get_report_ack(&mut self) -> usb_device::Result<()>;
-           fn set_idle(&mut self, report_id: u8, value: u8);
-           fn get_idle(&self, report_id: u8) -> u8;
-           fn set_protocol(&mut self, protocol: HidProtocol);
-           fn get_protocol(&self) -> HidProtocol;
+impl<'a> BootKeyboardConfig<'a> {
+    #[must_use]
+    pub fn new(interface: ManagedInterfaceConfig<'a, BootKeyboardReport>) -> Self {
+        Self { interface }
+    }
+}
+
+impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for BootKeyboardConfig<'a> {
+    type Allocated = BootKeyboardInterface<'a, B>;
+
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
+        Self::Allocated {
+            inner: self.interface.allocate(usb_alloc),
         }
-    }
-}
-
-impl<'a, B> WrappedInterface<'a, B, ManagedInterface<'a, B, BootKeyboardReport>>
-    for BootKeyboardInterface<'a, B>
-where
-    B: UsbBus,
-{
-    fn new(interface: ManagedInterface<'a, B, BootKeyboardReport>, _: ()) -> Self {
-        Self { inner: interface }
     }
 }
 
@@ -365,7 +358,7 @@ impl NKROBootKeyboardReport {
                 }
                 Keyboard::NoEventIndicated => {}
                 Keyboard::ErrorRollOver | Keyboard::POSTFail | Keyboard::ErrorUndefine => {
-                    report.nkro_keys[0] |= 1 << k as u8;
+                    report.nkro_keys[0] |= 1 << u8::from(k);
 
                     if !boot_keys_error {
                         boot_keys_error = true;
@@ -374,10 +367,10 @@ impl NKROBootKeyboardReport {
                     }
                 }
                 _ => {
-                    if (k as usize) < report.nkro_keys.len() * 8 {
-                        let byte = (k as usize) / 8;
-                        let bit = (k as u8) % 8;
-                        report.nkro_keys[byte] |= 1 << bit;
+                    if report.nkro_keys.len() * 8 > u8::from(k).into() {
+                        let byte = u8::from(k) / 8;
+                        let bit = u8::from(k) % 8;
+                        report.nkro_keys[usize::from(byte)] |= 1 << bit;
                     }
 
                     if boot_keys_error {
@@ -410,16 +403,13 @@ impl<'a, B> NKROBootKeyboardInterface<'a, B>
 where
     B: UsbBus,
 {
-    #![allow(clippy::inline_always)]
-    delegate! {
-        to self.inner {
-            /// Call every 1ms / at 1 KHz
-            pub fn tick(&self) -> Result<(), UsbHidError>;
-        }
+    /// Call every 1ms / at 1KHz
+    pub fn tick(&mut self) -> Result<(), UsbHidError> {
+        self.inner.tick()
     }
 
     pub fn write_report<K: IntoIterator<Item = Keyboard>>(
-        &self,
+        &mut self,
         keys: K,
     ) -> Result<(), UsbHidError> {
         self.inner
@@ -427,7 +417,7 @@ where
             .map(|_| ())
     }
 
-    pub fn read_report(&self) -> usb_device::Result<KeyboardLedsReport> {
+    pub fn read_report(&mut self) -> usb_device::Result<KeyboardLedsReport> {
         let data = &mut [0];
         match self.inner.read_report(data) {
             Err(e) => Err(e),
@@ -437,58 +427,56 @@ where
             },
         }
     }
+}
 
+pub struct NKROBootKeyboardConfig<'a> {
+    interface: ManagedInterfaceConfig<'a, NKROBootKeyboardReport>,
+}
+
+impl<'a> Default for NKROBootKeyboardConfig<'a> {
     #[must_use]
-    pub fn default_config(
-    ) -> WrappedInterfaceConfig<Self, ManagedInterfaceConfig<'a, NKROBootKeyboardReport>> {
-        WrappedInterfaceConfig::new(
-            ManagedInterfaceConfig::new(
-                RawInterfaceBuilder::new(NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR)
-                    .description("NKRO Keyboard")
-                    .boot_device(InterfaceProtocol::Keyboard)
-                    .idle_default(500.millis())
-                    .unwrap()
-                    .in_endpoint(UsbPacketSize::Bytes32, 10.millis())
-                    .unwrap()
-                    .with_out_endpoint(UsbPacketSize::Bytes8, 100.millis())
-                    .unwrap()
-                    .build(),
-            ),
-            (),
-        )
+    fn default() -> Self {
+        Self::new(ManagedInterfaceConfig::new(
+            unwrap!(unwrap!(unwrap!(unwrap!(RawInterfaceBuilder::new(
+                NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR
+            ))
+            .description("NKRO Keyboard")
+            .boot_device(InterfaceProtocol::Keyboard)
+            .idle_default(500.millis()))
+            .in_endpoint(UsbPacketSize::Bytes32, 10.millis()))
+            .with_out_endpoint(UsbPacketSize::Bytes8, 100.millis()))
+            .build(),
+        ))
     }
 }
 
-impl<'a, B> InterfaceClass<'a> for NKROBootKeyboardInterface<'a, B>
-where
-    B: UsbBus,
-{
-    #![allow(clippy::inline_always)]
-    delegate! {
-        to self.inner{
-            fn report_descriptor(&self) -> &'_ [u8];
-            fn id(&self) -> InterfaceNumber;
-            fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-            fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str>;
-            fn set_report(&mut self, data: &[u8]) -> usb_device::Result<()>;
-            fn get_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize>;
-            fn get_report_ack(&mut self) -> usb_device::Result<()>;
-            fn get_idle(&self, report_id: u8) -> u8;
-            fn set_protocol(&mut self, protocol: HidProtocol);
-            fn get_protocol(&self) -> HidProtocol;
-            fn reset(&mut self);
-            fn set_idle(&mut self, report_id: u8, value: u8);
+impl<'a> NKROBootKeyboardConfig<'a> {
+    #[must_use]
+    pub fn new(interface: ManagedInterfaceConfig<'a, NKROBootKeyboardReport>) -> Self {
+        Self { interface }
+    }
+}
+
+impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for NKROBootKeyboardConfig<'a> {
+    type Allocated = NKROBootKeyboardInterface<'a, B>;
+
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
+        Self::Allocated {
+            inner: self.interface.allocate(usb_alloc),
         }
     }
 }
 
-impl<'a, B> WrappedInterface<'a, B, ManagedInterface<'a, B, NKROBootKeyboardReport>>
-    for NKROBootKeyboardInterface<'a, B>
+impl<'a, B> InterfaceClass<'a, B> for NKROBootKeyboardInterface<'a, B>
 where
-    B: 'a + UsbBus,
+    B: UsbBus,
 {
-    fn new(interface: ManagedInterface<'a, B, NKROBootKeyboardReport>, _: ()) -> Self {
-        Self { inner: interface }
+    fn interface(&mut self) -> &mut RawInterface<'a, B> {
+        self.inner.interface()
+    }
+
+    fn reset(&mut self) {
+        self.inner.reset();
     }
 }
 
@@ -535,6 +523,9 @@ pub const NKRO_COMPACT_KEYBOARD_REPORT_DESCRIPTOR: &[u8] = &[
 
 #[cfg(test)]
 mod test {
+    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::expect_used)]
+
     use packed_struct::prelude::*;
 
     use crate::device::keyboard::{BootKeyboardReport, KeyboardLedsReport};
@@ -592,15 +583,17 @@ mod test {
         .pack()
         .unwrap();
 
+        let key_mod: u8 = 0x1_u8 << (u8::from(Keyboard::LeftAlt) - u8::from(Keyboard::LeftControl))
+            | 0x1_u8 << (u8::from(Keyboard::RightGUI) - u8::from(Keyboard::LeftControl));
+
         assert_eq!(
             bytes,
             [
-                0x1_u8 << (Keyboard::LeftAlt as u8 - Keyboard::LeftControl as u8)
-                    | 0x1_u8 << (Keyboard::RightGUI as u8 - Keyboard::LeftControl as u8),
+                key_mod,
                 0,
-                Keyboard::A as u8,
-                Keyboard::B as u8,
-                Keyboard::C as u8,
+                Keyboard::A.into(),
+                Keyboard::B.into(),
+                Keyboard::C.into(),
                 0,
                 0,
                 0
@@ -626,12 +619,12 @@ mod test {
             [
                 0,
                 0,
-                Keyboard::A as u8,
-                Keyboard::B as u8,
-                Keyboard::C as u8,
-                Keyboard::D as u8,
-                Keyboard::E as u8,
-                Keyboard::F as u8
+                Keyboard::A.into(),
+                Keyboard::B.into(),
+                Keyboard::C.into(),
+                Keyboard::D.into(),
+                Keyboard::E.into(),
+                Keyboard::F.into()
             ]
         );
     }
@@ -652,18 +645,19 @@ mod test {
         .pack()
         .unwrap();
 
+        let key_mod: u8 = 0x1_u8 << (u8::from(Keyboard::LeftAlt) - u8::from(Keyboard::LeftControl))
+            | 0x1_u8 << (u8::from(Keyboard::RightGUI) - u8::from(Keyboard::LeftControl));
         assert_eq!(
             bytes,
             [
-                0x1_u8 << (Keyboard::LeftAlt as u8 - Keyboard::LeftControl as u8)
-                    | 0x1_u8 << (Keyboard::RightGUI as u8 - Keyboard::LeftControl as u8),
+                key_mod,
                 0,
-                Keyboard::ErrorRollOver as u8,
-                Keyboard::ErrorRollOver as u8,
-                Keyboard::ErrorRollOver as u8,
-                Keyboard::ErrorRollOver as u8,
-                Keyboard::ErrorRollOver as u8,
-                Keyboard::ErrorRollOver as u8,
+                Keyboard::ErrorRollOver.into(),
+                Keyboard::ErrorRollOver.into(),
+                Keyboard::ErrorRollOver.into(),
+                Keyboard::ErrorRollOver.into(),
+                Keyboard::ErrorRollOver.into(),
+                Keyboard::ErrorRollOver.into(),
             ]
         );
     }

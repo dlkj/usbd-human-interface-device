@@ -1,16 +1,14 @@
 //!HID consumer control devices
 
-use delegate::delegate;
 use fugit::ExtU32;
-use log::error;
 use packed_struct::prelude::*;
 #[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
-use usb_device::{Result, UsbError};
+use usb_device::UsbError;
 
 use crate::hid_class::prelude::*;
 use crate::interface::raw::{RawInterface, RawInterfaceConfig};
-use crate::interface::{InterfaceClass, WrappedInterface, WrappedInterfaceConfig};
+use crate::interface::{InterfaceClass, UsbAllocatable};
 use crate::page::Consumer;
 
 ///Consumer control report descriptor - Four `u16` consumer control usage codes as an array (8 bytes)
@@ -98,53 +96,55 @@ pub struct ConsumerControlInterface<'a, B: UsbBus> {
 }
 
 impl<'a, B: UsbBus> ConsumerControlInterface<'a, B> {
-    pub fn write_report(&self, report: &MultipleConsumerReport) -> usb_device::Result<usize> {
-        let data = report.pack().map_err(|e| {
-            error!("Error packing MultipleConsumerReport: {:?}", e);
+    pub fn write_report(&mut self, report: &MultipleConsumerReport) -> usb_device::Result<usize> {
+        let data = report.pack().map_err(|_| {
+            error!("Error packing MultipleConsumerReport");
             UsbError::ParseError
         })?;
         self.inner.write_report(&data)
     }
+}
 
+impl<'a, B: UsbBus> InterfaceClass<'a, B> for ConsumerControlInterface<'a, B> {
+    fn interface(&mut self) -> &mut RawInterface<'a, B> {
+        &mut self.inner
+    }
+
+    fn reset(&mut self) {}
+}
+
+pub struct ConsumerControlConfig<'a> {
+    interface: RawInterfaceConfig<'a>,
+}
+
+impl<'a> ConsumerControlConfig<'a> {
+    fn new(interface: RawInterfaceConfig<'a>) -> Self {
+        Self { interface }
+    }
+}
+
+impl<'a> Default for ConsumerControlConfig<'a> {
     #[must_use]
-    pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
-        WrappedInterfaceConfig::new(
-            RawInterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR)
-                .description("Consumer Control")
-                .in_endpoint(UsbPacketSize::Bytes8, 50.millis())
-                .unwrap()
-                .without_out_endpoint()
-                .build(),
-            (),
+    fn default() -> Self {
+        Self::new(
+            unwrap!(
+                unwrap!(RawInterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR))
+                    .description("Consumer Control")
+                    .in_endpoint(UsbPacketSize::Bytes8, 50.millis())
+            )
+            .without_out_endpoint()
+            .build(),
         )
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a> for ConsumerControlInterface<'a, B> {
-    #![allow(clippy::inline_always)]
-    delegate! {
-        to self.inner{
-           fn report_descriptor(&self) -> &'_ [u8];
-           fn id(&self) -> InterfaceNumber;
-           fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-           fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str>;
-           fn reset(&mut self);
-           fn set_report(&mut self, data: &[u8]) -> Result<()>;
-           fn get_report(&mut self, data: &mut [u8]) -> Result<usize>;
-           fn get_report_ack(&mut self) -> Result<()>;
-           fn set_idle(&mut self, report_id: u8, value: u8);
-           fn get_idle(&self, report_id: u8) -> u8;
-           fn set_protocol(&mut self, protocol: HidProtocol);
-           fn get_protocol(&self) -> HidProtocol;
-        }
-    }
-}
+impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for ConsumerControlConfig<'a> {
+    type Allocated = ConsumerControlInterface<'a, B>;
 
-impl<'a, B: UsbBus> WrappedInterface<'a, B, RawInterface<'a, B>>
-    for ConsumerControlInterface<'a, B>
-{
-    fn new(interface: RawInterface<'a, B>, _: ()) -> Self {
-        Self { inner: interface }
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
+        Self::Allocated {
+            inner: RawInterface::new(usb_alloc, self.interface),
+        }
     }
 }
 
@@ -153,52 +153,53 @@ pub struct ConsumerControlFixedInterface<'a, B: UsbBus> {
 }
 
 impl<'a, B: UsbBus> ConsumerControlFixedInterface<'a, B> {
-    pub fn write_report(&self, report: &FixedFunctionReport) -> usb_device::Result<usize> {
-        let data = report.pack().map_err(|e| {
-            error!("Error packing MultipleConsumerReport: {:?}", e);
+    pub fn write_report(&mut self, report: &FixedFunctionReport) -> usb_device::Result<usize> {
+        let data = report.pack().map_err(|_| {
+            error!("Error packing MultipleConsumerReport");
             UsbError::ParseError
         })?;
         self.inner.write_report(&data)
     }
+}
 
+impl<'a, B: UsbBus> InterfaceClass<'a, B> for ConsumerControlFixedInterface<'a, B> {
+    fn interface(&mut self) -> &mut RawInterface<'a, B> {
+        &mut self.inner
+    }
+
+    fn reset(&mut self) {}
+}
+
+pub struct ConsumerControlFixedConfig<'a> {
+    interface: RawInterfaceConfig<'a>,
+}
+impl<'a> ConsumerControlFixedConfig<'a> {
+    fn new(interface: RawInterfaceConfig<'a>) -> Self {
+        Self { interface }
+    }
+}
+
+impl<'a> Default for ConsumerControlFixedConfig<'a> {
     #[must_use]
-    pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
-        WrappedInterfaceConfig::new(
-            RawInterfaceBuilder::new(FIXED_FUNCTION_REPORT_DESCRIPTOR)
-                .description("Consumer Control")
-                .in_endpoint(UsbPacketSize::Bytes8, 50.millis())
-                .unwrap()
-                .without_out_endpoint()
-                .build(),
-            (),
+    fn default() -> Self {
+        Self::new(
+            unwrap!(
+                unwrap!(RawInterfaceBuilder::new(FIXED_FUNCTION_REPORT_DESCRIPTOR))
+                    .description("Consumer Control")
+                    .in_endpoint(UsbPacketSize::Bytes8, 50.millis())
+            )
+            .without_out_endpoint()
+            .build(),
         )
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a> for ConsumerControlFixedInterface<'a, B> {
-    #![allow(clippy::inline_always)]
-    delegate! {
-        to self.inner{
-           fn report_descriptor(&self) -> &'_ [u8];
-           fn id(&self) -> InterfaceNumber;
-           fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-           fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str>;
-           fn reset(&mut self);
-           fn set_report(&mut self, data: &[u8]) -> Result<()>;
-           fn get_report(&mut self, data: &mut [u8]) -> Result<usize>;
-           fn get_report_ack(&mut self) -> Result<()>;
-           fn set_idle(&mut self, report_id: u8, value: u8);
-           fn get_idle(&self, report_id: u8) -> u8;
-           fn set_protocol(&mut self, protocol: HidProtocol);
-           fn get_protocol(&self) -> HidProtocol;
-        }
-    }
-}
+impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for ConsumerControlFixedConfig<'a> {
+    type Allocated = ConsumerControlFixedInterface<'a, B>;
 
-impl<'a, B: UsbBus> WrappedInterface<'a, B, RawInterface<'a, B>>
-    for ConsumerControlFixedInterface<'a, B>
-{
-    fn new(interface: RawInterface<'a, B>, _: ()) -> Self {
-        Self { inner: interface }
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
+        Self::Allocated {
+            inner: RawInterface::new(usb_alloc, self.interface),
+        }
     }
 }

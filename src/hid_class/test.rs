@@ -1,3 +1,6 @@
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+
 use std::cell::RefCell;
 use std::sync::Mutex;
 use std::vec::Vec;
@@ -6,6 +9,7 @@ use crate::hid_class::descriptor::USB_CLASS_HID;
 use crate::interface::raw::RawInterfaceBuilder;
 use env_logger::Env;
 use fugit::MillisDurationU32;
+use packed_struct::prelude::*;
 use usb_device::bus::PollResult;
 use usb_device::prelude::*;
 use usb_device::UsbDirection;
@@ -149,7 +153,7 @@ fn descriptor_ordering_satisfies_boot_spec() {
     let usb_alloc = UsbBusAllocator::new(TestUsbBus::new(&manager));
 
     let mut hid = UsbHidClassBuilder::new()
-        .add_interface(RawInterfaceBuilder::new(&[]).build())
+        .add_interface(RawInterfaceBuilder::new(&[]).unwrap().build())
         .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
@@ -240,7 +244,7 @@ fn get_protocol_default_to_report() {
     let usb_alloc = UsbBusAllocator::new(TestUsbBus::new(&manager));
 
     let mut hid = UsbHidClassBuilder::new()
-        .add_interface(RawInterfaceBuilder::new(&[]).build())
+        .add_interface(RawInterfaceBuilder::new(&[]).unwrap().build())
         .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
@@ -254,7 +258,7 @@ fn get_protocol_default_to_report() {
                 direction: UsbDirection::In != UsbDirection::Out,
                 request_type: RequestType::Class as u8,
                 recipient: Recipient::Interface as u8,
-                request: HidRequest::GetProtocol as u8,
+                request: HidRequest::GetProtocol.into(),
                 value: 0x0,
                 index: 0x0,
                 length: 0x1,
@@ -270,7 +274,7 @@ fn get_protocol_default_to_report() {
     let data = manager.host_read_in();
     assert_eq!(
         data,
-        [HidProtocol::Report as u8],
+        [HidProtocol::Report.into()],
         "Expected protocol to be Report by default"
     );
 }
@@ -284,7 +288,7 @@ fn set_protocol() {
     let usb_alloc = UsbBusAllocator::new(TestUsbBus::new(&manager));
 
     let mut hid = UsbHidClassBuilder::new()
-        .add_interface(RawInterfaceBuilder::new(&[]).build())
+        .add_interface(RawInterfaceBuilder::new(&[]).unwrap().build())
         .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
@@ -298,7 +302,7 @@ fn set_protocol() {
                 direction: UsbDirection::In != UsbDirection::In,
                 request_type: RequestType::Class as u8,
                 recipient: Recipient::Interface as u8,
-                request: HidRequest::SetProtocol as u8,
+                request: HidRequest::SetProtocol.into(),
                 value: HidProtocol::Boot as u16,
                 index: 0x0,
                 length: 0x0,
@@ -317,7 +321,7 @@ fn set_protocol() {
                 direction: UsbDirection::In != UsbDirection::Out,
                 request_type: RequestType::Class as u8,
                 recipient: Recipient::Interface as u8,
-                request: HidRequest::GetProtocol as u8,
+                request: HidRequest::GetProtocol.into(),
                 value: 0x0,
                 index: 0x0,
                 length: 0x1,
@@ -333,7 +337,7 @@ fn set_protocol() {
     let data = &manager.host_read_in();
     assert_eq!(
         data,
-        &[HidProtocol::Boot as u8],
+        &[HidProtocol::Boot.into()],
         "Expected protocol to be Boot"
     );
 }
@@ -347,7 +351,7 @@ fn get_protocol_default_post_reset() {
     let usb_alloc = UsbBusAllocator::new(TestUsbBus::new(&manager));
 
     let mut hid = UsbHidClassBuilder::new()
-        .add_interface(RawInterfaceBuilder::new(&[]).build())
+        .add_interface(RawInterfaceBuilder::new(&[]).unwrap().build())
         .build(&usb_alloc);
 
     let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
@@ -361,7 +365,7 @@ fn get_protocol_default_post_reset() {
                 direction: UsbDirection::In != UsbDirection::In,
                 request_type: RequestType::Class as u8,
                 recipient: Recipient::Interface as u8,
-                request: HidRequest::SetProtocol as u8,
+                request: HidRequest::SetProtocol.into(),
                 value: HidProtocol::Boot as u16,
                 index: 0x0,
                 length: 0x0,
@@ -383,7 +387,7 @@ fn get_protocol_default_post_reset() {
                 direction: UsbDirection::In != UsbDirection::Out,
                 request_type: RequestType::Class as u8,
                 recipient: Recipient::Interface as u8,
-                request: HidRequest::GetProtocol as u8,
+                request: HidRequest::GetProtocol.into(),
                 value: 0x0,
                 index: 0x0,
                 length: 0x1,
@@ -399,7 +403,7 @@ fn get_protocol_default_post_reset() {
     let data = &manager.host_read_in();
     assert_eq!(
         data,
-        &[HidProtocol::Report as u8],
+        &[HidProtocol::Report.into()],
         "Expected protocol to be Report post reset"
     );
 }
@@ -417,6 +421,7 @@ fn get_global_idle_default() {
     let mut hid = UsbHidClassBuilder::new()
         .add_interface(
             RawInterfaceBuilder::new(&[])
+                .unwrap()
                 .idle_default(IDLE_DEFAULT)
                 .unwrap()
                 .build(),
@@ -434,7 +439,7 @@ fn get_global_idle_default() {
                 direction: UsbDirection::In != UsbDirection::Out,
                 request_type: RequestType::Class as u8,
                 recipient: Recipient::Interface as u8,
-                request: HidRequest::GetIdle as u8,
+                request: HidRequest::GetIdle.into(),
                 value: 0x0,
                 index: 0x0,
                 length: 0x1,
@@ -469,6 +474,7 @@ fn set_global_idle() {
     let mut hid = UsbHidClassBuilder::new()
         .add_interface(
             RawInterfaceBuilder::new(&[])
+                .unwrap()
                 .idle_default(IDLE_DEFAULT)
                 .unwrap()
                 .build(),
@@ -486,7 +492,7 @@ fn set_global_idle() {
                 direction: UsbDirection::In != UsbDirection::In,
                 request_type: RequestType::Class as u8,
                 recipient: Recipient::Interface as u8,
-                request: HidRequest::SetIdle as u8,
+                request: HidRequest::SetIdle.into(),
                 value: (u16::try_from(IDLE_NEW.to_millis()).unwrap() / 4) << 8,
                 index: 0x0,
                 length: 0x0,
@@ -505,7 +511,7 @@ fn set_global_idle() {
                 direction: UsbDirection::In != UsbDirection::Out,
                 request_type: RequestType::Class as u8,
                 recipient: Recipient::Interface as u8,
-                request: HidRequest::GetIdle as u8,
+                request: HidRequest::GetIdle.into(),
                 value: 0x0,
                 index: 0x0,
                 length: 0x1,
@@ -540,6 +546,7 @@ fn get_global_idle_default_post_reset() {
     let mut hid = UsbHidClassBuilder::new()
         .add_interface(
             RawInterfaceBuilder::new(&[])
+                .unwrap()
                 .idle_default(IDLE_DEFAULT)
                 .unwrap()
                 .build(),
@@ -557,7 +564,7 @@ fn get_global_idle_default_post_reset() {
                 direction: UsbDirection::In != UsbDirection::In,
                 request_type: RequestType::Class as u8,
                 recipient: Recipient::Interface as u8,
-                request: HidRequest::SetIdle as u8,
+                request: HidRequest::SetIdle.into(),
                 value: (u16::try_from(IDLE_NEW.to_millis()).unwrap() / 4) << 8,
                 index: 0x0,
                 length: 0x0,
@@ -578,7 +585,7 @@ fn get_global_idle_default_post_reset() {
                 direction: UsbDirection::In != UsbDirection::Out,
                 request_type: RequestType::Class as u8,
                 recipient: Recipient::Interface as u8,
-                request: HidRequest::GetIdle as u8,
+                request: HidRequest::GetIdle.into(),
                 value: 0x0,
                 index: 0x0,
                 length: 0x1,
@@ -615,6 +622,7 @@ fn get_report_idle_default() {
     let mut hid = UsbHidClassBuilder::new()
         .add_interface(
             RawInterfaceBuilder::new(&[])
+                .unwrap()
                 .idle_default(IDLE_DEFAULT)
                 .unwrap()
                 .build(),
@@ -632,7 +640,7 @@ fn get_report_idle_default() {
                 direction: UsbDirection::In != UsbDirection::Out,
                 request_type: RequestType::Class as u8,
                 recipient: Recipient::Interface as u8,
-                request: HidRequest::GetIdle as u8,
+                request: HidRequest::GetIdle.into(),
                 value: u16::from(REPORT_ID),
                 index: 0x0,
                 length: 0x1,
@@ -668,6 +676,7 @@ fn set_report_idle() {
     let mut hid = UsbHidClassBuilder::new()
         .add_interface(
             RawInterfaceBuilder::new(&[])
+                .unwrap()
                 .idle_default(IDLE_DEFAULT)
                 .unwrap()
                 .build(),
@@ -685,7 +694,7 @@ fn set_report_idle() {
                 direction: UsbDirection::In != UsbDirection::In,
                 request_type: RequestType::Class as u8,
                 recipient: Recipient::Interface as u8,
-                request: HidRequest::SetIdle as u8,
+                request: HidRequest::SetIdle.into(),
                 value: (u16::try_from(IDLE_NEW.to_millis()).unwrap() / 4) << 8
                     | u16::from(REPORT_ID),
                 index: 0x0,
@@ -705,7 +714,7 @@ fn set_report_idle() {
                 direction: UsbDirection::In != UsbDirection::Out,
                 request_type: RequestType::Class as u8,
                 recipient: Recipient::Interface as u8,
-                request: HidRequest::GetIdle as u8,
+                request: HidRequest::GetIdle.into(),
                 value: u16::from(REPORT_ID),
                 index: 0x0,
                 length: 0x1,
@@ -732,7 +741,7 @@ fn set_report_idle() {
                 direction: UsbDirection::In != UsbDirection::Out,
                 request_type: RequestType::Class as u8,
                 recipient: Recipient::Interface as u8,
-                request: HidRequest::GetIdle as u8,
+                request: HidRequest::GetIdle.into(),
                 value: 0x0,
                 index: 0x0,
                 length: 0x1,
@@ -768,6 +777,7 @@ fn get_report_idle_default_post_reset() {
     let mut hid = UsbHidClassBuilder::new()
         .add_interface(
             RawInterfaceBuilder::new(&[])
+                .unwrap()
                 .idle_default(IDLE_DEFAULT)
                 .unwrap()
                 .build(),
@@ -785,7 +795,7 @@ fn get_report_idle_default_post_reset() {
                 direction: UsbDirection::In != UsbDirection::In,
                 request_type: RequestType::Class as u8,
                 recipient: Recipient::Interface as u8,
-                request: HidRequest::SetIdle as u8,
+                request: HidRequest::SetIdle.into(),
                 value: (u16::try_from(IDLE_NEW.to_millis()).unwrap() / 4) << 8
                     | u16::from(REPORT_ID),
                 index: 0x0,
@@ -807,7 +817,7 @@ fn get_report_idle_default_post_reset() {
                 direction: UsbDirection::In != UsbDirection::Out,
                 request_type: RequestType::Class as u8,
                 recipient: Recipient::Interface as u8,
-                request: HidRequest::GetIdle as u8,
+                request: HidRequest::GetIdle.into(),
                 value: u16::from(REPORT_ID),
                 index: 0x0,
                 length: 0x1,

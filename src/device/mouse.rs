@@ -1,16 +1,13 @@
 //!HID mice
-use crate::hid_class::descriptor::HidProtocol;
 use core::default::Default;
-use delegate::delegate;
 use fugit::ExtU32;
-use log::error;
 use packed_struct::prelude::*;
-use usb_device::bus::{InterfaceNumber, StringIndex, UsbBus};
-use usb_device::class_prelude::DescriptorWriter;
+use usb_device::bus::UsbBus;
+use usb_device::class_prelude::UsbBusAllocator;
 
 use crate::hid_class::prelude::*;
 use crate::interface::raw::{RawInterface, RawInterfaceConfig};
-use crate::interface::{InterfaceClass, WrappedInterface, WrappedInterfaceConfig};
+use crate::interface::{InterfaceClass, UsbAllocatable};
 use crate::UsbHidError;
 
 /// HID Mouse report descriptor conforming to the Boot specification
@@ -184,9 +181,9 @@ pub struct BootMouseInterface<'a, B: UsbBus> {
 }
 
 impl<'a, B: UsbBus> BootMouseInterface<'a, B> {
-    pub fn write_report(&self, report: &BootMouseReport) -> Result<(), UsbHidError> {
-        let data = report.pack().map_err(|e| {
-            error!("Error packing BootMouseReport: {:?}", e);
+    pub fn write_report(&mut self, report: &BootMouseReport) -> Result<(), UsbHidError> {
+        let data = report.pack().map_err(|_| {
+            error!("Error packing BootMouseReport");
             UsbHidError::SerializationError
         })?;
         self.inner
@@ -194,46 +191,51 @@ impl<'a, B: UsbBus> BootMouseInterface<'a, B> {
             .map(|_| ())
             .map_err(UsbHidError::from)
     }
+}
 
+pub struct BootMouseConfig<'a> {
+    interface: RawInterfaceConfig<'a>,
+}
+
+impl<'a> BootMouseConfig<'a> {
     #[must_use]
-    pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
-        WrappedInterfaceConfig::new(
-            RawInterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR)
-                .boot_device(InterfaceProtocol::Mouse)
-                .description("Mouse")
-                .in_endpoint(UsbPacketSize::Bytes8, 10.millis())
-                .unwrap()
-                .without_out_endpoint()
-                .build(),
-            (),
+    pub fn new(interface: RawInterfaceConfig<'a>) -> Self {
+        Self { interface }
+    }
+}
+
+impl<'a> Default for BootMouseConfig<'a> {
+    #[must_use]
+    fn default() -> Self {
+        Self::new(
+            unwrap!(
+                unwrap!(RawInterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR))
+                    .boot_device(InterfaceProtocol::Mouse)
+                    .description("Mouse")
+                    .in_endpoint(UsbPacketSize::Bytes8, 10.millis())
+            )
+            .without_out_endpoint()
+            .build(),
         )
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a> for BootMouseInterface<'a, B> {
-    #![allow(clippy::inline_always)]
-    delegate! {
-        to self.inner{
-           fn report_descriptor(&self) -> &'_ [u8];
-           fn id(&self) -> InterfaceNumber;
-           fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-           fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str>;
-           fn reset(&mut self);
-           fn set_report(&mut self, data: &[u8]) -> usb_device::Result<()>;
-           fn get_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize>;
-           fn get_report_ack(&mut self) -> usb_device::Result<()>;
-           fn set_idle(&mut self, report_id: u8, value: u8);
-           fn get_idle(&self, report_id: u8) -> u8;
-           fn set_protocol(&mut self, protocol: HidProtocol);
-           fn get_protocol(&self) -> HidProtocol;
+impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for BootMouseConfig<'a> {
+    type Allocated = BootMouseInterface<'a, B>;
+
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
+        BootMouseInterface {
+            inner: self.interface.allocate(usb_alloc),
         }
     }
 }
 
-impl<'a, B: UsbBus> WrappedInterface<'a, B, RawInterface<'a, B>> for BootMouseInterface<'a, B> {
-    fn new(interface: RawInterface<'a, B>, _: ()) -> Self {
-        Self { inner: interface }
+impl<'a, B: UsbBus> InterfaceClass<'a, B> for BootMouseInterface<'a, B> {
+    fn interface(&mut self) -> &mut RawInterface<'a, B> {
+        &mut self.inner
     }
+
+    fn reset(&mut self) {}
 }
 
 pub struct WheelMouseInterface<'a, B: UsbBus> {
@@ -241,9 +243,9 @@ pub struct WheelMouseInterface<'a, B: UsbBus> {
 }
 
 impl<'a, B: UsbBus> WheelMouseInterface<'a, B> {
-    pub fn write_report(&self, report: &WheelMouseReport) -> Result<(), UsbHidError> {
-        let data = report.pack().map_err(|e| {
-            error!("Error packing WheelMouseReport: {:?}", e);
+    pub fn write_report(&mut self, report: &WheelMouseReport) -> Result<(), UsbHidError> {
+        let data = report.pack().map_err(|_| {
+            error!("Error packing WheelMouseReport");
             UsbHidError::SerializationError
         })?;
         self.inner
@@ -251,46 +253,50 @@ impl<'a, B: UsbBus> WheelMouseInterface<'a, B> {
             .map(|_| ())
             .map_err(UsbHidError::from)
     }
+}
+pub struct WheelMouseConfig<'a> {
+    interface: RawInterfaceConfig<'a>,
+}
 
+impl<'a> WheelMouseConfig<'a> {
     #[must_use]
-    pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
-        WrappedInterfaceConfig::new(
-            RawInterfaceBuilder::new(WHEEL_MOUSE_REPORT_DESCRIPTOR)
-                .boot_device(InterfaceProtocol::Mouse)
-                .description("Wheel Mouse")
-                .in_endpoint(UsbPacketSize::Bytes8, 10.millis())
-                .unwrap()
-                .without_out_endpoint()
-                .build(),
-            (),
+    pub fn new(interface: RawInterfaceConfig<'a>) -> Self {
+        Self { interface }
+    }
+}
+
+impl<'a> Default for WheelMouseConfig<'a> {
+    #[must_use]
+    fn default() -> Self {
+        WheelMouseConfig::new(
+            unwrap!(
+                unwrap!(RawInterfaceBuilder::new(WHEEL_MOUSE_REPORT_DESCRIPTOR))
+                    .boot_device(InterfaceProtocol::Mouse)
+                    .description("Wheel Mouse")
+                    .in_endpoint(UsbPacketSize::Bytes8, 10.millis())
+            )
+            .without_out_endpoint()
+            .build(),
         )
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a> for WheelMouseInterface<'a, B> {
-    #![allow(clippy::inline_always)]
-    delegate! {
-        to self.inner{
-           fn report_descriptor(&self) -> &'_ [u8];
-           fn id(&self) -> InterfaceNumber;
-           fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-           fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str>;
-           fn reset(&mut self);
-           fn set_report(&mut self, data: &[u8]) -> usb_device::Result<()>;
-           fn get_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize>;
-           fn get_report_ack(&mut self) -> usb_device::Result<()>;
-           fn set_idle(&mut self, report_id: u8, value: u8);
-           fn get_idle(&self, report_id: u8) -> u8;
-           fn set_protocol(&mut self, protocol: HidProtocol);
-           fn get_protocol(&self) -> HidProtocol;
+impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for WheelMouseConfig<'a> {
+    type Allocated = WheelMouseInterface<'a, B>;
+
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
+        WheelMouseInterface {
+            inner: self.interface.allocate(usb_alloc),
         }
     }
 }
 
-impl<'a, B: UsbBus> WrappedInterface<'a, B, RawInterface<'a, B>> for WheelMouseInterface<'a, B> {
-    fn new(interface: RawInterface<'a, B>, _: ()) -> Self {
-        Self { inner: interface }
+impl<'a, B: UsbBus> InterfaceClass<'a, B> for WheelMouseInterface<'a, B> {
+    fn interface(&mut self) -> &mut RawInterface<'a, B> {
+        &mut self.inner
     }
+
+    fn reset(&mut self) {}
 }
 
 pub struct AbsoluteWheelMouseInterface<'a, B: UsbBus> {
@@ -298,9 +304,9 @@ pub struct AbsoluteWheelMouseInterface<'a, B: UsbBus> {
 }
 
 impl<'a, B: UsbBus> AbsoluteWheelMouseInterface<'a, B> {
-    pub fn write_report(&self, report: &AbsoluteWheelMouseReport) -> Result<(), UsbHidError> {
-        let data = report.pack().map_err(|e| {
-            error!("Error packing WheelMouseReport: {:?}", e);
+    pub fn write_report(&mut self, report: &AbsoluteWheelMouseReport) -> Result<(), UsbHidError> {
+        let data = report.pack().map_err(|_| {
+            error!("Error packing WheelMouseReport");
             UsbHidError::SerializationError
         })?;
         self.inner
@@ -308,45 +314,48 @@ impl<'a, B: UsbBus> AbsoluteWheelMouseInterface<'a, B> {
             .map(|_| ())
             .map_err(UsbHidError::from)
     }
+}
 
+pub struct AbsoluteWheelMouseConfig<'a> {
+    interface: RawInterfaceConfig<'a>,
+}
+
+impl<'a> AbsoluteWheelMouseConfig<'a> {
     #[must_use]
-    pub fn default_config() -> WrappedInterfaceConfig<Self, RawInterfaceConfig<'a>> {
-        WrappedInterfaceConfig::new(
-            RawInterfaceBuilder::new(ABSOLUTE_WHEEL_MOUSE_REPORT_DESCRIPTOR)
-                .description("Absolute Wheel Mouse")
-                .in_endpoint(UsbPacketSize::Bytes8, 10.millis())
-                .unwrap()
-                .without_out_endpoint()
-                .build(),
-            (),
+    pub fn new(interface: RawInterfaceConfig<'a>) -> Self {
+        Self { interface }
+    }
+}
+
+impl<'a> Default for AbsoluteWheelMouseConfig<'a> {
+    #[must_use]
+    fn default() -> Self {
+        AbsoluteWheelMouseConfig::new(
+            unwrap!(unwrap!(RawInterfaceBuilder::new(
+                ABSOLUTE_WHEEL_MOUSE_REPORT_DESCRIPTOR
+            ))
+            .description("Absolute Wheel Mouse")
+            .in_endpoint(UsbPacketSize::Bytes8, 10.millis()))
+            .without_out_endpoint()
+            .build(),
         )
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a> for AbsoluteWheelMouseInterface<'a, B> {
-    #![allow(clippy::inline_always)]
-    delegate! {
-        to self.inner{
-           fn report_descriptor(&self) -> &'_ [u8];
-           fn id(&self) -> InterfaceNumber;
-           fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-           fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str>;
-           fn reset(&mut self);
-           fn set_report(&mut self, data: &[u8]) -> usb_device::Result<()>;
-           fn get_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize>;
-           fn get_report_ack(&mut self) -> usb_device::Result<()>;
-           fn set_idle(&mut self, report_id: u8, value: u8);
-           fn get_idle(&self, report_id: u8) -> u8;
-           fn set_protocol(&mut self, protocol: HidProtocol);
-           fn get_protocol(&self) -> HidProtocol;
+impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for AbsoluteWheelMouseConfig<'a> {
+    type Allocated = AbsoluteWheelMouseInterface<'a, B>;
+
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
+        AbsoluteWheelMouseInterface {
+            inner: self.interface.allocate(usb_alloc),
         }
     }
 }
 
-impl<'a, B: UsbBus> WrappedInterface<'a, B, RawInterface<'a, B>>
-    for AbsoluteWheelMouseInterface<'a, B>
-{
-    fn new(interface: RawInterface<'a, B>, _: ()) -> Self {
-        Self { inner: interface }
+impl<'a, B: UsbBus> InterfaceClass<'a, B> for AbsoluteWheelMouseInterface<'a, B> {
+    fn interface(&mut self) -> &mut RawInterface<'a, B> {
+        &mut self.inner
     }
+
+    fn reset(&mut self) {}
 }
