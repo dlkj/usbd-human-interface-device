@@ -36,6 +36,7 @@ use rp_pico as bsp;
 type UsbDevices = (
     UsbDevice<'static, hal::usb::UsbBus>,
     UsbHidClass<
+        'static,
         hal::usb::UsbBus,
         HList!(
             ConsumerControlInterface<'static, hal::usb::UsbBus>,

@@ -2,13 +2,13 @@
 
 use crate::interface::InterfaceHList;
 use crate::interface::{InterfaceClass, UsbAllocatable};
+use core::cell::RefCell;
 use core::default::Default;
 use core::marker::PhantomData;
 use descriptor::{DescriptorType, HidProtocol};
 use frunk::hlist::{HList, Selector};
-use frunk::{HCons, HNil};
-use num_enum::IntoPrimitive;
-use packed_struct::prelude::*;
+use frunk::{HCons, HNil, ToMut};
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 #[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
 use usb_device::control::Recipient;
@@ -21,7 +21,7 @@ pub mod prelude;
 #[cfg(test)]
 mod test;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PrimitiveEnum, IntoPrimitive)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, TryFromPrimitive, IntoPrimitive)]
 #[repr(u8)]
 pub enum HidRequest {
     GetReport = 0x01,
@@ -32,8 +32,8 @@ pub enum HidRequest {
     SetProtocol = 0x0B,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, PrimitiveEnum, IntoPrimitive)]
-#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, TryFromPrimitive, IntoPrimitive)]
+#[repr(u16)]
 pub enum UsbPacketSize {
     Bytes8 = 8,
     Bytes16 = 16,
@@ -50,44 +50,54 @@ pub enum UsbHidBuilderError {
 
 #[must_use = "this `UsbHidClassBuilder` must be assigned or consumed by `::build()`"]
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct UsbHidClassBuilder<InterfaceList> {
+pub struct UsbHidClassBuilder<'a, B, InterfaceList> {
     interface_list: InterfaceList,
+    _marker: PhantomData<&'a B>,
 }
 
-impl UsbHidClassBuilder<HNil> {
+impl<'a, B> UsbHidClassBuilder<'a, B, HNil> {
     pub fn new() -> Self {
         Self {
             interface_list: HNil,
+            _marker: PhantomData::default(),
         }
     }
 }
 
-impl Default for UsbHidClassBuilder<HNil> {
+impl<'a, B> Default for UsbHidClassBuilder<'a, B, HNil> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<I: HList> UsbHidClassBuilder<I> {
-    pub fn add_interface<Conf>(self, interface_config: Conf) -> UsbHidClassBuilder<HCons<Conf, I>> {
+impl<'a, B: UsbBus, I: HList> UsbHidClassBuilder<'a, B, I> {
+    pub fn add_interface<Conf, Class>(
+        self,
+        interface_config: Conf,
+    ) -> UsbHidClassBuilder<'a, B, HCons<Conf, I>>
+    where
+        Conf: UsbAllocatable<'a, B, Allocated = Class>,
+        Class: InterfaceClass<'a, B>,
+    {
         UsbHidClassBuilder {
             interface_list: self.interface_list.prepend(interface_config),
+            _marker: PhantomData::default(),
         }
     }
 }
 
-impl<C, Tail> UsbHidClassBuilder<HCons<C, Tail>> {
-    pub fn build<'a, B>(
+impl<'a, B, C, Tail> UsbHidClassBuilder<'a, B, HCons<C, Tail>>
+where
+    B: UsbBus,
+    Tail: UsbAllocatable<'a, B>,
+    C: UsbAllocatable<'a, B>,
+{
+    pub fn build(
         self,
         usb_alloc: &'a UsbBusAllocator<B>,
-    ) -> UsbHidClass<B, HCons<C::Allocated, Tail::Allocated>>
-    where
-        B: UsbBus,
-        Tail: UsbAllocatable<'a, B>,
-        C: UsbAllocatable<'a, B>,
-    {
+    ) -> UsbHidClass<B, HCons<C::Allocated, Tail::Allocated>> {
         UsbHidClass {
-            interfaces: self.interface_list.allocate(usb_alloc),
+            interfaces: RefCell::new(self.interface_list.allocate(usb_alloc)),
             _marker: PhantomData::default(),
         }
     }
@@ -96,43 +106,47 @@ impl<C, Tail> UsbHidClassBuilder<HCons<C, Tail>> {
 pub type BuilderResult<B> = core::result::Result<B, UsbHidBuilderError>;
 
 /// USB Human Interface Device class
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct UsbHidClass<B, I> {
-    interfaces: I,
-    _marker: PhantomData<B>,
+#[derive(Debug, Eq, PartialEq)]
+pub struct UsbHidClass<'a, B, I> {
+    // Using a RefCell makes it simpler to implement devices as all calls to interfaces are mut
+    // this could be removed, but then each usb device would need to implement a non mut borrow
+    // of its `RawInterface`.
+    interfaces: RefCell<I>,
+    _marker: PhantomData<&'a B>,
 }
 
-impl<'a, B, InterfaceList: InterfaceHList<'a>> UsbHidClass<B, InterfaceList> {
-    pub fn interface<T, Index>(&self) -> &T
+impl<'a, B, InterfaceList: InterfaceHList<'a, B>> UsbHidClass<'a, B, InterfaceList> {
+    pub fn interface<T, Index>(&mut self) -> &mut T
     where
         InterfaceList: Selector<T, Index>,
     {
-        self.interfaces.get()
+        self.interfaces.get_mut().get_mut()
     }
 
-    pub fn interfaces(&'a self) -> InterfaceList::Output {
-        self.interfaces.to_ref()
+    pub fn interfaces(&'a mut self) -> <InterfaceList as ToMut>::Output {
+        self.interfaces.get_mut().to_mut()
     }
 }
 
-impl<B: UsbBus, I> UsbHidClass<B, I> {
-    fn get_descriptor(transfer: ControlIn<B>, interface: &dyn InterfaceClass<'_>) {
+impl<'a, B: UsbBus + 'a, I> UsbHidClass<'a, B, I> {
+    fn get_descriptor(transfer: ControlIn<B>, interface: &mut dyn InterfaceClass<'a, B>) {
         let request: &Request = transfer.request();
-        match DescriptorType::from_primitive((request.value >> 8) as u8) {
-            Some(DescriptorType::Report) => {
-                match transfer.accept_with(interface.report_descriptor()) {
+        match DescriptorType::try_from((request.value >> 8) as u8) {
+            Ok(DescriptorType::Report) => {
+                match transfer.accept_with(interface.interface().report_descriptor()) {
                     Err(e) => error!("Failed to send report descriptor - {:?}", e),
                     Ok(_) => {
                         trace!("Sent report descriptor");
                     }
                 }
             }
-            Some(DescriptorType::Hid) => {
+            Ok(DescriptorType::Hid) => {
                 const LEN: u8 = 9;
                 let mut buffer = [0; LEN as usize];
                 buffer[0] = LEN;
                 buffer[1] = u8::from(DescriptorType::Hid);
-                (buffer[2..LEN as usize]).copy_from_slice(&interface.hid_descriptor_body());
+                (buffer[2..LEN as usize])
+                    .copy_from_slice(&interface.interface().hid_descriptor_body());
                 match transfer.accept_with(&buffer) {
                     Err(e) => {
                         error!("Failed to send Hid descriptor - {:?}", e);
@@ -152,24 +166,24 @@ impl<B: UsbBus, I> UsbHidClass<B, I> {
     }
 }
 
-impl<'a, B, I> UsbClass<B> for UsbHidClass<B, I>
+impl<'a, B, I> UsbClass<B> for UsbHidClass<'a, B, I>
 where
-    B: UsbBus,
-    I: InterfaceHList<'a>,
+    B: UsbBus + 'a,
+    I: InterfaceHList<'a, B>,
 {
     fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
-        self.interfaces.write_descriptors(writer)?;
+        self.interfaces.borrow_mut().write_descriptors(writer)?;
         info!("wrote class config descriptor");
         Ok(())
     }
 
     fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&str> {
-        self.interfaces.get_string(index, lang_id)
+        self.interfaces.borrow_mut().get_string(index, lang_id)
     }
 
     fn reset(&mut self) {
         info!("Reset");
-        self.interfaces.reset();
+        self.interfaces.get_mut().reset();
     }
 
     fn control_out(&mut self, transfer: ControlOut<B>) {
@@ -184,7 +198,7 @@ where
 
         let Some(interface) = u8::try_from(request.index)
                     .ok()
-                    .and_then(|id| self.interfaces.get_id_mut(id)) else { return };
+                    .and_then(|id| self.interfaces.get_mut().get(id)) else { return };
 
         trace!(
             "ctrl_out: request type: {:?}, request: {}, value: {}",
@@ -193,12 +207,12 @@ where
             request.value
         );
 
-        match HidRequest::from_primitive(request.request) {
-            Some(HidRequest::SetReport) => {
-                interface.set_report(transfer.data()).ok();
+        match HidRequest::try_from(request.request) {
+            Ok(HidRequest::SetReport) => {
+                interface.interface().set_report(transfer.data()).ok();
                 transfer.accept().ok();
             }
-            Some(HidRequest::SetIdle) => {
+            Ok(HidRequest::SetIdle) => {
                 if request.length != 0 {
                     warn!(
                         "Expected SetIdle to have length 0, received {}",
@@ -206,18 +220,20 @@ where
                     );
                 }
 
-                interface.set_idle((request.value & 0xFF) as u8, (request.value >> 8) as u8);
+                interface
+                    .interface()
+                    .set_idle((request.value & 0xFF) as u8, (request.value >> 8) as u8);
                 transfer.accept().ok();
             }
-            Some(HidRequest::SetProtocol) => {
+            Ok(HidRequest::SetProtocol) => {
                 if request.length != 0 {
                     warn!(
                         "Expected SetProtocol to have length 0, received {}",
                         request.length
                     );
                 }
-                if let Some(protocol) = HidProtocol::from_primitive((request.value & 0xFF) as u8) {
-                    interface.set_protocol(protocol);
+                if let Ok(protocol) = HidProtocol::try_from((request.value & 0xFF) as u8) {
+                    interface.interface().set_protocol(protocol);
                     transfer.accept().ok();
                 } else {
                     error!(
@@ -255,7 +271,7 @@ where
 
         match request.request_type {
             RequestType::Standard => {
-                if let Some(interface) = self.interfaces.get_id(interface_id) {
+                if let Some(interface) = self.interfaces.get_mut().get(interface_id) {
                     if request.request == Request::GET_DESCRIPTOR {
                         info!("Get descriptor");
                         Self::get_descriptor(transfer, interface);
@@ -264,15 +280,15 @@ where
             }
 
             RequestType::Class => {
-                let Some(interface) = self.interfaces.get_id_mut(interface_id) else {
+                let Some(interface) = self.interfaces.get_mut().get(interface_id) else {
                     return;
                 };
 
-                match HidRequest::from_primitive(request.request) {
-                    Some(HidRequest::GetReport) => {
+                match HidRequest::try_from(request.request) {
+                    Ok(HidRequest::GetReport) => {
                         let mut data = [0_u8; 64];
-                        if let Ok(n) = interface.get_report(&mut data) {
-                            if n != transfer.request().length as usize {
+                        if let Ok(n) = interface.interface().get_report(&mut data) {
+                            if n != transfer.request().length.into() {
                                 warn!(
                                     "GetReport expected {} bytes, got {} bytes",
                                     transfer.request().length,
@@ -283,11 +299,11 @@ where
                                 error!("Failed to send report - {:?}", e);
                             } else {
                                 trace!("Sent report, {} bytes", n);
-                                unwrap!(interface.get_report_ack());
+                                unwrap!(interface.interface().get_report_ack());
                             }
                         }
                     }
-                    Some(HidRequest::GetIdle) => {
+                    Ok(HidRequest::GetIdle) => {
                         if request.length != 1 {
                             warn!(
                                 "Expected GetIdle to have length 1, received {}",
@@ -296,14 +312,14 @@ where
                         }
 
                         let report_id = (request.value & 0xFF) as u8;
-                        let idle = interface.get_idle(report_id);
+                        let idle = interface.interface().get_idle(report_id);
                         if let Err(e) = transfer.accept_with(&[idle]) {
                             error!("Failed to send idle data - {:?}", e);
                         } else {
                             info!("Get Idle for ID{}: {}", report_id, idle);
                         }
                     }
-                    Some(HidRequest::GetProtocol) => {
+                    Ok(HidRequest::GetProtocol) => {
                         if request.length != 1 {
                             warn!(
                                 "Expected GetProtocol to have length 1, received {}",
@@ -311,8 +327,8 @@ where
                             );
                         }
 
-                        let protocol = interface.get_protocol();
-                        if let Err(e) = transfer.accept_with(&[protocol as u8]) {
+                        let protocol = interface.interface().get_protocol();
+                        if let Err(e) = transfer.accept_with(&[protocol.into()]) {
                             error!("Failed to send protocol data - {:?}", e);
                         } else {
                             info!("Get protocol: {:?}", protocol);

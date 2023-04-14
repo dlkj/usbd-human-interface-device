@@ -1,11 +1,9 @@
 //!HID joystick
-use crate::hid_class::descriptor::HidProtocol;
 use core::default::Default;
-use delegate::delegate;
 use fugit::ExtU32;
 use packed_struct::prelude::*;
-use usb_device::bus::{InterfaceNumber, StringIndex, UsbBus};
-use usb_device::class_prelude::{DescriptorWriter, UsbBusAllocator};
+use usb_device::bus::UsbBus;
+use usb_device::class_prelude::UsbBusAllocator;
 
 use crate::hid_class::prelude::*;
 use crate::interface::raw::{RawInterface, RawInterfaceConfig};
@@ -54,7 +52,7 @@ pub struct JoystickInterface<'a, B: UsbBus> {
 }
 
 impl<'a, B: UsbBus> JoystickInterface<'a, B> {
-    pub fn write_report(&self, report: &JoystickReport) -> Result<(), UsbHidError> {
+    pub fn write_report(&mut self, report: &JoystickReport) -> Result<(), UsbHidError> {
         let data = report.pack().map_err(|_| {
             error!("Error packing JoystickReport");
             UsbHidError::SerializationError
@@ -66,25 +64,12 @@ impl<'a, B: UsbBus> JoystickInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a> for JoystickInterface<'a, B> {
-    #![allow(clippy::inline_always)]
-    delegate! {
-        to self.inner{
-           fn report_descriptor(&self) -> &'_ [u8];
-           fn id(&self) -> InterfaceNumber;
-           fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-           fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str>;
-           fn reset(&mut self);
-           fn set_report(&mut self, data: &[u8]) -> usb_device::Result<()>;
-           fn get_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize>;
-           fn get_report_ack(&mut self) -> usb_device::Result<()>;
-           fn set_idle(&mut self, report_id: u8, value: u8);
-           fn get_idle(&self, report_id: u8) -> u8;
-           fn set_protocol(&mut self, protocol: HidProtocol);
-           fn get_protocol(&self) -> HidProtocol;
-           fn hid_descriptor_body(&self) -> [u8; 7];
-        }
+impl<'a, B: UsbBus> InterfaceClass<'a, B> for JoystickInterface<'a, B> {
+    fn interface(&mut self) -> &mut RawInterface<'a, B> {
+        &mut self.inner
     }
+
+    fn reset(&mut self) {}
 }
 
 pub struct JoystickConfig<'a> {

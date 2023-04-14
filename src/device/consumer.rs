@@ -1,11 +1,10 @@
 //!HID consumer control devices
 
-use delegate::delegate;
 use fugit::ExtU32;
 use packed_struct::prelude::*;
 #[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
-use usb_device::{Result, UsbError};
+use usb_device::UsbError;
 
 use crate::hid_class::prelude::*;
 use crate::interface::raw::{RawInterface, RawInterfaceConfig};
@@ -97,7 +96,7 @@ pub struct ConsumerControlInterface<'a, B: UsbBus> {
 }
 
 impl<'a, B: UsbBus> ConsumerControlInterface<'a, B> {
-    pub fn write_report(&self, report: &MultipleConsumerReport) -> usb_device::Result<usize> {
+    pub fn write_report(&mut self, report: &MultipleConsumerReport) -> usb_device::Result<usize> {
         let data = report.pack().map_err(|_| {
             error!("Error packing MultipleConsumerReport");
             UsbError::ParseError
@@ -106,25 +105,12 @@ impl<'a, B: UsbBus> ConsumerControlInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a> for ConsumerControlInterface<'a, B> {
-    #![allow(clippy::inline_always)]
-    delegate! {
-        to self.inner{
-           fn report_descriptor(&self) -> &'_ [u8];
-           fn id(&self) -> InterfaceNumber;
-           fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-           fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str>;
-           fn reset(&mut self);
-           fn set_report(&mut self, data: &[u8]) -> Result<()>;
-           fn get_report(&mut self, data: &mut [u8]) -> Result<usize>;
-           fn get_report_ack(&mut self) -> Result<()>;
-           fn set_idle(&mut self, report_id: u8, value: u8);
-           fn get_idle(&self, report_id: u8) -> u8;
-           fn set_protocol(&mut self, protocol: HidProtocol);
-           fn get_protocol(&self) -> HidProtocol;
-           fn hid_descriptor_body(&self) -> [u8; 7];
-        }
+impl<'a, B: UsbBus> InterfaceClass<'a, B> for ConsumerControlInterface<'a, B> {
+    fn interface(&mut self) -> &mut RawInterface<'a, B> {
+        &mut self.inner
     }
+
+    fn reset(&mut self) {}
 }
 
 pub struct ConsumerControlConfig<'a> {
@@ -167,7 +153,7 @@ pub struct ConsumerControlFixedInterface<'a, B: UsbBus> {
 }
 
 impl<'a, B: UsbBus> ConsumerControlFixedInterface<'a, B> {
-    pub fn write_report(&self, report: &FixedFunctionReport) -> usb_device::Result<usize> {
+    pub fn write_report(&mut self, report: &FixedFunctionReport) -> usb_device::Result<usize> {
         let data = report.pack().map_err(|_| {
             error!("Error packing MultipleConsumerReport");
             UsbError::ParseError
@@ -176,25 +162,12 @@ impl<'a, B: UsbBus> ConsumerControlFixedInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a> for ConsumerControlFixedInterface<'a, B> {
-    #![allow(clippy::inline_always)]
-    delegate! {
-        to self.inner{
-           fn report_descriptor(&self) -> &'_ [u8];
-           fn id(&self) -> InterfaceNumber;
-           fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-           fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&'_ str>;
-           fn reset(&mut self);
-           fn set_report(&mut self, data: &[u8]) -> Result<()>;
-           fn get_report(&mut self, data: &mut [u8]) -> Result<usize>;
-           fn get_report_ack(&mut self) -> Result<()>;
-           fn set_idle(&mut self, report_id: u8, value: u8);
-           fn get_idle(&self, report_id: u8) -> u8;
-           fn set_protocol(&mut self, protocol: HidProtocol);
-           fn get_protocol(&self) -> HidProtocol;
-           fn hid_descriptor_body(&self) -> [u8; 7];
-        }
+impl<'a, B: UsbBus> InterfaceClass<'a, B> for ConsumerControlFixedInterface<'a, B> {
+    fn interface(&mut self) -> &mut RawInterface<'a, B> {
+        &mut self.inner
     }
+
+    fn reset(&mut self) {}
 }
 
 pub struct ConsumerControlFixedConfig<'a> {

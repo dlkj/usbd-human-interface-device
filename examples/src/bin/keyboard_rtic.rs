@@ -31,6 +31,7 @@ mod app {
     #[shared]
     struct Shared {
         keyboard: UsbHidClass<
+            'static,
             hal::usb::UsbBus,
             HList!(NKROBootKeyboardInterface<'static, hal::usb::UsbBus>),
         >,
