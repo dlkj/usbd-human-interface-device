@@ -12,10 +12,8 @@ use frunk::{HCons, HNil, ToMut};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 #[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
-use usb_device::control::Recipient;
-use usb_device::control::Request;
-use usb_device::control::RequestType;
-use usb_device::Result;
+use usb_device::control::{Recipient, Request};
+use usb_device::{control::RequestType, Result};
 
 pub mod descriptor;
 pub mod prelude;

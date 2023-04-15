@@ -4,8 +4,7 @@
 //! <https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>
 
 use core::hash::Hash;
-use num_enum::FromPrimitive;
-use num_enum::IntoPrimitive;
+use num_enum::{FromPrimitive, IntoPrimitive};
 use packed_struct::prelude::*;
 
 // Notes for converting .upg files to rust enum

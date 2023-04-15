@@ -8,13 +8,10 @@ use usb_device::class_prelude::*;
 use usb_device::UsbError;
 
 use crate::interface::raw::{RawInterface, RawInterfaceConfig};
-use crate::interface::InterfaceClass;
-use crate::interface::UsbAllocatable;
+use crate::interface::{InterfaceClass, UsbAllocatable};
 use crate::UsbHidError;
 
-use super::raw::ReportCount;
-use super::raw::{IdleStorage, OutSize};
-use super::raw::{InSize, ReportBuffer};
+use super::raw::{InSize, OutSize, ReportCount};
 
 pub struct IdleManager<R> {
     last_report: Option<R>,
@@ -78,14 +75,10 @@ where
 #[allow(clippy::inline_always)]
 impl<'a, B: UsbBus, Report, I, O, R> ManagedInterface<'a, B, Report, I, O, R>
 where
-    Report: Copy + Eq,
     B: UsbBus,
     I: InSize,
-    I::Buffer: ReportBuffer,
     O: OutSize,
-    O::Buffer: ReportBuffer,
     R: ReportCount,
-    R::IdleStorage: IdleStorage,
 {
     fn new(interface: RawInterface<'a, B, I, O, R>, _config: ()) -> Self {
         Self {
@@ -197,7 +190,6 @@ where
 impl<'a, B, Report, I, O, R> UsbAllocatable<'a, B> for ManagedInterfaceConfig<'a, Report, I, O, R>
 where
     B: UsbBus + 'a,
-    Report: Copy + Eq,
     I: InSize,
     O: OutSize,
     R: ReportCount,

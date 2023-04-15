@@ -6,11 +6,7 @@ use std::sync::Mutex;
 use std::vec::Vec;
 
 use crate::hid_class::descriptor::USB_CLASS_HID;
-use crate::interface::raw::InBytes64;
-use crate::interface::raw::OutBytes64;
-use crate::interface::raw::RawInterfaceBuilder;
-use crate::interface::raw::ReportSingle;
-use crate::interface::raw::Reports8;
+use crate::interface::raw::{InBytes64, OutBytes64, RawInterfaceBuilder, ReportSingle, Reports8};
 use env_logger::Env;
 use fugit::MillisDurationU32;
 use packed_struct::prelude::*;

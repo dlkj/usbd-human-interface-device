@@ -256,11 +256,8 @@ impl<'a, B: UsbBus, I, O, R> RawInterface<'a, B, I, O, R>
 where
     B: UsbBus,
     I: InSize,
-    I::Buffer: ReportBuffer,
     O: OutSize,
-    O::Buffer: ReportBuffer,
     R: ReportCount,
-    R::IdleStorage: IdleStorage,
 {
     pub fn new(usb_alloc: &'a UsbBusAllocator<B>, config: RawInterfaceConfig<'a, I, O, R>) -> Self {
         RawInterface {
@@ -359,11 +356,8 @@ impl<'a, B: UsbBus, I, O, R> RawInterfaceT<'a, B> for RawInterface<'a, B, I, O, 
 where
     B: UsbBus,
     I: InSize,
-    I::Buffer: ReportBuffer,
     O: OutSize,
-    O::Buffer: ReportBuffer,
     R: ReportCount,
-    R::IdleStorage: IdleStorage,
 {
     fn hid_descriptor_body(&self) -> [u8; 7] {
         match (HidDescriptorBody {

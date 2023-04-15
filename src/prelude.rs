@@ -8,6 +8,5 @@
 //! use usbd_human_interface_device::prelude::*;
 //! ```
 
-pub use crate::hid_class::UsbHidClass;
-pub use crate::hid_class::UsbHidClassBuilder;
+pub use crate::hid_class::{UsbHidClass, UsbHidClassBuilder};
 pub use crate::UsbHidError;
