@@ -7,7 +7,7 @@ use usb_device::class_prelude::*;
 use usb_device::UsbError;
 
 use crate::hid_class::prelude::*;
-use crate::interface::raw::{InBytes8, OutNone, RawInterface, RawInterfaceConfig, ReportSingle};
+use crate::interface::raw::{InBytes8, Interface, InterfaceConfig, OutNone, ReportSingle};
 use crate::interface::{DeviceClass, UsbAllocatable};
 use crate::page::Consumer;
 
@@ -92,7 +92,7 @@ pub struct FixedFunctionReport {
 }
 
 pub struct ConsumerControlInterface<'a, B: UsbBus> {
-    inner: RawInterface<'a, B, InBytes8, OutNone, ReportSingle>,
+    inner: Interface<'a, B, InBytes8, OutNone, ReportSingle>,
 }
 
 impl<'a, B: UsbBus> ConsumerControlInterface<'a, B> {
@@ -106,7 +106,7 @@ impl<'a, B: UsbBus> ConsumerControlInterface<'a, B> {
 }
 
 impl<'a, B: UsbBus> DeviceClass<'a> for ConsumerControlInterface<'a, B> {
-    type I = RawInterface<'a, B, InBytes8, OutNone, ReportSingle>;
+    type I = Interface<'a, B, InBytes8, OutNone, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {
         &mut self.inner
@@ -120,11 +120,11 @@ impl<'a, B: UsbBus> DeviceClass<'a> for ConsumerControlInterface<'a, B> {
 }
 
 pub struct ConsumerControlConfig<'a> {
-    interface: RawInterfaceConfig<'a, InBytes8, OutNone, ReportSingle>,
+    interface: InterfaceConfig<'a, InBytes8, OutNone, ReportSingle>,
 }
 
 impl<'a> ConsumerControlConfig<'a> {
-    fn new(interface: RawInterfaceConfig<'a, InBytes8, OutNone, ReportSingle>) -> Self {
+    fn new(interface: InterfaceConfig<'a, InBytes8, OutNone, ReportSingle>) -> Self {
         Self { interface }
     }
 }
@@ -134,7 +134,7 @@ impl<'a> Default for ConsumerControlConfig<'a> {
     fn default() -> Self {
         Self::new(
             unwrap!(
-                unwrap!(RawInterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR))
+                unwrap!(InterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR))
                     .description("Consumer Control")
                     .in_endpoint(50.millis())
             )
@@ -149,13 +149,13 @@ impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for ConsumerControlConfig<'a> {
 
     fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
         Self::Allocated {
-            inner: RawInterface::new(usb_alloc, self.interface),
+            inner: Interface::new(usb_alloc, self.interface),
         }
     }
 }
 
 pub struct ConsumerControlFixedInterface<'a, B: UsbBus> {
-    inner: RawInterface<'a, B, InBytes8, OutNone, ReportSingle>,
+    inner: Interface<'a, B, InBytes8, OutNone, ReportSingle>,
 }
 
 impl<'a, B: UsbBus> ConsumerControlFixedInterface<'a, B> {
@@ -169,7 +169,7 @@ impl<'a, B: UsbBus> ConsumerControlFixedInterface<'a, B> {
 }
 
 impl<'a, B: UsbBus> DeviceClass<'a> for ConsumerControlFixedInterface<'a, B> {
-    type I = RawInterface<'a, B, InBytes8, OutNone, ReportSingle>;
+    type I = Interface<'a, B, InBytes8, OutNone, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {
         &mut self.inner
@@ -183,10 +183,10 @@ impl<'a, B: UsbBus> DeviceClass<'a> for ConsumerControlFixedInterface<'a, B> {
 }
 
 pub struct ConsumerControlFixedConfig<'a> {
-    interface: RawInterfaceConfig<'a, InBytes8, OutNone, ReportSingle>,
+    interface: InterfaceConfig<'a, InBytes8, OutNone, ReportSingle>,
 }
 impl<'a> ConsumerControlFixedConfig<'a> {
-    fn new(interface: RawInterfaceConfig<'a, InBytes8, OutNone, ReportSingle>) -> Self {
+    fn new(interface: InterfaceConfig<'a, InBytes8, OutNone, ReportSingle>) -> Self {
         Self { interface }
     }
 }
@@ -196,7 +196,7 @@ impl<'a> Default for ConsumerControlFixedConfig<'a> {
     fn default() -> Self {
         Self::new(
             unwrap!(
-                unwrap!(RawInterfaceBuilder::new(FIXED_FUNCTION_REPORT_DESCRIPTOR))
+                unwrap!(InterfaceBuilder::new(FIXED_FUNCTION_REPORT_DESCRIPTOR))
                     .description("Consumer Control")
                     .in_endpoint(50.millis())
             )
@@ -211,7 +211,7 @@ impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for ConsumerControlFixedConfig<'a
 
     fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
         Self::Allocated {
-            inner: RawInterface::new(usb_alloc, self.interface),
+            inner: Interface::new(usb_alloc, self.interface),
         }
     }
 }

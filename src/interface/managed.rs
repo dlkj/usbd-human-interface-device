@@ -7,13 +7,13 @@ use usb_device::bus::UsbBus;
 use usb_device::class_prelude::*;
 use usb_device::UsbError;
 
-use crate::interface::raw::{RawInterface, RawInterfaceConfig};
+use crate::interface::raw::{Interface, InterfaceConfig};
 use crate::interface::{DeviceClass, UsbAllocatable};
 use crate::UsbHidError;
 
-use super::raw::{InSize, OutSize, ReportCount};
+use super::raw::{InSize, OutSize, ReportSingle};
 
-pub struct IdleManager<R> {
+struct IdleManager<R> {
     last_report: Option<R>,
     since_last_report: MillisDurationU32,
 }
@@ -61,26 +61,24 @@ where
     }
 }
 
-pub struct ManagedInterface<'a, B: UsbBus, Report, I, O, R>
+pub struct ManagedIdleInterface<'a, B: UsbBus, Report, I, O>
 where
     B: UsbBus,
     I: InSize,
     O: OutSize,
-    R: ReportCount,
 {
-    inner: RawInterface<'a, B, I, O, R>,
+    inner: Interface<'a, B, I, O, ReportSingle>,
     idle_manager: IdleManager<Report>,
 }
 
 #[allow(clippy::inline_always)]
-impl<'a, B: UsbBus, Report, I, O, R> ManagedInterface<'a, B, Report, I, O, R>
+impl<'a, B: UsbBus, Report, I, O> ManagedIdleInterface<'a, B, Report, I, O>
 where
     B: UsbBus,
     I: InSize,
     O: OutSize,
-    R: ReportCount,
 {
-    fn new(interface: RawInterface<'a, B, I, O, R>, _config: ()) -> Self {
+    fn new(interface: Interface<'a, B, I, O, ReportSingle>, _config: ()) -> Self {
         Self {
             inner: interface,
             idle_manager: IdleManager::default(),
@@ -89,13 +87,12 @@ where
 }
 
 #[allow(clippy::inline_always)]
-impl<'a, B: UsbBus, Report, I, O, R, const LEN: usize> ManagedInterface<'a, B, Report, I, O, R>
+impl<'a, B: UsbBus, Report, I, O, const LEN: usize> ManagedIdleInterface<'a, B, Report, I, O>
 where
     Report: Copy + Eq + PackedStruct<ByteArray = [u8; LEN]>,
     B: UsbBus,
     I: InSize,
     O: OutSize,
-    R: ReportCount,
 {
     pub fn write_report(&mut self, report: &Report) -> Result<(), UsbHidError> {
         if self.idle_manager.is_duplicate(report) {
@@ -120,16 +117,15 @@ where
     }
 }
 
-impl<'a, B: UsbBus, Report, I, O, R, const LEN: usize> DeviceClass<'a>
-    for ManagedInterface<'a, B, Report, I, O, R>
+impl<'a, B: UsbBus, Report, I, O, const LEN: usize> DeviceClass<'a>
+    for ManagedIdleInterface<'a, B, Report, I, O>
 where
     Report: Copy + Eq + PackedStruct<ByteArray = [u8; LEN]>,
     B: UsbBus,
     I: InSize,
     O: OutSize,
-    R: ReportCount,
 {
-    type I = RawInterface<'a, B, I, O, R>;
+    type I = Interface<'a, B, I, O, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {
         &mut self.inner
@@ -162,24 +158,22 @@ where
     }
 }
 
-pub struct ManagedInterfaceConfig<'a, Report, I, O, R>
+pub struct ManagedIdleInterfaceConfig<'a, Report, I, O>
 where
     I: InSize,
     O: OutSize,
-    R: ReportCount,
 {
     report: PhantomData<Report>,
-    inner_config: RawInterfaceConfig<'a, I, O, R>,
+    inner_config: InterfaceConfig<'a, I, O, ReportSingle>,
 }
 
-impl<'a, Report, I, O, R> ManagedInterfaceConfig<'a, Report, I, O, R>
+impl<'a, Report, I, O> ManagedIdleInterfaceConfig<'a, Report, I, O>
 where
     I: InSize,
     O: OutSize,
-    R: ReportCount,
 {
     #[must_use]
-    pub fn new(inner_config: RawInterfaceConfig<'a, I, O, R>) -> Self {
+    pub fn new(inner_config: InterfaceConfig<'a, I, O, ReportSingle>) -> Self {
         Self {
             inner_config,
             report: PhantomData::default(),
@@ -187,16 +181,15 @@ where
     }
 }
 
-impl<'a, B, Report, I, O, R> UsbAllocatable<'a, B> for ManagedInterfaceConfig<'a, Report, I, O, R>
+impl<'a, B, Report, I, O> UsbAllocatable<'a, B> for ManagedIdleInterfaceConfig<'a, Report, I, O>
 where
     B: UsbBus + 'a,
     I: InSize,
     O: OutSize,
-    R: ReportCount,
 {
-    type Allocated = ManagedInterface<'a, B, Report, I, O, R>;
+    type Allocated = ManagedIdleInterface<'a, B, Report, I, O>;
 
     fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
-        ManagedInterface::new(self.inner_config.allocate(usb_alloc), ())
+        ManagedIdleInterface::new(self.inner_config.allocate(usb_alloc), ())
     }
 }

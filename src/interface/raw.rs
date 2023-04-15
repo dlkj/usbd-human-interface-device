@@ -181,7 +181,7 @@ option_block_idle_storage!(Reports128, Block128);
 use super::{HidDescriptorBody, InterfaceClass};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct RawInterfaceConfig<'a, I, O, R>
+pub struct InterfaceConfig<'a, I, O, R>
 where
     I: InSize,
     O: OutSize,
@@ -197,7 +197,7 @@ where
     in_endpoint: EndpointConfig,
 }
 
-pub struct RawInterface<'a, B, I, O, R>
+pub struct Interface<'a, B, I, O, R>
 where
     B: UsbBus,
     I: InSize,
@@ -205,7 +205,7 @@ where
     R: ReportCount,
 {
     id: InterfaceNumber,
-    config: RawInterfaceConfig<'a, I, O, R>,
+    config: InterfaceConfig<'a, I, O, R>,
     out_endpoint: Option<EndpointOut<'a, B>>,
     in_endpoint: EndpointIn<'a, B>,
     description_index: Option<StringIndex>,
@@ -216,21 +216,21 @@ where
     control_out_report_buffer: O::Buffer,
 }
 
-impl<'a, B: UsbBus + 'a, I, O, R> UsbAllocatable<'a, B> for RawInterfaceConfig<'a, I, O, R>
+impl<'a, B: UsbBus + 'a, I, O, R> UsbAllocatable<'a, B> for InterfaceConfig<'a, I, O, R>
 where
     B: UsbBus,
     I: InSize,
     O: OutSize,
     R: ReportCount,
 {
-    type Allocated = RawInterface<'a, B, I, O, R>;
+    type Allocated = Interface<'a, B, I, O, R>;
 
     fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
-        RawInterface::new(usb_alloc, self)
+        Interface::new(usb_alloc, self)
     }
 }
 
-impl<'a, B, I, O, R> DeviceClass<'a> for RawInterface<'a, B, I, O, R>
+impl<'a, B, I, O, R> DeviceClass<'a> for Interface<'a, B, I, O, R>
 where
     B: UsbBus,
     I: InSize,
@@ -252,15 +252,15 @@ where
     }
 }
 
-impl<'a, B: UsbBus, I, O, R> RawInterface<'a, B, I, O, R>
+impl<'a, B: UsbBus, I, O, R> Interface<'a, B, I, O, R>
 where
     B: UsbBus,
     I: InSize,
     O: OutSize,
     R: ReportCount,
 {
-    pub fn new(usb_alloc: &'a UsbBusAllocator<B>, config: RawInterfaceConfig<'a, I, O, R>) -> Self {
-        RawInterface {
+    pub fn new(usb_alloc: &'a UsbBusAllocator<B>, config: InterfaceConfig<'a, I, O, R>) -> Self {
+        Interface {
             id: usb_alloc.interface(),
             in_endpoint: usb_alloc.interrupt(I::Buffer::CAPACITY, config.in_endpoint.poll_interval),
             out_endpoint: config
@@ -352,7 +352,7 @@ where
         }
     }
 }
-impl<'a, B: UsbBus, I, O, R> InterfaceClass<'a> for RawInterface<'a, B, I, O, R>
+impl<'a, B: UsbBus, I, O, R> InterfaceClass<'a> for Interface<'a, B, I, O, R>
 where
     B: UsbBus,
     I: InSize,
@@ -511,24 +511,24 @@ pub struct EndpointConfig {
 
 #[must_use = "this `UsbHidInterfaceBuilder` must be assigned or consumed by `::build_interface()`"]
 #[derive(Copy, Clone, Debug)]
-pub struct RawInterfaceBuilder<'a, I, O, R>
+pub struct InterfaceBuilder<'a, I, O, R>
 where
     I: InSize,
     O: OutSize,
     R: ReportCount,
 {
-    config: RawInterfaceConfig<'a, I, O, R>,
+    config: InterfaceConfig<'a, I, O, R>,
 }
 
-impl<'a, I, O, R> RawInterfaceBuilder<'a, I, O, R>
+impl<'a, I, O, R> InterfaceBuilder<'a, I, O, R>
 where
     I: InSize,
     O: OutSize,
     R: ReportCount,
 {
     pub fn new(report_descriptor: &'a [u8]) -> BuilderResult<Self> {
-        Ok(RawInterfaceBuilder {
-            config: RawInterfaceConfig {
+        Ok(InterfaceBuilder {
+            config: InterfaceConfig {
                 marker: PhantomData::default(),
                 report_descriptor,
                 report_descriptor_length: u16::try_from(report_descriptor.len())
@@ -591,7 +591,7 @@ where
     }
 
     #[must_use]
-    pub fn build(self) -> RawInterfaceConfig<'a, I, O, R> {
+    pub fn build(self) -> InterfaceConfig<'a, I, O, R> {
         self.config
     }
 }

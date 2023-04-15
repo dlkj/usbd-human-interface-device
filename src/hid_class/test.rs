@@ -6,7 +6,7 @@ use std::sync::Mutex;
 use std::vec::Vec;
 
 use crate::hid_class::descriptor::USB_CLASS_HID;
-use crate::interface::raw::{InBytes64, OutBytes64, RawInterfaceBuilder, ReportSingle, Reports8};
+use crate::interface::raw::{InBytes64, InterfaceBuilder, OutBytes64, ReportSingle, Reports8};
 use env_logger::Env;
 use fugit::MillisDurationU32;
 use packed_struct::prelude::*;
@@ -153,8 +153,8 @@ fn descriptor_ordering_satisfies_boot_spec() {
     let usb_alloc = UsbBusAllocator::new(TestUsbBus::new(&manager));
 
     let mut hid = UsbHidClassBuilder::new()
-        .add(
-            RawInterfaceBuilder::<InBytes64, OutBytes64, ReportSingle>::new(&[])
+        .add_device(
+            InterfaceBuilder::<InBytes64, OutBytes64, ReportSingle>::new(&[])
                 .unwrap()
                 .build(),
         )
@@ -248,8 +248,8 @@ fn get_protocol_default_to_report() {
     let usb_alloc = UsbBusAllocator::new(TestUsbBus::new(&manager));
 
     let mut hid = UsbHidClassBuilder::new()
-        .add(
-            RawInterfaceBuilder::<InBytes64, OutBytes64, ReportSingle>::new(&[])
+        .add_device(
+            InterfaceBuilder::<InBytes64, OutBytes64, ReportSingle>::new(&[])
                 .unwrap()
                 .build(),
         )
@@ -296,8 +296,8 @@ fn set_protocol() {
     let usb_alloc = UsbBusAllocator::new(TestUsbBus::new(&manager));
 
     let mut hid = UsbHidClassBuilder::new()
-        .add(
-            RawInterfaceBuilder::<InBytes64, OutBytes64, ReportSingle>::new(&[])
+        .add_device(
+            InterfaceBuilder::<InBytes64, OutBytes64, ReportSingle>::new(&[])
                 .unwrap()
                 .build(),
         )
@@ -363,8 +363,8 @@ fn get_protocol_default_post_reset() {
     let usb_alloc = UsbBusAllocator::new(TestUsbBus::new(&manager));
 
     let mut hid = UsbHidClassBuilder::new()
-        .add(
-            RawInterfaceBuilder::<InBytes64, OutBytes64, ReportSingle>::new(&[])
+        .add_device(
+            InterfaceBuilder::<InBytes64, OutBytes64, ReportSingle>::new(&[])
                 .unwrap()
                 .build(),
         )
@@ -435,8 +435,8 @@ fn get_global_idle_default() {
     let usb_alloc = UsbBusAllocator::new(TestUsbBus::new(&manager));
 
     let mut hid = UsbHidClassBuilder::new()
-        .add(
-            RawInterfaceBuilder::<InBytes64, OutBytes64, ReportSingle>::new(&[])
+        .add_device(
+            InterfaceBuilder::<InBytes64, OutBytes64, ReportSingle>::new(&[])
                 .unwrap()
                 .idle_default(IDLE_DEFAULT)
                 .unwrap()
@@ -488,8 +488,8 @@ fn set_global_idle() {
     let usb_alloc = UsbBusAllocator::new(TestUsbBus::new(&manager));
 
     let mut hid = UsbHidClassBuilder::new()
-        .add(
-            RawInterfaceBuilder::<InBytes64, OutBytes64, ReportSingle>::new(&[])
+        .add_device(
+            InterfaceBuilder::<InBytes64, OutBytes64, ReportSingle>::new(&[])
                 .unwrap()
                 .idle_default(IDLE_DEFAULT)
                 .unwrap()
@@ -560,8 +560,8 @@ fn get_global_idle_default_post_reset() {
     let usb_alloc = UsbBusAllocator::new(TestUsbBus::new(&manager));
 
     let mut hid = UsbHidClassBuilder::new()
-        .add(
-            RawInterfaceBuilder::<InBytes64, OutBytes64, ReportSingle>::new(&[])
+        .add_device(
+            InterfaceBuilder::<InBytes64, OutBytes64, ReportSingle>::new(&[])
                 .unwrap()
                 .idle_default(IDLE_DEFAULT)
                 .unwrap()
@@ -636,8 +636,8 @@ fn get_report_idle_default() {
     let usb_alloc = UsbBusAllocator::new(usb_bus);
 
     let mut hid = UsbHidClassBuilder::new()
-        .add(
-            RawInterfaceBuilder::<InBytes64, OutBytes64, ReportSingle>::new(&[])
+        .add_device(
+            InterfaceBuilder::<InBytes64, OutBytes64, ReportSingle>::new(&[])
                 .unwrap()
                 .idle_default(IDLE_DEFAULT)
                 .unwrap()
@@ -690,8 +690,8 @@ fn set_report_idle() {
     let usb_alloc = UsbBusAllocator::new(TestUsbBus::new(&manager));
 
     let mut hid = UsbHidClassBuilder::new()
-        .add(
-            RawInterfaceBuilder::<InBytes64, OutBytes64, Reports8>::new(&[])
+        .add_device(
+            InterfaceBuilder::<InBytes64, OutBytes64, Reports8>::new(&[])
                 .unwrap()
                 .idle_default(IDLE_DEFAULT)
                 .unwrap()
@@ -791,8 +791,8 @@ fn set_report_idle_no_reports() {
     let usb_alloc = UsbBusAllocator::new(TestUsbBus::new(&manager));
 
     let mut hid = UsbHidClassBuilder::new()
-        .add(
-            RawInterfaceBuilder::<InBytes64, OutBytes64, ReportSingle>::new(&[])
+        .add_device(
+            InterfaceBuilder::<InBytes64, OutBytes64, ReportSingle>::new(&[])
                 .unwrap()
                 .idle_default(IDLE_DEFAULT)
                 .unwrap()
@@ -891,8 +891,8 @@ fn get_report_idle_default_post_reset() {
     let usb_alloc = UsbBusAllocator::new(TestUsbBus::new(&manager));
 
     let mut hid = UsbHidClassBuilder::new()
-        .add(
-            RawInterfaceBuilder::<InBytes64, OutBytes64, ReportSingle>::new(&[])
+        .add_device(
+            InterfaceBuilder::<InBytes64, OutBytes64, ReportSingle>::new(&[])
                 .unwrap()
                 .idle_default(IDLE_DEFAULT)
                 .unwrap()

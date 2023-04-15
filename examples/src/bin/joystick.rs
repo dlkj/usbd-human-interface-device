@@ -57,7 +57,7 @@ fn main() -> ! {
     ));
 
     let mut joy = UsbHidClassBuilder::new()
-        .add(usbd_human_interface_device::device::joystick::JoystickConfig::default())
+        .add_device(usbd_human_interface_device::device::joystick::JoystickConfig::default())
         .build(&usb_bus);
 
     //https://pid.codes

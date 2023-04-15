@@ -11,5 +11,5 @@
 pub use super::{
     descriptor::HidProtocol, descriptor::InterfaceProtocol, UsbHidClass, UsbHidClassBuilder,
 };
-pub use crate::interface::managed::{ManagedInterface, ManagedInterfaceConfig};
-pub use crate::interface::raw::{RawInterface, RawInterfaceBuilder};
+pub use crate::interface::managed::{ManagedIdleInterface, ManagedIdleInterfaceConfig};
+pub use crate::interface::raw::{Interface, InterfaceBuilder};

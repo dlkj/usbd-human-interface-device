@@ -51,14 +51,14 @@ pub enum UsbHidBuilderError {
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct UsbHidClassBuilder<'a, B, InterfaceList> {
     devices: InterfaceList,
-    _marker: PhantomData<&'a B>,
+    marker: PhantomData<&'a B>,
 }
 
 impl<'a, B> UsbHidClassBuilder<'a, B, HNil> {
     pub fn new() -> Self {
         Self {
             devices: HNil,
-            _marker: PhantomData::default(),
+            marker: PhantomData::default(),
         }
     }
 }
@@ -70,14 +70,14 @@ impl<'a, B> Default for UsbHidClassBuilder<'a, B, HNil> {
 }
 
 impl<'a, B: UsbBus, Tail: HList> UsbHidClassBuilder<'a, B, Tail> {
-    pub fn add<C, D>(self, config: C) -> UsbHidClassBuilder<'a, B, HCons<C, Tail>>
+    pub fn add_device<C, D>(self, config: C) -> UsbHidClassBuilder<'a, B, HCons<C, Tail>>
     where
         C: UsbAllocatable<'a, B, Allocated = D>,
         D: DeviceClass<'a>,
     {
         UsbHidClassBuilder {
             devices: self.devices.prepend(config),
-            _marker: PhantomData::default(),
+            marker: PhantomData::default(),
         }
     }
 }

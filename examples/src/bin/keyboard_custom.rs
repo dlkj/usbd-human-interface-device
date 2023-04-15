@@ -104,8 +104,8 @@ fn main() -> ! {
     ];
 
     let mut keyboard = UsbHidClassBuilder::new()
-        .add(
-            RawInterfaceBuilder::<InBytes8, OutBytes8, ReportSingle>::new(
+        .add_device(
+            InterfaceBuilder::<InBytes8, OutBytes8, ReportSingle>::new(
                 LOGITECH_GAMING_KEYBOARD_REPORT_DESCRIPTOR,
             )
             .unwrap()

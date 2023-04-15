@@ -6,7 +6,7 @@ use usb_device::bus::UsbBus;
 use usb_device::class_prelude::UsbBusAllocator;
 
 use crate::hid_class::prelude::*;
-use crate::interface::raw::{InBytes8, OutNone, RawInterface, RawInterfaceConfig, ReportSingle};
+use crate::interface::raw::{InBytes8, Interface, InterfaceConfig, OutNone, ReportSingle};
 use crate::interface::{DeviceClass, UsbAllocatable};
 use crate::UsbHidError;
 
@@ -177,7 +177,7 @@ pub struct AbsoluteWheelMouseReport {
 }
 
 pub struct BootMouseInterface<'a, B: UsbBus> {
-    inner: RawInterface<'a, B, InBytes8, OutNone, ReportSingle>,
+    inner: Interface<'a, B, InBytes8, OutNone, ReportSingle>,
 }
 
 impl<'a, B: UsbBus> BootMouseInterface<'a, B> {
@@ -194,12 +194,12 @@ impl<'a, B: UsbBus> BootMouseInterface<'a, B> {
 }
 
 pub struct BootMouseConfig<'a> {
-    interface: RawInterfaceConfig<'a, InBytes8, OutNone, ReportSingle>,
+    interface: InterfaceConfig<'a, InBytes8, OutNone, ReportSingle>,
 }
 
 impl<'a> BootMouseConfig<'a> {
     #[must_use]
-    pub fn new(interface: RawInterfaceConfig<'a, InBytes8, OutNone, ReportSingle>) -> Self {
+    pub fn new(interface: InterfaceConfig<'a, InBytes8, OutNone, ReportSingle>) -> Self {
         Self { interface }
     }
 }
@@ -208,12 +208,10 @@ impl<'a> Default for BootMouseConfig<'a> {
     #[must_use]
     fn default() -> Self {
         Self::new(
-            unwrap!(
-                unwrap!(RawInterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR))
-                    .boot_device(InterfaceProtocol::Mouse)
-                    .description("Mouse")
-                    .in_endpoint(10.millis())
-            )
+            unwrap!(unwrap!(InterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR))
+                .boot_device(InterfaceProtocol::Mouse)
+                .description("Mouse")
+                .in_endpoint(10.millis()))
             .without_out_endpoint()
             .build(),
         )
@@ -231,7 +229,7 @@ impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for BootMouseConfig<'a> {
 }
 
 impl<'a, B: UsbBus> DeviceClass<'a> for BootMouseInterface<'a, B> {
-    type I = RawInterface<'a, B, InBytes8, OutNone, ReportSingle>;
+    type I = Interface<'a, B, InBytes8, OutNone, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {
         &mut self.inner
@@ -245,7 +243,7 @@ impl<'a, B: UsbBus> DeviceClass<'a> for BootMouseInterface<'a, B> {
 }
 
 pub struct WheelMouseInterface<'a, B: UsbBus> {
-    inner: RawInterface<'a, B, InBytes8, OutNone, ReportSingle>,
+    inner: Interface<'a, B, InBytes8, OutNone, ReportSingle>,
 }
 
 impl<'a, B: UsbBus> WheelMouseInterface<'a, B> {
@@ -261,12 +259,12 @@ impl<'a, B: UsbBus> WheelMouseInterface<'a, B> {
     }
 }
 pub struct WheelMouseConfig<'a> {
-    interface: RawInterfaceConfig<'a, InBytes8, OutNone, ReportSingle>,
+    interface: InterfaceConfig<'a, InBytes8, OutNone, ReportSingle>,
 }
 
 impl<'a> WheelMouseConfig<'a> {
     #[must_use]
-    pub fn new(interface: RawInterfaceConfig<'a, InBytes8, OutNone, ReportSingle>) -> Self {
+    pub fn new(interface: InterfaceConfig<'a, InBytes8, OutNone, ReportSingle>) -> Self {
         Self { interface }
     }
 }
@@ -276,7 +274,7 @@ impl<'a> Default for WheelMouseConfig<'a> {
     fn default() -> Self {
         WheelMouseConfig::new(
             unwrap!(
-                unwrap!(RawInterfaceBuilder::new(WHEEL_MOUSE_REPORT_DESCRIPTOR))
+                unwrap!(InterfaceBuilder::new(WHEEL_MOUSE_REPORT_DESCRIPTOR))
                     .boot_device(InterfaceProtocol::Mouse)
                     .description("Wheel Mouse")
                     .in_endpoint(10.millis())
@@ -298,7 +296,7 @@ impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for WheelMouseConfig<'a> {
 }
 
 impl<'a, B: UsbBus> DeviceClass<'a> for WheelMouseInterface<'a, B> {
-    type I = RawInterface<'a, B, InBytes8, OutNone, ReportSingle>;
+    type I = Interface<'a, B, InBytes8, OutNone, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {
         &mut self.inner
@@ -312,7 +310,7 @@ impl<'a, B: UsbBus> DeviceClass<'a> for WheelMouseInterface<'a, B> {
 }
 
 pub struct AbsoluteWheelMouseInterface<'a, B: UsbBus> {
-    inner: RawInterface<'a, B, InBytes8, OutNone, ReportSingle>,
+    inner: Interface<'a, B, InBytes8, OutNone, ReportSingle>,
 }
 
 impl<'a, B: UsbBus> AbsoluteWheelMouseInterface<'a, B> {
@@ -329,12 +327,12 @@ impl<'a, B: UsbBus> AbsoluteWheelMouseInterface<'a, B> {
 }
 
 pub struct AbsoluteWheelMouseConfig<'a> {
-    interface: RawInterfaceConfig<'a, InBytes8, OutNone, ReportSingle>,
+    interface: InterfaceConfig<'a, InBytes8, OutNone, ReportSingle>,
 }
 
 impl<'a> AbsoluteWheelMouseConfig<'a> {
     #[must_use]
-    pub fn new(interface: RawInterfaceConfig<'a, InBytes8, OutNone, ReportSingle>) -> Self {
+    pub fn new(interface: InterfaceConfig<'a, InBytes8, OutNone, ReportSingle>) -> Self {
         Self { interface }
     }
 }
@@ -343,7 +341,7 @@ impl<'a> Default for AbsoluteWheelMouseConfig<'a> {
     #[must_use]
     fn default() -> Self {
         AbsoluteWheelMouseConfig::new(
-            unwrap!(unwrap!(RawInterfaceBuilder::new(
+            unwrap!(unwrap!(InterfaceBuilder::new(
                 ABSOLUTE_WHEEL_MOUSE_REPORT_DESCRIPTOR
             ))
             .description("Absolute Wheel Mouse")
@@ -365,7 +363,7 @@ impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for AbsoluteWheelMouseConfig<'a> 
 }
 
 impl<'a, B: UsbBus> DeviceClass<'a> for AbsoluteWheelMouseInterface<'a, B> {
-    type I = RawInterface<'a, B, InBytes8, OutNone, ReportSingle>;
+    type I = Interface<'a, B, InBytes8, OutNone, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {
         &mut self.inner

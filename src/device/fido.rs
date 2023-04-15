@@ -4,9 +4,7 @@ use usb_device::bus::UsbBus;
 use usb_device::class_prelude::UsbBusAllocator;
 
 use crate::hid_class::prelude::*;
-use crate::interface::raw::{
-    InBytes64, OutBytes64, RawInterface, RawInterfaceConfig, ReportSingle,
-};
+use crate::interface::raw::{InBytes64, Interface, InterfaceConfig, OutBytes64, ReportSingle};
 use crate::interface::{DeviceClass, UsbAllocatable};
 use crate::UsbHidError;
 
@@ -46,7 +44,7 @@ impl Default for RawFidoMsg {
 }
 
 pub struct RawFidoInterface<'a, B: UsbBus> {
-    inner: RawInterface<'a, B, InBytes64, OutBytes64, ReportSingle>,
+    inner: Interface<'a, B, InBytes64, OutBytes64, ReportSingle>,
 }
 
 impl<'a, B: UsbBus> RawFidoInterface<'a, B> {
@@ -66,7 +64,7 @@ impl<'a, B: UsbBus> RawFidoInterface<'a, B> {
 }
 
 impl<'a, B: UsbBus> DeviceClass<'a> for RawFidoInterface<'a, B> {
-    type I = RawInterface<'a, B, InBytes64, OutBytes64, ReportSingle>;
+    type I = Interface<'a, B, InBytes64, OutBytes64, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {
         &mut self.inner
@@ -80,7 +78,7 @@ impl<'a, B: UsbBus> DeviceClass<'a> for RawFidoInterface<'a, B> {
 }
 
 pub struct RawFidoConfig<'a> {
-    interface: RawInterfaceConfig<'a, InBytes64, OutBytes64, ReportSingle>,
+    interface: InterfaceConfig<'a, InBytes64, OutBytes64, ReportSingle>,
 }
 
 impl<'a> Default for RawFidoConfig<'a> {
@@ -88,7 +86,7 @@ impl<'a> Default for RawFidoConfig<'a> {
     fn default() -> Self {
         Self::new(
             unwrap!(
-                unwrap!(unwrap!(RawInterfaceBuilder::new(FIDO_REPORT_DESCRIPTOR))
+                unwrap!(unwrap!(InterfaceBuilder::new(FIDO_REPORT_DESCRIPTOR))
                     .description("U2F Token")
                     .in_endpoint(5.millis()))
                 .with_out_endpoint(5.millis())
@@ -100,7 +98,7 @@ impl<'a> Default for RawFidoConfig<'a> {
 
 impl<'a> RawFidoConfig<'a> {
     #[must_use]
-    pub fn new(interface: RawInterfaceConfig<'a, InBytes64, OutBytes64, ReportSingle>) -> Self {
+    pub fn new(interface: InterfaceConfig<'a, InBytes64, OutBytes64, ReportSingle>) -> Self {
         Self { interface }
     }
 }
@@ -110,7 +108,7 @@ impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for RawFidoConfig<'a> {
 
     fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
         Self::Allocated {
-            inner: RawInterface::new(usb_alloc, self.interface),
+            inner: Interface::new(usb_alloc, self.interface),
         }
     }
 }

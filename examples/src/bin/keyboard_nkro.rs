@@ -58,7 +58,9 @@ fn main() -> ! {
     ));
 
     let mut keyboard = UsbHidClassBuilder::new()
-        .add(usbd_human_interface_device::device::keyboard::NKROBootKeyboardConfig::default())
+        .add_device(
+            usbd_human_interface_device::device::keyboard::NKROBootKeyboardConfig::default(),
+        )
         .build(&usb_bus);
 
     //https://pid.codes

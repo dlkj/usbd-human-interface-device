@@ -59,7 +59,7 @@ fn main() -> ! {
     ));
 
     let mut consumer = UsbHidClassBuilder::new()
-        .add(usbd_human_interface_device::device::consumer::ConsumerControlConfig::default())
+        .add_device(usbd_human_interface_device::device::consumer::ConsumerControlConfig::default())
         .build(&usb_bus);
 
     //https://pid.codes
