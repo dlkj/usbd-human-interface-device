@@ -8,7 +8,7 @@ use usb_device::class_prelude::*;
 use usb_device::UsbError;
 
 use crate::interface::raw::{RawInterface, RawInterfaceConfig};
-use crate::interface::{InterfaceClass, UsbAllocatable};
+use crate::interface::{DeviceClass, UsbAllocatable};
 use crate::UsbHidError;
 
 use super::raw::{InSize, OutSize, ReportCount};
@@ -120,7 +120,7 @@ where
     }
 }
 
-impl<'a, B: UsbBus, Report, I, O, R, const LEN: usize> InterfaceClass<'a, B>
+impl<'a, B: UsbBus, Report, I, O, R, const LEN: usize> DeviceClass<'a, B>
     for ManagedInterface<'a, B, Report, I, O, R>
 where
     Report: Copy + Eq + PackedStruct<ByteArray = [u8; LEN]>,

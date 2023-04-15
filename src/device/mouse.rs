@@ -7,7 +7,7 @@ use usb_device::class_prelude::UsbBusAllocator;
 
 use crate::hid_class::prelude::*;
 use crate::interface::raw::{InBytes8, OutNone, RawInterface, RawInterfaceConfig, ReportSingle};
-use crate::interface::{InterfaceClass, UsbAllocatable};
+use crate::interface::{DeviceClass, UsbAllocatable};
 use crate::UsbHidError;
 
 /// HID Mouse report descriptor conforming to the Boot specification
@@ -230,7 +230,7 @@ impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for BootMouseConfig<'a> {
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a, B> for BootMouseInterface<'a, B> {
+impl<'a, B: UsbBus> DeviceClass<'a, B> for BootMouseInterface<'a, B> {
     type I = RawInterface<'a, B, InBytes8, OutNone, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {
@@ -297,7 +297,7 @@ impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for WheelMouseConfig<'a> {
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a, B> for WheelMouseInterface<'a, B> {
+impl<'a, B: UsbBus> DeviceClass<'a, B> for WheelMouseInterface<'a, B> {
     type I = RawInterface<'a, B, InBytes8, OutNone, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {
@@ -364,7 +364,7 @@ impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for AbsoluteWheelMouseConfig<'a> 
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a, B> for AbsoluteWheelMouseInterface<'a, B> {
+impl<'a, B: UsbBus> DeviceClass<'a, B> for AbsoluteWheelMouseInterface<'a, B> {
     type I = RawInterface<'a, B, InBytes8, OutNone, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {

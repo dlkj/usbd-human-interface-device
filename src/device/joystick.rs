@@ -7,7 +7,7 @@ use usb_device::class_prelude::UsbBusAllocator;
 
 use crate::hid_class::prelude::*;
 use crate::interface::raw::{InBytes8, OutNone, RawInterface, RawInterfaceConfig, ReportSingle};
-use crate::interface::{InterfaceClass, UsbAllocatable};
+use crate::interface::{DeviceClass, UsbAllocatable};
 use crate::UsbHidError;
 
 #[rustfmt::skip]
@@ -64,7 +64,7 @@ impl<'a, B: UsbBus> JoystickInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a, B> for JoystickInterface<'a, B> {
+impl<'a, B: UsbBus> DeviceClass<'a, B> for JoystickInterface<'a, B> {
     type I = RawInterface<'a, B, InBytes8, OutNone, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {

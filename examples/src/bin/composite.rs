@@ -78,13 +78,9 @@ fn main() -> ! {
     };
 
     let mut composite = UsbHidClassBuilder::new()
-        .add_interface(
-            usbd_human_interface_device::device::keyboard::NKROBootKeyboardConfig::default(),
-        )
-        .add_interface(usbd_human_interface_device::device::mouse::WheelMouseConfig::default())
-        .add_interface(
-            usbd_human_interface_device::device::consumer::ConsumerControlConfig::default(),
-        )
+        .add(usbd_human_interface_device::device::keyboard::NKROBootKeyboardConfig::default())
+        .add(usbd_human_interface_device::device::mouse::WheelMouseConfig::default())
+        .add(usbd_human_interface_device::device::consumer::ConsumerControlConfig::default())
         //Build
         .build(usb_alloc);
 

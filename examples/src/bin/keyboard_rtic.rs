@@ -93,9 +93,7 @@ mod app {
             )));
 
         let keyboard = UsbHidClassBuilder::new()
-            .add_interface(
-                usbd_human_interface_device::device::keyboard::NKROBootKeyboardConfig::default(),
-            )
+            .add(usbd_human_interface_device::device::keyboard::NKROBootKeyboardConfig::default())
             .build(usb_alloc);
 
         // https://pid.codes

@@ -9,7 +9,7 @@ use usb_device::UsbError;
 use crate::hid_class::prelude::*;
 use crate::interface::managed::{ManagedInterface, ManagedInterfaceConfig};
 use crate::interface::raw::{InBytes32, InBytes8, OutBytes8, ReportSingle};
-use crate::interface::{InterfaceClass, UsbAllocatable};
+use crate::interface::{DeviceClass, UsbAllocatable};
 use crate::page::Keyboard;
 use crate::UsbHidError;
 
@@ -45,7 +45,7 @@ where
     }
 }
 
-impl<'a, B> InterfaceClass<'a, B> for BootKeyboardInterface<'a, B>
+impl<'a, B> DeviceClass<'a, B> for BootKeyboardInterface<'a, B>
 where
     B: UsbBus,
 {
@@ -482,7 +482,7 @@ impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for NKROBootKeyboardConfig<'a> {
     }
 }
 
-impl<'a, B> InterfaceClass<'a, B> for NKROBootKeyboardInterface<'a, B>
+impl<'a, B> DeviceClass<'a, B> for NKROBootKeyboardInterface<'a, B>
 where
     B: UsbBus,
 {

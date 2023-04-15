@@ -1,7 +1,7 @@
 //! Abstract Human Interface Device Class for implementing any HID compliant device
 
-use crate::interface::{InterfaceClass, UsbAllocatable};
-use crate::interface::{InterfaceHList, RawInterfaceT};
+use crate::interface::{DeviceClass, UsbAllocatable};
+use crate::interface::{DeviceHList, InterfaceClass};
 use crate::UsbHidError;
 use core::cell::RefCell;
 use core::default::Default;
@@ -50,14 +50,14 @@ pub enum UsbHidBuilderError {
 #[must_use = "this `UsbHidClassBuilder` must be assigned or consumed by `::build()`"]
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct UsbHidClassBuilder<'a, B, InterfaceList> {
-    interface_list: InterfaceList,
+    devices: InterfaceList,
     _marker: PhantomData<&'a B>,
 }
 
 impl<'a, B> UsbHidClassBuilder<'a, B, HNil> {
     pub fn new() -> Self {
         Self {
-            interface_list: HNil,
+            devices: HNil,
             _marker: PhantomData::default(),
         }
     }
@@ -69,17 +69,14 @@ impl<'a, B> Default for UsbHidClassBuilder<'a, B, HNil> {
     }
 }
 
-impl<'a, B: UsbBus, I: HList> UsbHidClassBuilder<'a, B, I> {
-    pub fn add_interface<Conf, Class>(
-        self,
-        interface_config: Conf,
-    ) -> UsbHidClassBuilder<'a, B, HCons<Conf, I>>
+impl<'a, B: UsbBus, Tail: HList> UsbHidClassBuilder<'a, B, Tail> {
+    pub fn add<C, D>(self, config: C) -> UsbHidClassBuilder<'a, B, HCons<C, Tail>>
     where
-        Conf: UsbAllocatable<'a, B, Allocated = Class>,
-        Class: InterfaceClass<'a, B>,
+        C: UsbAllocatable<'a, B, Allocated = D>,
+        D: DeviceClass<'a, B>,
     {
         UsbHidClassBuilder {
-            interface_list: self.interface_list.prepend(interface_config),
+            devices: self.devices.prepend(config),
             _marker: PhantomData::default(),
         }
     }
@@ -96,7 +93,7 @@ where
         usb_alloc: &'a UsbBusAllocator<B>,
     ) -> UsbHidClass<B, HCons<C::Allocated, Tail::Allocated>> {
         UsbHidClass {
-            interfaces: RefCell::new(self.interface_list.allocate(usb_alloc)),
+            interfaces: RefCell::new(self.devices.allocate(usb_alloc)),
             _marker: PhantomData::default(),
         }
     }
@@ -114,15 +111,15 @@ pub struct UsbHidClass<'a, B, I> {
     _marker: PhantomData<&'a B>,
 }
 
-impl<'a, B, InterfaceList: InterfaceHList<'a, B>> UsbHidClass<'a, B, InterfaceList> {
+impl<'a, B, Devices: DeviceHList<'a, B>> UsbHidClass<'a, B, Devices> {
     pub fn interface<T, Index>(&mut self) -> &mut T
     where
-        InterfaceList: Selector<T, Index>,
+        Devices: Selector<T, Index>,
     {
         self.interfaces.get_mut().get_mut()
     }
 
-    pub fn interfaces(&'a mut self) -> <InterfaceList as ToMut>::Output {
+    pub fn interfaces(&'a mut self) -> <Devices as ToMut>::Output {
         self.interfaces.get_mut().to_mut()
     }
 
@@ -133,7 +130,7 @@ impl<'a, B, InterfaceList: InterfaceHList<'a, B>> UsbHidClass<'a, B, InterfaceLi
 }
 
 impl<'a, B: UsbBus + 'a, I> UsbHidClass<'a, B, I> {
-    fn get_descriptor(transfer: ControlIn<B>, interface: &mut dyn RawInterfaceT<'a, B>) {
+    fn get_descriptor(transfer: ControlIn<B>, interface: &mut dyn InterfaceClass<'a, B>) {
         let request: &Request = transfer.request();
         match DescriptorType::try_from((request.value >> 8) as u8) {
             Ok(DescriptorType::Report) => {
@@ -172,7 +169,7 @@ impl<'a, B: UsbBus + 'a, I> UsbHidClass<'a, B, I> {
 impl<'a, B, I> UsbClass<B> for UsbHidClass<'a, B, I>
 where
     B: UsbBus + 'a,
-    I: InterfaceHList<'a, B>,
+    I: DeviceHList<'a, B>,
 {
     fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
         self.interfaces.borrow_mut().write_descriptors(writer)?;

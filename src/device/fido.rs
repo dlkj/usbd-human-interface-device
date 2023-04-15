@@ -7,7 +7,7 @@ use crate::hid_class::prelude::*;
 use crate::interface::raw::{
     InBytes64, OutBytes64, RawInterface, RawInterfaceConfig, ReportSingle,
 };
-use crate::interface::{InterfaceClass, UsbAllocatable};
+use crate::interface::{DeviceClass, UsbAllocatable};
 use crate::UsbHidError;
 
 /// Raw FIDO report descriptor.
@@ -65,7 +65,7 @@ impl<'a, B: UsbBus> RawFidoInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a, B> for RawFidoInterface<'a, B> {
+impl<'a, B: UsbBus> DeviceClass<'a, B> for RawFidoInterface<'a, B> {
     type I = RawInterface<'a, B, InBytes64, OutBytes64, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {

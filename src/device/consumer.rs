@@ -8,7 +8,7 @@ use usb_device::UsbError;
 
 use crate::hid_class::prelude::*;
 use crate::interface::raw::{InBytes8, OutNone, RawInterface, RawInterfaceConfig, ReportSingle};
-use crate::interface::{InterfaceClass, UsbAllocatable};
+use crate::interface::{DeviceClass, UsbAllocatable};
 use crate::page::Consumer;
 
 ///Consumer control report descriptor - Four `u16` consumer control usage codes as an array (8 bytes)
@@ -105,7 +105,7 @@ impl<'a, B: UsbBus> ConsumerControlInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a, B> for ConsumerControlInterface<'a, B> {
+impl<'a, B: UsbBus> DeviceClass<'a, B> for ConsumerControlInterface<'a, B> {
     type I = RawInterface<'a, B, InBytes8, OutNone, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {
@@ -168,7 +168,7 @@ impl<'a, B: UsbBus> ConsumerControlFixedInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a, B> for ConsumerControlFixedInterface<'a, B> {
+impl<'a, B: UsbBus> DeviceClass<'a, B> for ConsumerControlFixedInterface<'a, B> {
     type I = RawInterface<'a, B, InBytes8, OutNone, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {

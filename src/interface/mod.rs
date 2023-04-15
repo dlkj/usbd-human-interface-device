@@ -50,7 +50,7 @@ where
     }
 }
 
-pub trait RawInterfaceT<'a, B> {
+pub trait InterfaceClass<'a, B> {
     fn hid_descriptor_body(&self) -> [u8; 7];
     fn report_descriptor(&self) -> &'_ [u8];
     fn id(&self) -> InterfaceNumber;
@@ -66,8 +66,8 @@ pub trait RawInterfaceT<'a, B> {
     fn get_protocol(&self) -> HidProtocol;
 }
 
-pub trait InterfaceClass<'a, B: UsbBus> {
-    type I: RawInterfaceT<'a, B>;
+pub trait DeviceClass<'a, B: UsbBus> {
+    type I: InterfaceClass<'a, B>;
     fn interface(&mut self) -> &mut Self::I;
     /// Called if the USB Device is reset
     fn reset(&mut self);
@@ -75,16 +75,16 @@ pub trait InterfaceClass<'a, B: UsbBus> {
     fn tick(&mut self) -> Result<(), UsbHidError>;
 }
 
-pub trait InterfaceHList<'a, B>: ToMut<'a> {
-    fn get(&mut self, id: u8) -> Option<&mut dyn RawInterfaceT<'a, B>>;
+pub trait DeviceHList<'a, B>: ToMut<'a> {
+    fn get(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a, B>>;
     fn reset(&mut self);
     fn write_descriptors(&mut self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
     fn get_string(&mut self, index: StringIndex, lang_id: u16) -> Option<&'a str>;
     fn tick(&mut self) -> Result<(), UsbHidError>;
 }
 
-impl<'a, B> InterfaceHList<'a, B> for HNil {
-    fn get(&mut self, _: u8) -> Option<&mut dyn RawInterfaceT<'a, B>> {
+impl<'a, B> DeviceHList<'a, B> for HNil {
+    fn get(&mut self, _: u8) -> Option<&mut dyn InterfaceClass<'a, B>> {
         None
     }
 
@@ -103,10 +103,10 @@ impl<'a, B> InterfaceHList<'a, B> for HNil {
     }
 }
 
-impl<'a, B: UsbBus + 'a, Head: InterfaceClass<'a, B> + 'a, Tail: InterfaceHList<'a, B>>
-    InterfaceHList<'a, B> for HCons<Head, Tail>
+impl<'a, B: UsbBus + 'a, Head: DeviceClass<'a, B> + 'a, Tail: DeviceHList<'a, B>> DeviceHList<'a, B>
+    for HCons<Head, Tail>
 {
-    fn get(&mut self, id: u8) -> Option<&mut dyn RawInterfaceT<'a, B>> {
+    fn get(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a, B>> {
         if id == u8::from(self.head.interface().id()) {
             Some(self.head.interface())
         } else {

@@ -3,7 +3,7 @@ use crate::hid_class::descriptor::{
     SPEC_VERSION_1_11, USB_CLASS_HID,
 };
 use crate::hid_class::{BuilderResult, UsbHidBuilderError};
-use crate::interface::{InterfaceClass, UsbAllocatable};
+use crate::interface::{DeviceClass, UsbAllocatable};
 use crate::private::Sealed;
 use core::marker::PhantomData;
 use fugit::{ExtU32, MillisDurationU32};
@@ -178,7 +178,7 @@ option_block_idle_storage!(Reports32, Block32);
 option_block_idle_storage!(Reports64, Block64);
 option_block_idle_storage!(Reports128, Block128);
 
-use super::{HidDescriptorBody, RawInterfaceT};
+use super::{HidDescriptorBody, InterfaceClass};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RawInterfaceConfig<'a, I, O, R>
@@ -230,7 +230,7 @@ where
     }
 }
 
-impl<'a, B, I, O, R> InterfaceClass<'a, B> for RawInterface<'a, B, I, O, R>
+impl<'a, B, I, O, R> DeviceClass<'a, B> for RawInterface<'a, B, I, O, R>
 where
     B: UsbBus,
     I: InSize,
@@ -244,7 +244,7 @@ where
     }
 
     fn reset(&mut self) {
-        <Self as RawInterfaceT<'a, B>>::reset(self);
+        <Self as InterfaceClass<'a, B>>::reset(self);
     }
 
     fn tick(&mut self) -> Result<(), crate::UsbHidError> {
@@ -352,7 +352,7 @@ where
         }
     }
 }
-impl<'a, B: UsbBus, I, O, R> RawInterfaceT<'a, B> for RawInterface<'a, B, I, O, R>
+impl<'a, B: UsbBus, I, O, R> InterfaceClass<'a, B> for RawInterface<'a, B, I, O, R>
 where
     B: UsbBus,
     I: InSize,
