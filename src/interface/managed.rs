@@ -166,7 +166,6 @@ where
     }
 
     fn reset(&mut self) {
-        self.inner.reset();
         self.idle_manager = IdleManager::default();
     }
 }

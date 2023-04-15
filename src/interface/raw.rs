@@ -244,11 +244,7 @@ where
     }
 
     fn reset(&mut self) {
-        self.protocol = HidProtocol::Report;
-        self.global_idle = self.config.idle_default;
-        self.clear_report_idle();
-        self.control_in_report_buffer.clear();
-        self.control_out_report_buffer.clear();
+        <Self as RawInterfaceT<'a, B>>::reset(self);
     }
 }
 
