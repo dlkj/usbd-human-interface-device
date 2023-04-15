@@ -73,7 +73,7 @@ impl<'a, B: UsbBus, Tail: HList> UsbHidClassBuilder<'a, B, Tail> {
     pub fn add<C, D>(self, config: C) -> UsbHidClassBuilder<'a, B, HCons<C, Tail>>
     where
         C: UsbAllocatable<'a, B, Allocated = D>,
-        D: DeviceClass<'a, B>,
+        D: DeviceClass<'a>,
     {
         UsbHidClassBuilder {
             devices: self.devices.prepend(config),
@@ -111,7 +111,7 @@ pub struct UsbHidClass<'a, B, I> {
     _marker: PhantomData<&'a B>,
 }
 
-impl<'a, B, Devices: DeviceHList<'a, B>> UsbHidClass<'a, B, Devices> {
+impl<'a, B, Devices: DeviceHList<'a>> UsbHidClass<'a, B, Devices> {
     pub fn interface<T, Index>(&mut self) -> &mut T
     where
         Devices: Selector<T, Index>,
@@ -130,7 +130,7 @@ impl<'a, B, Devices: DeviceHList<'a, B>> UsbHidClass<'a, B, Devices> {
 }
 
 impl<'a, B: UsbBus + 'a, I> UsbHidClass<'a, B, I> {
-    fn get_descriptor(transfer: ControlIn<B>, interface: &mut dyn InterfaceClass<'a, B>) {
+    fn get_descriptor(transfer: ControlIn<B>, interface: &mut dyn InterfaceClass<'a>) {
         let request: &Request = transfer.request();
         match DescriptorType::try_from((request.value >> 8) as u8) {
             Ok(DescriptorType::Report) => {
@@ -169,7 +169,7 @@ impl<'a, B: UsbBus + 'a, I> UsbHidClass<'a, B, I> {
 impl<'a, B, I> UsbClass<B> for UsbHidClass<'a, B, I>
 where
     B: UsbBus + 'a,
-    I: DeviceHList<'a, B>,
+    I: DeviceHList<'a>,
 {
     fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
         self.interfaces.borrow_mut().write_descriptors(writer)?;

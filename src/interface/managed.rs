@@ -120,7 +120,7 @@ where
     }
 }
 
-impl<'a, B: UsbBus, Report, I, O, R, const LEN: usize> DeviceClass<'a, B>
+impl<'a, B: UsbBus, Report, I, O, R, const LEN: usize> DeviceClass<'a>
     for ManagedInterface<'a, B, Report, I, O, R>
 where
     Report: Copy + Eq + PackedStruct<ByteArray = [u8; LEN]>,

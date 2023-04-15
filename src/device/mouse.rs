@@ -230,7 +230,7 @@ impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for BootMouseConfig<'a> {
     }
 }
 
-impl<'a, B: UsbBus> DeviceClass<'a, B> for BootMouseInterface<'a, B> {
+impl<'a, B: UsbBus> DeviceClass<'a> for BootMouseInterface<'a, B> {
     type I = RawInterface<'a, B, InBytes8, OutNone, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {
@@ -297,7 +297,7 @@ impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for WheelMouseConfig<'a> {
     }
 }
 
-impl<'a, B: UsbBus> DeviceClass<'a, B> for WheelMouseInterface<'a, B> {
+impl<'a, B: UsbBus> DeviceClass<'a> for WheelMouseInterface<'a, B> {
     type I = RawInterface<'a, B, InBytes8, OutNone, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {
@@ -364,7 +364,7 @@ impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for AbsoluteWheelMouseConfig<'a> 
     }
 }
 
-impl<'a, B: UsbBus> DeviceClass<'a, B> for AbsoluteWheelMouseInterface<'a, B> {
+impl<'a, B: UsbBus> DeviceClass<'a> for AbsoluteWheelMouseInterface<'a, B> {
     type I = RawInterface<'a, B, InBytes8, OutNone, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {

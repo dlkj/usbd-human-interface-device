@@ -50,7 +50,7 @@ where
     }
 }
 
-pub trait InterfaceClass<'a, B> {
+pub trait InterfaceClass<'a> {
     fn hid_descriptor_body(&self) -> [u8; 7];
     fn report_descriptor(&self) -> &'_ [u8];
     fn id(&self) -> InterfaceNumber;
@@ -66,8 +66,8 @@ pub trait InterfaceClass<'a, B> {
     fn get_protocol(&self) -> HidProtocol;
 }
 
-pub trait DeviceClass<'a, B: UsbBus> {
-    type I: InterfaceClass<'a, B>;
+pub trait DeviceClass<'a> {
+    type I: InterfaceClass<'a>;
     fn interface(&mut self) -> &mut Self::I;
     /// Called if the USB Device is reset
     fn reset(&mut self);
@@ -75,16 +75,16 @@ pub trait DeviceClass<'a, B: UsbBus> {
     fn tick(&mut self) -> Result<(), UsbHidError>;
 }
 
-pub trait DeviceHList<'a, B>: ToMut<'a> {
-    fn get(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a, B>>;
+pub trait DeviceHList<'a>: ToMut<'a> {
+    fn get(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a>>;
     fn reset(&mut self);
     fn write_descriptors(&mut self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
     fn get_string(&mut self, index: StringIndex, lang_id: u16) -> Option<&'a str>;
     fn tick(&mut self) -> Result<(), UsbHidError>;
 }
 
-impl<'a, B> DeviceHList<'a, B> for HNil {
-    fn get(&mut self, _: u8) -> Option<&mut dyn InterfaceClass<'a, B>> {
+impl<'a> DeviceHList<'a> for HNil {
+    fn get(&mut self, _: u8) -> Option<&mut dyn InterfaceClass<'a>> {
         None
     }
 
@@ -103,10 +103,8 @@ impl<'a, B> DeviceHList<'a, B> for HNil {
     }
 }
 
-impl<'a, B: UsbBus + 'a, Head: DeviceClass<'a, B> + 'a, Tail: DeviceHList<'a, B>> DeviceHList<'a, B>
-    for HCons<Head, Tail>
-{
-    fn get(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a, B>> {
+impl<'a, Head: DeviceClass<'a> + 'a, Tail: DeviceHList<'a>> DeviceHList<'a> for HCons<Head, Tail> {
+    fn get(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a>> {
         if id == u8::from(self.head.interface().id()) {
             Some(self.head.interface())
         } else {

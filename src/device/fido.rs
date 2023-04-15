@@ -65,7 +65,7 @@ impl<'a, B: UsbBus> RawFidoInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> DeviceClass<'a, B> for RawFidoInterface<'a, B> {
+impl<'a, B: UsbBus> DeviceClass<'a> for RawFidoInterface<'a, B> {
     type I = RawInterface<'a, B, InBytes64, OutBytes64, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {

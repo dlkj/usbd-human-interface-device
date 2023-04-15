@@ -64,7 +64,7 @@ impl<'a, B: UsbBus> JoystickInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> DeviceClass<'a, B> for JoystickInterface<'a, B> {
+impl<'a, B: UsbBus> DeviceClass<'a> for JoystickInterface<'a, B> {
     type I = RawInterface<'a, B, InBytes8, OutNone, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {

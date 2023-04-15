@@ -105,7 +105,7 @@ impl<'a, B: UsbBus> ConsumerControlInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> DeviceClass<'a, B> for ConsumerControlInterface<'a, B> {
+impl<'a, B: UsbBus> DeviceClass<'a> for ConsumerControlInterface<'a, B> {
     type I = RawInterface<'a, B, InBytes8, OutNone, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {
@@ -168,7 +168,7 @@ impl<'a, B: UsbBus> ConsumerControlFixedInterface<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus> DeviceClass<'a, B> for ConsumerControlFixedInterface<'a, B> {
+impl<'a, B: UsbBus> DeviceClass<'a> for ConsumerControlFixedInterface<'a, B> {
     type I = RawInterface<'a, B, InBytes8, OutNone, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {

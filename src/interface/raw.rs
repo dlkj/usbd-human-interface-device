@@ -230,7 +230,7 @@ where
     }
 }
 
-impl<'a, B, I, O, R> DeviceClass<'a, B> for RawInterface<'a, B, I, O, R>
+impl<'a, B, I, O, R> DeviceClass<'a> for RawInterface<'a, B, I, O, R>
 where
     B: UsbBus,
     I: InSize,
@@ -244,7 +244,7 @@ where
     }
 
     fn reset(&mut self) {
-        <Self as InterfaceClass<'a, B>>::reset(self);
+        <Self as InterfaceClass<'a>>::reset(self);
     }
 
     fn tick(&mut self) -> Result<(), crate::UsbHidError> {
@@ -352,7 +352,7 @@ where
         }
     }
 }
-impl<'a, B: UsbBus, I, O, R> InterfaceClass<'a, B> for RawInterface<'a, B, I, O, R>
+impl<'a, B: UsbBus, I, O, R> InterfaceClass<'a> for RawInterface<'a, B, I, O, R>
 where
     B: UsbBus,
     I: InSize,

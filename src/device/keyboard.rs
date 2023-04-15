@@ -45,7 +45,7 @@ where
     }
 }
 
-impl<'a, B> DeviceClass<'a, B> for BootKeyboardInterface<'a, B>
+impl<'a, B> DeviceClass<'a> for BootKeyboardInterface<'a, B>
 where
     B: UsbBus,
 {
@@ -482,7 +482,7 @@ impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for NKROBootKeyboardConfig<'a> {
     }
 }
 
-impl<'a, B> DeviceClass<'a, B> for NKROBootKeyboardInterface<'a, B>
+impl<'a, B> DeviceClass<'a> for NKROBootKeyboardInterface<'a, B>
 where
     B: UsbBus,
 {
