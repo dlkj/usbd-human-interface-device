@@ -1,14 +1,10 @@
 //!HID joystick
+use crate::usb_class::prelude::*;
 use core::default::Default;
 use fugit::ExtU32;
 use packed_struct::prelude::*;
 use usb_device::bus::UsbBus;
 use usb_device::class_prelude::UsbBusAllocator;
-
-use crate::hid_class::prelude::*;
-use crate::interface::raw::{InBytes8, Interface, InterfaceConfig, OutNone, ReportSingle};
-use crate::interface::{DeviceClass, UsbAllocatable};
-use crate::UsbHidError;
 
 #[rustfmt::skip]
 pub const JOYSTICK_DESCRIPTOR: &[u8] = &[

@@ -1,12 +1,8 @@
 //! HID FIDO Universal 2nd Factor (U2F)
+use crate::usb_class::prelude::*;
 use fugit::ExtU32;
 use usb_device::bus::UsbBus;
 use usb_device::class_prelude::UsbBusAllocator;
-
-use crate::hid_class::prelude::*;
-use crate::interface::raw::{InBytes64, Interface, InterfaceConfig, OutBytes64, ReportSingle};
-use crate::interface::{DeviceClass, UsbAllocatable};
-use crate::UsbHidError;
 
 /// Raw FIDO report descriptor.
 /// 

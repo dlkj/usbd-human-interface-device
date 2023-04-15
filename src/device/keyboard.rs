@@ -1,17 +1,12 @@
 //!HID keyboards
 
+use crate::page::Keyboard;
+use crate::usb_class::prelude::*;
 use fugit::ExtU32;
 use packed_struct::prelude::*;
 #[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
 use usb_device::UsbError;
-
-use crate::hid_class::prelude::*;
-use crate::interface::managed::{ManagedIdleInterface, ManagedIdleInterfaceConfig};
-use crate::interface::raw::{InBytes32, InBytes8, OutBytes8, ReportSingle};
-use crate::interface::{DeviceClass, UsbAllocatable};
-use crate::page::Keyboard;
-use crate::UsbHidError;
 
 /// Interface implementing the HID boot keyboard specification
 ///

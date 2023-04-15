@@ -4,12 +4,9 @@ use fugit::ExtU32;
 use packed_struct::prelude::*;
 #[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
-use usb_device::UsbError;
 
-use crate::hid_class::prelude::*;
-use crate::interface::raw::{InBytes8, Interface, InterfaceConfig, OutNone, ReportSingle};
-use crate::interface::{DeviceClass, UsbAllocatable};
 use crate::page::Consumer;
+use crate::usb_class::prelude::*;
 
 ///Consumer control report descriptor - Four `u16` consumer control usage codes as an array (8 bytes)
 #[rustfmt::skip]

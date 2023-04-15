@@ -95,7 +95,7 @@
 //! let usb_alloc = UsbBusAllocator::new(usb_bus);
 //!
 //! let mut keyboard = UsbHidClassBuilder::new()
-//!     .add_interface(
+//!     .add_device(
 //!         NKROBootKeyboardConfig::default(),
 //!     )
 //!     .build(&usb_alloc);
@@ -146,11 +146,12 @@ extern crate std;
 
 use usb_device::UsbError;
 
+pub mod descriptor;
 pub mod device;
-pub mod hid_class;
 pub mod interface;
 pub mod page;
 pub mod prelude;
+pub mod usb_class;
 
 #[derive(Debug)]
 pub enum UsbHidError {

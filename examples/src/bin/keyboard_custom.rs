@@ -19,11 +19,9 @@ use panic_probe as _;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 use usbd_human_interface_device::device::keyboard::{BootKeyboardReport, KeyboardLedsReport};
-use usbd_human_interface_device::hid_class::prelude::*;
-use usbd_human_interface_device::interface::raw::InBytes8;
-use usbd_human_interface_device::interface::raw::OutBytes8;
-use usbd_human_interface_device::interface::raw::ReportSingle;
+use usbd_human_interface_device::interface::{InBytes8, OutBytes8, ReportSingle};
 use usbd_human_interface_device::page::Keyboard;
+use usbd_human_interface_device::usb_class::prelude::*;
 
 use rp_pico as bsp;
 

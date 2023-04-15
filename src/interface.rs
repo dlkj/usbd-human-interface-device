@@ -1,19 +1,151 @@
-use crate::hid_class::descriptor::{
+//! Abstract Human Interface Device Interfaces
+use crate::descriptor::{
     DescriptorType, HidProtocol, InterfaceProtocol, InterfaceSubClass, COUNTRY_CODE_NOT_SUPPORTED,
     SPEC_VERSION_1_11, USB_CLASS_HID,
 };
-use crate::hid_class::{BuilderResult, UsbHidBuilderError};
-use crate::interface::{DeviceClass, UsbAllocatable};
 use crate::private::Sealed;
+use crate::usb_class::{BuilderResult, UsbHidBuilderError};
+use crate::UsbHidError;
 use core::marker::PhantomData;
+use frunk::{HCons, HNil, ToMut};
 use fugit::{ExtU32, MillisDurationU32};
 use heapless::Vec;
 use option_block::{Block128, Block16, Block32, Block64, Block8};
+use packed_struct::prelude::*;
 use packed_struct::PackedStruct;
-use usb_device::bus::{InterfaceNumber, StringIndex, UsbBus, UsbBusAllocator};
+use usb_device::bus::{StringIndex, UsbBus, UsbBusAllocator};
 #[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
+use usb_device::class_prelude::{DescriptorWriter, InterfaceNumber};
 use usb_device::UsbError;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PackedStruct)]
+#[packed_struct(endian = "lsb", size_bytes = 7)]
+pub struct HidDescriptorBody {
+    bcd_hid: u16,
+    country_code: u8,
+    num_descriptors: u8,
+    #[packed_field(ty = "enum", size_bytes = "1")]
+    descriptor_type: DescriptorType,
+    descriptor_length: u16,
+}
+
+pub trait UsbAllocatable<'a, B: UsbBus> {
+    type Allocated;
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated;
+}
+
+impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for HNil {
+    type Allocated = Self;
+
+    fn allocate(self, _: &'a UsbBusAllocator<B>) -> Self::Allocated {
+        self
+    }
+}
+
+impl<'a, B, C, Tail> UsbAllocatable<'a, B> for HCons<C, Tail>
+where
+    B: UsbBus + 'a,
+    C: UsbAllocatable<'a, B>,
+    Tail: UsbAllocatable<'a, B>,
+{
+    type Allocated = HCons<C::Allocated, Tail::Allocated>;
+
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
+        HCons {
+            head: self.head.allocate(usb_alloc),
+            tail: self.tail.allocate(usb_alloc),
+        }
+    }
+}
+
+pub trait InterfaceClass<'a> {
+    fn hid_descriptor_body(&self) -> [u8; 7];
+    fn report_descriptor(&self) -> &'_ [u8];
+    fn id(&self) -> InterfaceNumber;
+    fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
+    fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'a str>;
+    fn reset(&mut self);
+    fn set_report(&mut self, data: &[u8]) -> usb_device::Result<()>;
+    fn get_report(&self, data: &mut [u8]) -> usb_device::Result<usize>;
+    fn get_report_ack(&mut self) -> usb_device::Result<()>;
+    fn set_idle(&mut self, report_id: u8, value: u8);
+    fn get_idle(&self, report_id: u8) -> u8;
+    fn set_protocol(&mut self, protocol: HidProtocol);
+    fn get_protocol(&self) -> HidProtocol;
+}
+
+pub trait DeviceClass<'a> {
+    type I: InterfaceClass<'a>;
+    fn interface(&mut self) -> &mut Self::I;
+    /// Called if the USB Device is reset
+    fn reset(&mut self);
+    /// Called every 1ms
+    fn tick(&mut self) -> Result<(), UsbHidError>;
+}
+
+pub trait DeviceHList<'a>: ToMut<'a> {
+    fn get(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a>>;
+    fn reset(&mut self);
+    fn write_descriptors(&mut self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
+    fn get_string(&mut self, index: StringIndex, lang_id: u16) -> Option<&'a str>;
+    fn tick(&mut self) -> Result<(), UsbHidError>;
+}
+
+impl<'a> DeviceHList<'a> for HNil {
+    fn get(&mut self, _: u8) -> Option<&mut dyn InterfaceClass<'a>> {
+        None
+    }
+
+    fn reset(&mut self) {}
+
+    fn write_descriptors(&mut self, _: &mut DescriptorWriter) -> usb_device::Result<()> {
+        Ok(())
+    }
+
+    fn get_string(&mut self, _: StringIndex, _: u16) -> Option<&'a str> {
+        None
+    }
+
+    fn tick(&mut self) -> Result<(), UsbHidError> {
+        Ok(())
+    }
+}
+
+impl<'a, Head: DeviceClass<'a> + 'a, Tail: DeviceHList<'a>> DeviceHList<'a> for HCons<Head, Tail> {
+    fn get(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a>> {
+        if id == u8::from(self.head.interface().id()) {
+            Some(self.head.interface())
+        } else {
+            self.tail.get(id)
+        }
+    }
+
+    fn reset(&mut self) {
+        self.head.interface().reset();
+        self.head.reset();
+        self.tail.reset();
+    }
+
+    fn write_descriptors(&mut self, writer: &mut DescriptorWriter) -> usb_device::Result<()> {
+        self.head.interface().write_descriptors(writer)?;
+        self.tail.write_descriptors(writer)
+    }
+
+    fn get_string(&mut self, index: StringIndex, lang_id: u16) -> Option<&'a str> {
+        let s = self.head.interface().get_string(index, lang_id);
+        if s.is_some() {
+            s
+        } else {
+            self.tail.get_string(index, lang_id)
+        }
+    }
+
+    fn tick(&mut self) -> Result<(), UsbHidError> {
+        self.head.tick()?;
+        self.tail.tick()
+    }
+}
 
 pub trait ReportBuffer: Default {
     const CAPACITY: u16;
@@ -177,8 +309,6 @@ option_block_idle_storage!(Reports16, Block16);
 option_block_idle_storage!(Reports32, Block32);
 option_block_idle_storage!(Reports64, Block64);
 option_block_idle_storage!(Reports128, Block128);
-
-use super::{HidDescriptorBody, InterfaceClass};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct InterfaceConfig<'a, I, O, R>
@@ -593,5 +723,186 @@ where
     #[must_use]
     pub fn build(self) -> InterfaceConfig<'a, I, O, R> {
         self.config
+    }
+}
+
+struct IdleManager<R> {
+    last_report: Option<R>,
+    since_last_report: MillisDurationU32,
+}
+
+impl<R> Default for IdleManager<R> {
+    fn default() -> Self {
+        Self {
+            last_report: Option::None,
+            since_last_report: 0.millis(),
+        }
+    }
+}
+
+impl<R> IdleManager<R>
+where
+    R: Eq + Copy,
+{
+    pub fn report_written(&mut self, report: R) {
+        self.last_report = Some(report);
+        self.since_last_report = 0.millis();
+    }
+
+    pub fn is_duplicate(&self, report: &R) -> bool {
+        self.last_report.as_ref() == Some(report)
+    }
+
+    /// Call every 1ms
+    pub fn tick(&mut self, timeout: MillisDurationU32) -> bool {
+        if timeout.ticks() == 0 {
+            self.since_last_report = 0.millis();
+            return false;
+        }
+
+        if self.since_last_report >= timeout {
+            self.since_last_report = 0.millis();
+            true
+        } else {
+            self.since_last_report += 1.millis();
+            false
+        }
+    }
+
+    pub fn last_report(&self) -> Option<R> {
+        self.last_report
+    }
+}
+
+pub struct ManagedIdleInterface<'a, B: UsbBus, Report, I, O>
+where
+    B: UsbBus,
+    I: InSize,
+    O: OutSize,
+{
+    inner: Interface<'a, B, I, O, ReportSingle>,
+    idle_manager: IdleManager<Report>,
+}
+
+#[allow(clippy::inline_always)]
+impl<'a, B: UsbBus, Report, I, O> ManagedIdleInterface<'a, B, Report, I, O>
+where
+    B: UsbBus,
+    I: InSize,
+    O: OutSize,
+{
+    fn new(interface: Interface<'a, B, I, O, ReportSingle>, _config: ()) -> Self {
+        Self {
+            inner: interface,
+            idle_manager: IdleManager::default(),
+        }
+    }
+}
+
+#[allow(clippy::inline_always)]
+impl<'a, B: UsbBus, Report, I, O, const LEN: usize> ManagedIdleInterface<'a, B, Report, I, O>
+where
+    Report: Copy + Eq + PackedStruct<ByteArray = [u8; LEN]>,
+    B: UsbBus,
+    I: InSize,
+    O: OutSize,
+{
+    pub fn write_report(&mut self, report: &Report) -> Result<(), UsbHidError> {
+        if self.idle_manager.is_duplicate(report) {
+            Err(UsbHidError::Duplicate)
+        } else {
+            let data = report.pack().map_err(|_| {
+                error!("Error packing report");
+                UsbHidError::SerializationError
+            })?;
+
+            self.inner
+                .write_report(&data)
+                .map_err(UsbHidError::from)
+                .map(|_| {
+                    self.idle_manager.report_written(*report);
+                })
+        }
+    }
+
+    pub fn read_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize> {
+        self.inner.read_report(data)
+    }
+}
+
+impl<'a, B: UsbBus, Report, I, O, const LEN: usize> DeviceClass<'a>
+    for ManagedIdleInterface<'a, B, Report, I, O>
+where
+    Report: Copy + Eq + PackedStruct<ByteArray = [u8; LEN]>,
+    B: UsbBus,
+    I: InSize,
+    O: OutSize,
+{
+    type I = Interface<'a, B, I, O, ReportSingle>;
+
+    fn interface(&mut self) -> &mut Self::I {
+        &mut self.inner
+    }
+
+    fn reset(&mut self) {
+        self.idle_manager = IdleManager::default();
+    }
+
+    fn tick(&mut self) -> Result<(), UsbHidError> {
+        if !(self.idle_manager.tick(self.inner.global_idle())) {
+            Ok(())
+        } else if let Some(r) = self.idle_manager.last_report() {
+            let data = r.pack().map_err(|_| {
+                error!("Error packing report");
+                UsbHidError::SerializationError
+            })?;
+            match self.inner.write_report(&data) {
+                Ok(n) => {
+                    self.idle_manager.report_written(r);
+                    Ok(n)
+                }
+                Err(UsbError::WouldBlock) => Err(UsbHidError::WouldBlock),
+                Err(e) => Err(UsbHidError::UsbError(e)),
+            }
+            .map(|_| ())
+        } else {
+            Ok(())
+        }
+    }
+}
+
+pub struct ManagedIdleInterfaceConfig<'a, Report, I, O>
+where
+    I: InSize,
+    O: OutSize,
+{
+    report: PhantomData<Report>,
+    inner_config: InterfaceConfig<'a, I, O, ReportSingle>,
+}
+
+impl<'a, Report, I, O> ManagedIdleInterfaceConfig<'a, Report, I, O>
+where
+    I: InSize,
+    O: OutSize,
+{
+    #[must_use]
+    pub fn new(inner_config: InterfaceConfig<'a, I, O, ReportSingle>) -> Self {
+        Self {
+            inner_config,
+            report: PhantomData::default(),
+        }
+    }
+}
+
+impl<'a, B, Report, I, O> UsbAllocatable<'a, B> for ManagedIdleInterfaceConfig<'a, Report, I, O>
+where
+    B: UsbBus + 'a,
+    I: InSize,
+    O: OutSize,
+{
+    type Allocated = ManagedIdleInterface<'a, B, Report, I, O>;
+
+    fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
+        ManagedIdleInterface::new(self.inner_config.allocate(usb_alloc), ())
     }
 }
