@@ -73,6 +73,10 @@ impl<'a, B: UsbBus> InterfaceClass<'a, B> for RawFidoInterface<'a, B> {
     }
 
     fn reset(&mut self) {}
+
+    fn tick(&mut self) -> Result<(), UsbHidError> {
+        Ok(())
+    }
 }
 
 pub struct RawFidoConfig<'a> {

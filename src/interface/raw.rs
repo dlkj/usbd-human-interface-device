@@ -246,6 +246,10 @@ where
     fn reset(&mut self) {
         <Self as RawInterfaceT<'a, B>>::reset(self);
     }
+
+    fn tick(&mut self) -> Result<(), crate::UsbHidError> {
+        Ok(())
+    }
 }
 
 impl<'a, B: UsbBus, I, O, R> RawInterface<'a, B, I, O, R>

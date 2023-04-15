@@ -238,6 +238,10 @@ impl<'a, B: UsbBus> InterfaceClass<'a, B> for BootMouseInterface<'a, B> {
     }
 
     fn reset(&mut self) {}
+
+    fn tick(&mut self) -> Result<(), UsbHidError> {
+        Ok(())
+    }
 }
 
 pub struct WheelMouseInterface<'a, B: UsbBus> {
@@ -301,6 +305,10 @@ impl<'a, B: UsbBus> InterfaceClass<'a, B> for WheelMouseInterface<'a, B> {
     }
 
     fn reset(&mut self) {}
+
+    fn tick(&mut self) -> Result<(), UsbHidError> {
+        Ok(())
+    }
 }
 
 pub struct AbsoluteWheelMouseInterface<'a, B: UsbBus> {
@@ -364,4 +372,8 @@ impl<'a, B: UsbBus> InterfaceClass<'a, B> for AbsoluteWheelMouseInterface<'a, B>
     }
 
     fn reset(&mut self) {}
+
+    fn tick(&mut self) -> Result<(), UsbHidError> {
+        Ok(())
+    }
 }

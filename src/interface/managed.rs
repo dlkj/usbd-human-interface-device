@@ -122,8 +122,31 @@ where
         }
     }
 
-    /// Call every 1ms
-    pub fn tick(&mut self) -> Result<(), UsbHidError> {
+    pub fn read_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize> {
+        self.inner.read_report(data)
+    }
+}
+
+impl<'a, B: UsbBus, Report, I, O, R, const LEN: usize> InterfaceClass<'a, B>
+    for ManagedInterface<'a, B, Report, I, O, R>
+where
+    Report: Copy + Eq + PackedStruct<ByteArray = [u8; LEN]>,
+    B: UsbBus,
+    I: InSize,
+    O: OutSize,
+    R: ReportCount,
+{
+    type I = RawInterface<'a, B, I, O, R>;
+
+    fn interface(&mut self) -> &mut Self::I {
+        &mut self.inner
+    }
+
+    fn reset(&mut self) {
+        self.idle_manager = IdleManager::default();
+    }
+
+    fn tick(&mut self) -> Result<(), UsbHidError> {
         if !(self.idle_manager.tick(self.inner.global_idle())) {
             Ok(())
         } else if let Some(r) = self.idle_manager.last_report() {
@@ -143,30 +166,6 @@ where
         } else {
             Ok(())
         }
-    }
-
-    pub fn read_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize> {
-        self.inner.read_report(data)
-    }
-}
-
-impl<'a, B: UsbBus, Report, I, O, R> InterfaceClass<'a, B>
-    for ManagedInterface<'a, B, Report, I, O, R>
-where
-    Report: Copy + Eq,
-    B: UsbBus,
-    I: InSize,
-    O: OutSize,
-    R: ReportCount,
-{
-    type I = RawInterface<'a, B, I, O, R>;
-
-    fn interface(&mut self) -> &mut Self::I {
-        &mut self.inner
-    }
-
-    fn reset(&mut self) {
-        self.idle_manager = IdleManager::default();
     }
 }
 

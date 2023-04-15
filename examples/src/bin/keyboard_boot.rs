@@ -110,7 +110,7 @@ fn main() -> ! {
 
         //Tick once per ms
         if tick_count_down.wait().is_ok() {
-            match keyboard.interface().tick() {
+            match keyboard.tick() {
                 Err(UsbHidError::WouldBlock) => {}
                 Ok(_) => {}
                 Err(e) => {

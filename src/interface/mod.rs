@@ -5,6 +5,7 @@ use usb_device::bus::{StringIndex, UsbBus, UsbBusAllocator};
 use usb_device::class_prelude::{DescriptorWriter, InterfaceNumber};
 
 use crate::hid_class::descriptor::{DescriptorType, HidProtocol};
+use crate::UsbHidError;
 
 pub mod managed;
 pub mod raw;
@@ -68,7 +69,10 @@ pub trait RawInterfaceT<'a, B> {
 pub trait InterfaceClass<'a, B: UsbBus> {
     type I: RawInterfaceT<'a, B>;
     fn interface(&mut self) -> &mut Self::I;
+    /// Called if the USB Device is reset
     fn reset(&mut self);
+    /// Called every 1ms
+    fn tick(&mut self) -> Result<(), UsbHidError>;
 }
 
 pub trait InterfaceHList<'a, B>: ToMut<'a> {
@@ -76,6 +80,7 @@ pub trait InterfaceHList<'a, B>: ToMut<'a> {
     fn reset(&mut self);
     fn write_descriptors(&mut self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
     fn get_string(&mut self, index: StringIndex, lang_id: u16) -> Option<&'a str>;
+    fn tick(&mut self) -> Result<(), UsbHidError>;
 }
 
 impl<'a, B> InterfaceHList<'a, B> for HNil {
@@ -91,6 +96,10 @@ impl<'a, B> InterfaceHList<'a, B> for HNil {
 
     fn get_string(&mut self, _: StringIndex, _: u16) -> Option<&'a str> {
         None
+    }
+
+    fn tick(&mut self) -> Result<(), UsbHidError> {
+        Ok(())
     }
 }
 
@@ -123,5 +132,10 @@ impl<'a, B: UsbBus + 'a, Head: InterfaceClass<'a, B> + 'a, Tail: InterfaceHList<
         } else {
             self.tail.get_string(index, lang_id)
         }
+    }
+
+    fn tick(&mut self) -> Result<(), UsbHidError> {
+        self.head.tick()?;
+        self.tail.tick()
     }
 }

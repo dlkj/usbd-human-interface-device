@@ -128,7 +128,7 @@ mod app {
         shared = [keyboard],
     )]
     fn tick(mut cx: tick::Context, scheduled: Instant) {
-        cx.shared.keyboard.lock(|k| match k.interface().tick() {
+        cx.shared.keyboard.lock(|k| match k.tick() {
             Err(UsbHidError::WouldBlock) => {}
             Ok(_) => {}
             Err(e) => {

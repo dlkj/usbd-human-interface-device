@@ -120,7 +120,7 @@
 //!
 //!     //tick once per ms/at 1kHz
 //!     if tick_timer.wait().is_ok() {
-//!         keyboard.interface().tick().unwrap();
+//!         keyboard.tick().unwrap();
 //!     }
 //!
 //!     if usb_dev.poll(&mut [&mut keyboard]) {

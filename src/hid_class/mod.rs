@@ -2,6 +2,7 @@
 
 use crate::interface::{InterfaceClass, UsbAllocatable};
 use crate::interface::{InterfaceHList, RawInterfaceT};
+use crate::UsbHidError;
 use core::cell::RefCell;
 use core::default::Default;
 use core::marker::PhantomData;
@@ -125,6 +126,11 @@ impl<'a, B, InterfaceList: InterfaceHList<'a, B>> UsbHidClass<'a, B, InterfaceLi
 
     pub fn interfaces(&'a mut self) -> <InterfaceList as ToMut>::Output {
         self.interfaces.get_mut().to_mut()
+    }
+
+    /// Call every 1ms / at 1KHz
+    pub fn tick(&mut self) -> core::result::Result<(), UsbHidError> {
+        self.interfaces.get_mut().tick()
     }
 }
 

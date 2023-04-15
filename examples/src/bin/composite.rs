@@ -195,10 +195,7 @@ fn main() -> ! {
 
         //Tick once per ms
         if tick_count_down.wait().is_ok() {
-            match composite
-                .interface::<NKROBootKeyboardInterface<'_, _>, _>()
-                .tick()
-            {
+            match composite.tick() {
                 Err(UsbHidError::WouldBlock) => {}
                 Ok(_) => {}
                 Err(e) => {

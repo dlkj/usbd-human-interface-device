@@ -113,6 +113,10 @@ impl<'a, B: UsbBus> InterfaceClass<'a, B> for ConsumerControlInterface<'a, B> {
     }
 
     fn reset(&mut self) {}
+
+    fn tick(&mut self) -> Result<(), crate::UsbHidError> {
+        Ok(())
+    }
 }
 
 pub struct ConsumerControlConfig<'a> {
@@ -172,6 +176,10 @@ impl<'a, B: UsbBus> InterfaceClass<'a, B> for ConsumerControlFixedInterface<'a, 
     }
 
     fn reset(&mut self) {}
+
+    fn tick(&mut self) -> Result<(), crate::UsbHidError> {
+        Ok(())
+    }
 }
 
 pub struct ConsumerControlFixedConfig<'a> {

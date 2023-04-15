@@ -235,10 +235,7 @@ fn main() -> ! {
                 let (_, ref mut composite) = usb_ref.as_mut().unwrap();
 
                 //Process any managed functionality
-                match composite
-                    .interface::<NKROBootKeyboardInterface<'_, _>, _>()
-                    .tick()
-                {
+                match composite.tick() {
                     Err(UsbHidError::WouldBlock) => {}
                     Ok(_) => {}
                     Err(e) => {

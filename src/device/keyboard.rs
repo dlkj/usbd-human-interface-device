@@ -24,11 +24,6 @@ impl<'a, B> BootKeyboardInterface<'a, B>
 where
     B: UsbBus,
 {
-    /// Call every 1ms / at 1KHz
-    pub fn tick(&mut self) -> Result<(), UsbHidError> {
-        self.inner.tick()
-    }
-
     pub fn write_report<K: IntoIterator<Item = Keyboard>>(
         &mut self,
         keys: K,
@@ -62,6 +57,10 @@ where
 
     fn reset(&mut self) {
         self.inner.reset();
+    }
+
+    fn tick(&mut self) -> Result<(), UsbHidError> {
+        self.inner.tick()
     }
 }
 
@@ -415,11 +414,6 @@ impl<'a, B> NKROBootKeyboardInterface<'a, B>
 where
     B: UsbBus,
 {
-    /// Call every 1ms / at 1KHz
-    pub fn tick(&mut self) -> Result<(), UsbHidError> {
-        self.inner.tick()
-    }
-
     pub fn write_report<K: IntoIterator<Item = Keyboard>>(
         &mut self,
         keys: K,
@@ -500,6 +494,10 @@ where
 
     fn reset(&mut self) {
         self.inner.reset();
+    }
+
+    fn tick(&mut self) -> Result<(), UsbHidError> {
+        self.inner.tick()
     }
 }
 
