@@ -22,7 +22,7 @@ import and cargo dependency.
 rustup target install thumbv6m-none-eabi
 cargo install flip-link
 # This is the suggested default 'runner'
-cargo install probe-run
+cargo install probe-rs-cli
 # If you want to use elf2uf2-rs instead of probe-run, instead do...
 cargo install elf2uf2-rs
 ```
