@@ -1,15 +1,12 @@
-//!HID consumer control devices
+//!HID consumer control
 
 use fugit::ExtU32;
 use packed_struct::prelude::*;
 #[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
-use usb_device::UsbError;
 
-use crate::hid_class::prelude::*;
-use crate::interface::raw::{RawInterface, RawInterfaceConfig};
-use crate::interface::{InterfaceClass, UsbAllocatable};
 use crate::page::Consumer;
+use crate::usb_class::prelude::*;
 
 ///Consumer control report descriptor - Four `u16` consumer control usage codes as an array (8 bytes)
 #[rustfmt::skip]
@@ -91,34 +88,40 @@ pub struct FixedFunctionReport {
     pub volume_decrement: bool,
 }
 
-pub struct ConsumerControlInterface<'a, B: UsbBus> {
-    inner: RawInterface<'a, B>,
+pub struct ConsumerControl<'a, B: UsbBus> {
+    interface: Interface<'a, B, InBytes8, OutNone, ReportSingle>,
 }
 
-impl<'a, B: UsbBus> ConsumerControlInterface<'a, B> {
+impl<'a, B: UsbBus> ConsumerControl<'a, B> {
     pub fn write_report(&mut self, report: &MultipleConsumerReport) -> usb_device::Result<usize> {
         let data = report.pack().map_err(|_| {
             error!("Error packing MultipleConsumerReport");
             UsbError::ParseError
         })?;
-        self.inner.write_report(&data)
+        self.interface.write_report(&data)
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a, B> for ConsumerControlInterface<'a, B> {
-    fn interface(&mut self) -> &mut RawInterface<'a, B> {
-        &mut self.inner
+impl<'a, B: UsbBus> DeviceClass<'a> for ConsumerControl<'a, B> {
+    type I = Interface<'a, B, InBytes8, OutNone, ReportSingle>;
+
+    fn interface(&mut self) -> &mut Self::I {
+        &mut self.interface
     }
 
     fn reset(&mut self) {}
+
+    fn tick(&mut self) -> Result<(), crate::UsbHidError> {
+        Ok(())
+    }
 }
 
 pub struct ConsumerControlConfig<'a> {
-    interface: RawInterfaceConfig<'a>,
+    interface: InterfaceConfig<'a, InBytes8, OutNone, ReportSingle>,
 }
 
 impl<'a> ConsumerControlConfig<'a> {
-    fn new(interface: RawInterfaceConfig<'a>) -> Self {
+    fn new(interface: InterfaceConfig<'a, InBytes8, OutNone, ReportSingle>) -> Self {
         Self { interface }
     }
 }
@@ -128,9 +131,9 @@ impl<'a> Default for ConsumerControlConfig<'a> {
     fn default() -> Self {
         Self::new(
             unwrap!(
-                unwrap!(RawInterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR))
+                unwrap!(InterfaceBuilder::new(MULTIPLE_CODE_REPORT_DESCRIPTOR))
                     .description("Consumer Control")
-                    .in_endpoint(UsbPacketSize::Bytes8, 50.millis())
+                    .in_endpoint(50.millis())
             )
             .without_out_endpoint()
             .build(),
@@ -139,42 +142,48 @@ impl<'a> Default for ConsumerControlConfig<'a> {
 }
 
 impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for ConsumerControlConfig<'a> {
-    type Allocated = ConsumerControlInterface<'a, B>;
+    type Allocated = ConsumerControl<'a, B>;
 
     fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
         Self::Allocated {
-            inner: RawInterface::new(usb_alloc, self.interface),
+            interface: Interface::new(usb_alloc, self.interface),
         }
     }
 }
 
-pub struct ConsumerControlFixedInterface<'a, B: UsbBus> {
-    inner: RawInterface<'a, B>,
+pub struct ConsumerControlFixed<'a, B: UsbBus> {
+    interface: Interface<'a, B, InBytes8, OutNone, ReportSingle>,
 }
 
-impl<'a, B: UsbBus> ConsumerControlFixedInterface<'a, B> {
+impl<'a, B: UsbBus> ConsumerControlFixed<'a, B> {
     pub fn write_report(&mut self, report: &FixedFunctionReport) -> usb_device::Result<usize> {
         let data = report.pack().map_err(|_| {
             error!("Error packing MultipleConsumerReport");
             UsbError::ParseError
         })?;
-        self.inner.write_report(&data)
+        self.interface.write_report(&data)
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a, B> for ConsumerControlFixedInterface<'a, B> {
-    fn interface(&mut self) -> &mut RawInterface<'a, B> {
-        &mut self.inner
+impl<'a, B: UsbBus> DeviceClass<'a> for ConsumerControlFixed<'a, B> {
+    type I = Interface<'a, B, InBytes8, OutNone, ReportSingle>;
+
+    fn interface(&mut self) -> &mut Self::I {
+        &mut self.interface
     }
 
     fn reset(&mut self) {}
+
+    fn tick(&mut self) -> Result<(), crate::UsbHidError> {
+        Ok(())
+    }
 }
 
 pub struct ConsumerControlFixedConfig<'a> {
-    interface: RawInterfaceConfig<'a>,
+    interface: InterfaceConfig<'a, InBytes8, OutNone, ReportSingle>,
 }
 impl<'a> ConsumerControlFixedConfig<'a> {
-    fn new(interface: RawInterfaceConfig<'a>) -> Self {
+    fn new(interface: InterfaceConfig<'a, InBytes8, OutNone, ReportSingle>) -> Self {
         Self { interface }
     }
 }
@@ -184,9 +193,9 @@ impl<'a> Default for ConsumerControlFixedConfig<'a> {
     fn default() -> Self {
         Self::new(
             unwrap!(
-                unwrap!(RawInterfaceBuilder::new(FIXED_FUNCTION_REPORT_DESCRIPTOR))
+                unwrap!(InterfaceBuilder::new(FIXED_FUNCTION_REPORT_DESCRIPTOR))
                     .description("Consumer Control")
-                    .in_endpoint(UsbPacketSize::Bytes8, 50.millis())
+                    .in_endpoint(50.millis())
             )
             .without_out_endpoint()
             .build(),
@@ -195,11 +204,11 @@ impl<'a> Default for ConsumerControlFixedConfig<'a> {
 }
 
 impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for ConsumerControlFixedConfig<'a> {
-    type Allocated = ConsumerControlFixedInterface<'a, B>;
+    type Allocated = ConsumerControlFixed<'a, B>;
 
     fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
         Self::Allocated {
-            inner: RawInterface::new(usb_alloc, self.interface),
+            interface: Interface::new(usb_alloc, self.interface),
         }
     }
 }

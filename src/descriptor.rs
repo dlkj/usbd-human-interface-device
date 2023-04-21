@@ -1,9 +1,10 @@
+//! HID descriptor constants and enumerations
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use packed_struct::prelude::*;
 
-pub const USB_CLASS_HID: u8 = 0x03;
-pub const SPEC_VERSION_1_11: u16 = 0x0111; //1.11 in BCD
-pub const COUNTRY_CODE_NOT_SUPPORTED: u8 = 0x0;
+pub(crate) const USB_CLASS_HID: u8 = 0x03;
+pub(crate) const SPEC_VERSION_1_11: u16 = 0x0111; //1.11 in BCD
+pub(crate) const COUNTRY_CODE_NOT_SUPPORTED: u8 = 0x0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Ord, PartialOrd, TryFromPrimitive, IntoPrimitive)]
 #[repr(u8)]
@@ -15,14 +16,14 @@ pub enum InterfaceProtocol {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PrimitiveEnum, TryFromPrimitive, IntoPrimitive)]
 #[repr(u8)]
-pub enum DescriptorType {
+pub(crate) enum DescriptorType {
     Hid = 0x21,
     Report = 0x22,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, TryFromPrimitive, IntoPrimitive)]
 #[repr(u8)]
-pub enum InterfaceSubClass {
+pub(crate) enum InterfaceSubClass {
     None = 0x00,
     Boot = 0x01,
 }
@@ -43,4 +44,15 @@ impl From<InterfaceProtocol> for InterfaceSubClass {
 pub enum HidProtocol {
     Boot = 0x00,
     Report = 0x01,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, TryFromPrimitive, IntoPrimitive)]
+#[repr(u8)]
+pub(crate) enum HidRequest {
+    GetReport = 0x01,
+    GetIdle = 0x02,
+    GetProtocol = 0x03,
+    SetReport = 0x09,
+    SetIdle = 0x0A,
+    SetProtocol = 0x0B,
 }

@@ -57,7 +57,7 @@ fn main() -> ! {
     ));
 
     let mut mouse = UsbHidClassBuilder::new()
-        .add_interface(usbd_human_interface_device::device::mouse::BootMouseConfig::default())
+        .add_device(usbd_human_interface_device::device::mouse::BootMouseConfig::default())
         .build(&usb_bus);
 
     //https://pid.codes
@@ -95,7 +95,7 @@ fn main() -> ! {
 
             //Only write a report if the mouse is moving or buttons change
             if report.buttons != last_buttons || report.x != 0 || report.y != 0 {
-                match mouse.interface().write_report(&report) {
+                match mouse.device().write_report(&report) {
                     Err(UsbHidError::WouldBlock) => {}
                     Ok(_) => {
                         last_buttons = report.buttons;

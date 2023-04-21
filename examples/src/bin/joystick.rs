@@ -57,7 +57,7 @@ fn main() -> ! {
     ));
 
     let mut joy = UsbHidClassBuilder::new()
-        .add_interface(usbd_human_interface_device::device::joystick::JoystickConfig::default())
+        .add_device(usbd_human_interface_device::device::joystick::JoystickConfig::default())
         .build(&usb_bus);
 
     //https://pid.codes
@@ -93,7 +93,7 @@ fn main() -> ! {
     loop {
         // Poll every 10ms
         if input_count_down.wait().is_ok() {
-            match joy.interface().write_report(&get_report(&input_pins)) {
+            match joy.device().write_report(&get_report(&input_pins)) {
                 Err(UsbHidError::WouldBlock) => {}
                 Ok(_) => {}
                 Err(e) => {

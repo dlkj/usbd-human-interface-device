@@ -1,7 +1,7 @@
 # Examples
 
-- composite - composite keyboard, mouse and consumer control device
-- composite_irq - composite keyboard, mouse and consumer control device using irqs rather than polling
+- multi_device - multiple device keyboard, mouse and consumer control
+- multi_device_irq - multiple device keyboard, mouse and consumer control using interrupts rather than polling
 - consumer_fixed - consumer control device with fixed media control functions
 - consumer_multiple - consumer control device with arbitrary functions
 - joystick - two axis joystick with eight buttons
@@ -22,7 +22,7 @@ import and cargo dependency.
 rustup target install thumbv6m-none-eabi
 cargo install flip-link
 # This is the suggested default 'runner'
-cargo install probe-run
+cargo install probe-rs-cli
 # If you want to use elf2uf2-rs instead of probe-run, instead do...
 cargo install elf2uf2-rs
 ```

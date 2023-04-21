@@ -59,7 +59,7 @@ fn main() -> ! {
     ));
 
     let mut keyboard = UsbHidClassBuilder::new()
-        .add_interface(usbd_human_interface_device::device::keyboard::BootKeyboardConfig::default())
+        .add_device(usbd_human_interface_device::device::keyboard::BootKeyboardConfig::default())
         .build(&usb_bus);
 
     //https://pid.codes
@@ -98,7 +98,7 @@ fn main() -> ! {
         if input_count_down.wait().is_ok() {
             let keys = get_keys(keys);
 
-            match keyboard.interface().write_report(keys) {
+            match keyboard.device().write_report(keys) {
                 Err(UsbHidError::WouldBlock) => {}
                 Err(UsbHidError::Duplicate) => {}
                 Ok(_) => {}
@@ -110,7 +110,7 @@ fn main() -> ! {
 
         //Tick once per ms
         if tick_count_down.wait().is_ok() {
-            match keyboard.interface().tick() {
+            match keyboard.tick() {
                 Err(UsbHidError::WouldBlock) => {}
                 Ok(_) => {}
                 Err(e) => {
@@ -120,7 +120,7 @@ fn main() -> ! {
         }
 
         if usb_dev.poll(&mut [&mut keyboard]) {
-            match keyboard.interface().read_report() {
+            match keyboard.device().read_report() {
                 Err(UsbError::WouldBlock) => {
                     //do nothing
                 }

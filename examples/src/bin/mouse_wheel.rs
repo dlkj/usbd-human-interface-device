@@ -54,7 +54,7 @@ fn main() -> ! {
     ));
 
     let mut mouse = UsbHidClassBuilder::new()
-        .add_interface(usbd_human_interface_device::device::mouse::WheelMouseConfig::default())
+        .add_device(usbd_human_interface_device::device::mouse::WheelMouseConfig::default())
         .build(&usb_bus);
 
     //https://pid.codes
@@ -101,7 +101,7 @@ fn main() -> ! {
                 || report.vertical_wheel != 0
                 || report.horizontal_wheel != 0
             {
-                match mouse.interface().write_report(&report) {
+                match mouse.device().write_report(&report) {
                     Err(UsbHidError::WouldBlock) => {}
                     Ok(_) => {
                         last_buttons = report.buttons;

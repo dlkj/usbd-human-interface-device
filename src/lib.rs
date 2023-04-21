@@ -95,7 +95,7 @@
 //! let usb_alloc = UsbBusAllocator::new(usb_bus);
 //!
 //! let mut keyboard = UsbHidClassBuilder::new()
-//!     .add_interface(
+//!     .add_device(
 //!         NKROBootKeyboardConfig::default(),
 //!     )
 //!     .build(&usb_alloc);
@@ -116,15 +116,15 @@
 //!             [Keyboard::NoEventIndicated]
 //!     };
 //!
-//!     keyboard.interface().write_report(keys).ok();
+//!     keyboard.device().write_report(keys).ok();
 //!
-//!     //tick once per ms/at 1kHz
+//!     // tick once per ms/at 1kHz
 //!     if tick_timer.wait().is_ok() {
-//!         keyboard.interface().tick().unwrap();
+//!         keyboard.tick().unwrap();
 //!     }
 //!
 //!     if usb_dev.poll(&mut [&mut keyboard]) {
-//!         match keyboard.interface().read_report() {
+//!         match keyboard.device().read_report() {
 //!
 //!             Ok(l) => {
 //!                 update_leds(l);
@@ -146,11 +146,12 @@ extern crate std;
 
 use usb_device::UsbError;
 
+pub mod descriptor;
 pub mod device;
-pub mod hid_class;
 pub mod interface;
 pub mod page;
 pub mod prelude;
+pub mod usb_class;
 
 #[derive(Debug)]
 pub enum UsbHidError {
@@ -167,4 +168,10 @@ impl From<UsbError> for UsbHidError {
             _ => Self::UsbError(e),
         }
     }
+}
+
+mod private {
+    /// Super trait used to mark traits with an exhaustive set of
+    /// implementations
+    pub trait Sealed {}
 }

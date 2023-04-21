@@ -1,45 +1,36 @@
 //!HID keyboards
 
+use crate::page::Keyboard;
+use crate::usb_class::prelude::*;
 use fugit::ExtU32;
 use packed_struct::prelude::*;
 #[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
 use usb_device::UsbError;
 
-use crate::hid_class::prelude::*;
-use crate::interface::managed::{ManagedInterface, ManagedInterfaceConfig};
-use crate::interface::{InterfaceClass, UsbAllocatable};
-use crate::page::Keyboard;
-use crate::UsbHidError;
-
 /// Interface implementing the HID boot keyboard specification
 ///
-/// **Note:** This is a managed interfaces that support HID idle, [`BootKeyboardInterface::tick()`] must be called every 1ms.
-pub struct BootKeyboardInterface<'a, B: UsbBus> {
-    inner: ManagedInterface<'a, B, BootKeyboardReport>,
+/// **Note:** This is a managed interfaces that support HID idle, [`UsbHidClass::tick()`] must be called every 1ms.
+pub struct BootKeyboard<'a, B: UsbBus> {
+    interface: ManagedIdleInterface<'a, B, BootKeyboardReport, InBytes8, OutBytes8>,
 }
 
-impl<'a, B> BootKeyboardInterface<'a, B>
+impl<'a, B> BootKeyboard<'a, B>
 where
     B: UsbBus,
 {
-    /// Call every 1ms / at 1KHz
-    pub fn tick(&mut self) -> Result<(), UsbHidError> {
-        self.inner.tick()
-    }
-
     pub fn write_report<K: IntoIterator<Item = Keyboard>>(
         &mut self,
         keys: K,
     ) -> Result<(), UsbHidError> {
-        self.inner
+        self.interface
             .write_report(&BootKeyboardReport::new(keys))
             .map(|_| ())
     }
 
     pub fn read_report(&mut self) -> usb_device::Result<KeyboardLedsReport> {
         let data = &mut [0];
-        match self.inner.read_report(data) {
+        match self.interface.read_report(data) {
             Err(e) => Err(e),
             Ok(_) => match KeyboardLedsReport::unpack(data) {
                 Ok(r) => Ok(r),
@@ -49,36 +40,43 @@ where
     }
 }
 
-impl<'a, B> InterfaceClass<'a, B> for BootKeyboardInterface<'a, B>
+impl<'a, B> DeviceClass<'a> for BootKeyboard<'a, B>
 where
     B: UsbBus,
 {
-    fn interface(&mut self) -> &mut RawInterface<'a, B> {
-        self.inner.interface()
+    type I = Interface<'a, B, InBytes8, OutBytes8, ReportSingle>;
+
+    fn interface(&mut self) -> &mut Self::I {
+        self.interface.interface()
     }
+
     fn reset(&mut self) {
-        self.inner.reset();
+        self.interface.reset();
+    }
+
+    fn tick(&mut self) -> Result<(), UsbHidError> {
+        self.interface.tick()
     }
 }
 
 pub struct BootKeyboardConfig<'a> {
-    interface: ManagedInterfaceConfig<'a, BootKeyboardReport>,
+    interface: ManagedIdleInterfaceConfig<'a, BootKeyboardReport, InBytes8, OutBytes8>,
 }
 
 impl<'a> Default for BootKeyboardConfig<'a> {
     #[must_use]
     fn default() -> Self {
-        Self::new(ManagedInterfaceConfig::new(
-            unwrap!(unwrap!(unwrap!(unwrap!(RawInterfaceBuilder::new(
+        Self::new(ManagedIdleInterfaceConfig::new(
+            unwrap!(unwrap!(unwrap!(unwrap!(InterfaceBuilder::new(
                 BOOT_KEYBOARD_REPORT_DESCRIPTOR
             ))
             .boot_device(InterfaceProtocol::Keyboard)
             .description("Keyboard")
             .idle_default(500.millis()))
-            .in_endpoint(UsbPacketSize::Bytes8, 10.millis()))
+            .in_endpoint(10.millis()))
             //.without_out_endpoint()
             //Shouldn't require a dedicated out endpoint, but leds are flaky without it
-            .with_out_endpoint(UsbPacketSize::Bytes8, 100.millis()))
+            .with_out_endpoint(100.millis()))
             .build(),
         ))
     }
@@ -86,17 +84,19 @@ impl<'a> Default for BootKeyboardConfig<'a> {
 
 impl<'a> BootKeyboardConfig<'a> {
     #[must_use]
-    pub fn new(interface: ManagedInterfaceConfig<'a, BootKeyboardReport>) -> Self {
+    pub fn new(
+        interface: ManagedIdleInterfaceConfig<'a, BootKeyboardReport, InBytes8, OutBytes8>,
+    ) -> Self {
         Self { interface }
     }
 }
 
 impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for BootKeyboardConfig<'a> {
-    type Allocated = BootKeyboardInterface<'a, B>;
+    type Allocated = BootKeyboard<'a, B>;
 
     fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
         Self::Allocated {
-            inner: self.interface.allocate(usb_alloc),
+            interface: self.interface.allocate(usb_alloc),
         }
     }
 }
@@ -394,32 +394,27 @@ impl NKROBootKeyboardReport {
 
 /// Interface implementing a NKRO keyboard compatible with the HID boot keyboard specification
 ///
-/// **Note:** This is a managed interfaces that support HID idle, [`NKROBootKeyboardInterface::tick()`] must be called every 1ms/ at 1kHz.
-pub struct NKROBootKeyboardInterface<'a, B: UsbBus> {
-    inner: ManagedInterface<'a, B, NKROBootKeyboardReport>,
+/// **Note:** This is a managed interfaces that support HID idle, [`UsbHidClass::tick()`] must be called every 1ms/ at 1kHz.
+pub struct NKROBootKeyboard<'a, B: UsbBus> {
+    interface: ManagedIdleInterface<'a, B, NKROBootKeyboardReport, InBytes32, OutBytes8>,
 }
 
-impl<'a, B> NKROBootKeyboardInterface<'a, B>
+impl<'a, B> NKROBootKeyboard<'a, B>
 where
     B: UsbBus,
 {
-    /// Call every 1ms / at 1KHz
-    pub fn tick(&mut self) -> Result<(), UsbHidError> {
-        self.inner.tick()
-    }
-
     pub fn write_report<K: IntoIterator<Item = Keyboard>>(
         &mut self,
         keys: K,
     ) -> Result<(), UsbHidError> {
-        self.inner
+        self.interface
             .write_report(&NKROBootKeyboardReport::new(keys))
             .map(|_| ())
     }
 
     pub fn read_report(&mut self) -> usb_device::Result<KeyboardLedsReport> {
         let data = &mut [0];
-        match self.inner.read_report(data) {
+        match self.interface.read_report(data) {
             Err(e) => Err(e),
             Ok(_) => match KeyboardLedsReport::unpack(data) {
                 Ok(r) => Ok(r),
@@ -430,21 +425,21 @@ where
 }
 
 pub struct NKROBootKeyboardConfig<'a> {
-    interface: ManagedInterfaceConfig<'a, NKROBootKeyboardReport>,
+    interface: ManagedIdleInterfaceConfig<'a, NKROBootKeyboardReport, InBytes32, OutBytes8>,
 }
 
 impl<'a> Default for NKROBootKeyboardConfig<'a> {
     #[must_use]
     fn default() -> Self {
-        Self::new(ManagedInterfaceConfig::new(
-            unwrap!(unwrap!(unwrap!(unwrap!(RawInterfaceBuilder::new(
+        Self::new(ManagedIdleInterfaceConfig::new(
+            unwrap!(unwrap!(unwrap!(unwrap!(InterfaceBuilder::new(
                 NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR
             ))
             .description("NKRO Keyboard")
             .boot_device(InterfaceProtocol::Keyboard)
             .idle_default(500.millis()))
-            .in_endpoint(UsbPacketSize::Bytes32, 10.millis()))
-            .with_out_endpoint(UsbPacketSize::Bytes8, 100.millis()))
+            .in_endpoint(10.millis()))
+            .with_out_endpoint(100.millis()))
             .build(),
         ))
     }
@@ -452,31 +447,39 @@ impl<'a> Default for NKROBootKeyboardConfig<'a> {
 
 impl<'a> NKROBootKeyboardConfig<'a> {
     #[must_use]
-    pub fn new(interface: ManagedInterfaceConfig<'a, NKROBootKeyboardReport>) -> Self {
+    pub fn new(
+        interface: ManagedIdleInterfaceConfig<'a, NKROBootKeyboardReport, InBytes32, OutBytes8>,
+    ) -> Self {
         Self { interface }
     }
 }
 
 impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for NKROBootKeyboardConfig<'a> {
-    type Allocated = NKROBootKeyboardInterface<'a, B>;
+    type Allocated = NKROBootKeyboard<'a, B>;
 
     fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
         Self::Allocated {
-            inner: self.interface.allocate(usb_alloc),
+            interface: self.interface.allocate(usb_alloc),
         }
     }
 }
 
-impl<'a, B> InterfaceClass<'a, B> for NKROBootKeyboardInterface<'a, B>
+impl<'a, B> DeviceClass<'a> for NKROBootKeyboard<'a, B>
 where
     B: UsbBus,
 {
-    fn interface(&mut self) -> &mut RawInterface<'a, B> {
-        self.inner.interface()
+    type I = Interface<'a, B, InBytes32, OutBytes8, ReportSingle>;
+
+    fn interface(&mut self) -> &mut Self::I {
+        self.interface.interface()
     }
 
     fn reset(&mut self) {
-        self.inner.reset();
+        self.interface.reset();
+    }
+
+    fn tick(&mut self) -> core::result::Result<(), UsbHidError> {
+        self.interface.tick()
     }
 }
 

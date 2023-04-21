@@ -1,14 +1,10 @@
 //!HID joystick
+use crate::usb_class::prelude::*;
 use core::default::Default;
 use fugit::ExtU32;
 use packed_struct::prelude::*;
 use usb_device::bus::UsbBus;
 use usb_device::class_prelude::UsbBusAllocator;
-
-use crate::hid_class::prelude::*;
-use crate::interface::raw::{RawInterface, RawInterfaceConfig};
-use crate::interface::{InterfaceClass, UsbAllocatable};
-use crate::UsbHidError;
 
 #[rustfmt::skip]
 pub const JOYSTICK_DESCRIPTOR: &[u8] = &[
@@ -47,43 +43,49 @@ pub struct JoystickReport {
     pub buttons: u8,
 }
 
-pub struct JoystickInterface<'a, B: UsbBus> {
-    inner: RawInterface<'a, B>,
+pub struct Joystick<'a, B: UsbBus> {
+    interface: Interface<'a, B, InBytes8, OutNone, ReportSingle>,
 }
 
-impl<'a, B: UsbBus> JoystickInterface<'a, B> {
+impl<'a, B: UsbBus> Joystick<'a, B> {
     pub fn write_report(&mut self, report: &JoystickReport) -> Result<(), UsbHidError> {
         let data = report.pack().map_err(|_| {
             error!("Error packing JoystickReport");
             UsbHidError::SerializationError
         })?;
-        self.inner
+        self.interface
             .write_report(&data)
             .map(|_| ())
             .map_err(UsbHidError::from)
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a, B> for JoystickInterface<'a, B> {
-    fn interface(&mut self) -> &mut RawInterface<'a, B> {
-        &mut self.inner
+impl<'a, B: UsbBus> DeviceClass<'a> for Joystick<'a, B> {
+    type I = Interface<'a, B, InBytes8, OutNone, ReportSingle>;
+
+    fn interface(&mut self) -> &mut Self::I {
+        &mut self.interface
     }
 
     fn reset(&mut self) {}
+
+    fn tick(&mut self) -> Result<(), UsbHidError> {
+        Ok(())
+    }
 }
 
 pub struct JoystickConfig<'a> {
-    interface: RawInterfaceConfig<'a>,
+    interface: InterfaceConfig<'a, InBytes8, OutNone, ReportSingle>,
 }
 
 impl<'a> Default for JoystickConfig<'a> {
     #[must_use]
     fn default() -> Self {
         Self::new(
-            unwrap!(unwrap!(RawInterfaceBuilder::new(JOYSTICK_DESCRIPTOR))
+            unwrap!(unwrap!(InterfaceBuilder::new(JOYSTICK_DESCRIPTOR))
                 .boot_device(InterfaceProtocol::None)
                 .description("Joystick")
-                .in_endpoint(UsbPacketSize::Bytes8, 10.millis()))
+                .in_endpoint(10.millis()))
             .without_out_endpoint()
             .build(),
         )
@@ -92,17 +94,17 @@ impl<'a> Default for JoystickConfig<'a> {
 
 impl<'a> JoystickConfig<'a> {
     #[must_use]
-    pub fn new(interface: RawInterfaceConfig<'a>) -> Self {
+    pub fn new(interface: InterfaceConfig<'a, InBytes8, OutNone, ReportSingle>) -> Self {
         Self { interface }
     }
 }
 
 impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for JoystickConfig<'a> {
-    type Allocated = JoystickInterface<'a, B>;
+    type Allocated = Joystick<'a, B>;
 
     fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
         Self::Allocated {
-            inner: RawInterface::new(usb_alloc, self.interface),
+            interface: Interface::new(usb_alloc, self.interface),
         }
     }
 }

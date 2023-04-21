@@ -18,7 +18,7 @@ Linux, MacOS and Android.
 **Note:** Managed interfaces that support HID idle, such as
 [`NKROBootKeyboardInterface`](https://docs.rs/usbd-human-interface-device/latest/usbd_human_interface_device/device/keyboard/struct.NKROBootKeyboardInterface.html)
 and [`BootKeyboardInterface`](https://docs.rs/usbd-human-interface-device/latest/usbd_human_interface_device/device/keyboard/struct.BootKeyboardInterface.html),
-require their `tick()` method calling every 1ms.
+require the `UsbHidClass::tick()` method calling every 1ms.
 
 ## Features
 

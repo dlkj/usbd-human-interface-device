@@ -59,9 +59,7 @@ fn main() -> ! {
     ));
 
     let mut consumer = UsbHidClassBuilder::new()
-        .add_interface(
-            usbd_human_interface_device::device::consumer::ConsumerControlConfig::default(),
-        )
+        .add_device(usbd_human_interface_device::device::consumer::ConsumerControlConfig::default())
         .build(&usb_bus);
 
     //https://pid.codes
@@ -98,7 +96,7 @@ fn main() -> ! {
         if input_count_down.wait().is_ok() {
             let report = get_report(&input_pins);
             if report != last {
-                match consumer.interface().write_report(&report) {
+                match consumer.device().write_report(&report) {
                     Err(UsbError::WouldBlock) => {}
                     Ok(_) => {
                         last = report;

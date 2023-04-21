@@ -20,7 +20,7 @@ mod app {
     #[allow(clippy::wildcard_imports)]
     use usb_device::class_prelude::*;
     use usb_device::prelude::*;
-    use usbd_human_interface_device::device::keyboard::NKROBootKeyboardInterface;
+    use usbd_human_interface_device::device::keyboard::NKROBootKeyboard;
     use usbd_human_interface_device::page::Keyboard;
     use usbd_human_interface_device::prelude::*;
 
@@ -33,7 +33,7 @@ mod app {
         keyboard: UsbHidClass<
             'static,
             hal::usb::UsbBus,
-            HList!(NKROBootKeyboardInterface<'static, hal::usb::UsbBus>),
+            HList!(NKROBootKeyboard<'static, hal::usb::UsbBus>),
         >,
         usb_device: UsbDevice<'static, hal::usb::UsbBus>,
     }
@@ -93,7 +93,7 @@ mod app {
             )));
 
         let keyboard = UsbHidClassBuilder::new()
-            .add_interface(
+            .add_device(
                 usbd_human_interface_device::device::keyboard::NKROBootKeyboardConfig::default(),
             )
             .build(usb_alloc);
@@ -128,7 +128,7 @@ mod app {
         shared = [keyboard],
     )]
     fn tick(mut cx: tick::Context, scheduled: Instant) {
-        cx.shared.keyboard.lock(|k| match k.interface().tick() {
+        cx.shared.keyboard.lock(|k| match k.tick() {
             Err(UsbHidError::WouldBlock) => {}
             Ok(_) => {}
             Err(e) => {
@@ -146,13 +146,11 @@ mod app {
     )]
     fn write_keyboard(mut cx: write_keyboard::Context, scheduled: Instant) {
         cx.shared.keyboard.lock(|k| {
-            match k
-                .interface()
-                .write_report([if cx.local.key.is_low().unwrap() {
-                    Keyboard::A
-                } else {
-                    Keyboard::NoEventIndicated
-                }]) {
+            match k.device().write_report([if cx.local.key.is_low().unwrap() {
+                Keyboard::A
+            } else {
+                Keyboard::NoEventIndicated
+            }]) {
                 Err(UsbHidError::WouldBlock) => {}
                 Err(UsbHidError::Duplicate) => {}
                 Ok(_) => {}
@@ -174,7 +172,7 @@ mod app {
     fn usb_irq(cx: usb_irq::Context) {
         (cx.shared.keyboard, cx.shared.usb_device).lock(|keyboard, usb_device| {
             if usb_device.poll(&mut [keyboard]) {
-                let interface = keyboard.interface();
+                let interface = keyboard.device();
                 match interface.read_report() {
                     Err(UsbError::WouldBlock) => {}
                     Err(e) => {

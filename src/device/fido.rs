@@ -1,12 +1,8 @@
 //! HID FIDO Universal 2nd Factor (U2F)
+use crate::usb_class::prelude::*;
 use fugit::ExtU32;
 use usb_device::bus::UsbBus;
 use usb_device::class_prelude::UsbBusAllocator;
-
-use crate::hid_class::prelude::*;
-use crate::interface::raw::{RawInterface, RawInterfaceConfig};
-use crate::interface::{InterfaceClass, UsbAllocatable};
-use crate::UsbHidError;
 
 /// Raw FIDO report descriptor.
 /// 
@@ -34,45 +30,51 @@ pub const FIDO_REPORT_DESCRIPTOR: &[u8] = &[
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(C, align(8))]
-pub struct RawFidoMsg {
+pub struct RawFidoReport {
     pub packet: [u8; 64],
 }
-impl Default for RawFidoMsg {
+impl Default for RawFidoReport {
     fn default() -> Self {
         Self { packet: [0u8; 64] }
     }
 }
 
-pub struct RawFidoInterface<'a, B: UsbBus> {
-    inner: RawInterface<'a, B>,
+pub struct RawFido<'a, B: UsbBus> {
+    interface: Interface<'a, B, InBytes64, OutBytes64, ReportSingle>,
 }
 
-impl<'a, B: UsbBus> RawFidoInterface<'a, B> {
-    pub fn write_report(&mut self, report: &RawFidoMsg) -> Result<(), UsbHidError> {
-        self.inner
+impl<'a, B: UsbBus> RawFido<'a, B> {
+    pub fn write_report(&mut self, report: &RawFidoReport) -> Result<(), UsbHidError> {
+        self.interface
             .write_report(&report.packet)
             .map(|_| ())
             .map_err(UsbHidError::from)
     }
-    pub fn read_report(&mut self) -> usb_device::Result<RawFidoMsg> {
-        let mut report = RawFidoMsg::default();
-        match self.inner.read_report(&mut report.packet) {
+    pub fn read_report(&mut self) -> usb_device::Result<RawFidoReport> {
+        let mut report = RawFidoReport::default();
+        match self.interface.read_report(&mut report.packet) {
             Err(e) => Err(e),
             Ok(_) => Ok(report),
         }
     }
 }
 
-impl<'a, B: UsbBus> InterfaceClass<'a, B> for RawFidoInterface<'a, B> {
-    fn interface(&mut self) -> &mut RawInterface<'a, B> {
-        &mut self.inner
+impl<'a, B: UsbBus> DeviceClass<'a> for RawFido<'a, B> {
+    type I = Interface<'a, B, InBytes64, OutBytes64, ReportSingle>;
+
+    fn interface(&mut self) -> &mut Self::I {
+        &mut self.interface
     }
 
     fn reset(&mut self) {}
+
+    fn tick(&mut self) -> Result<(), UsbHidError> {
+        Ok(())
+    }
 }
 
 pub struct RawFidoConfig<'a> {
-    interface: RawInterfaceConfig<'a>,
+    interface: InterfaceConfig<'a, InBytes64, OutBytes64, ReportSingle>,
 }
 
 impl<'a> Default for RawFidoConfig<'a> {
@@ -80,10 +82,10 @@ impl<'a> Default for RawFidoConfig<'a> {
     fn default() -> Self {
         Self::new(
             unwrap!(
-                unwrap!(unwrap!(RawInterfaceBuilder::new(FIDO_REPORT_DESCRIPTOR))
+                unwrap!(unwrap!(InterfaceBuilder::new(FIDO_REPORT_DESCRIPTOR))
                     .description("U2F Token")
-                    .in_endpoint(UsbPacketSize::Bytes64, 5.millis()))
-                .with_out_endpoint(UsbPacketSize::Bytes64, 5.millis())
+                    .in_endpoint(5.millis()))
+                .with_out_endpoint(5.millis())
             )
             .build(),
         )
@@ -92,17 +94,17 @@ impl<'a> Default for RawFidoConfig<'a> {
 
 impl<'a> RawFidoConfig<'a> {
     #[must_use]
-    pub fn new(interface: RawInterfaceConfig<'a>) -> Self {
+    pub fn new(interface: InterfaceConfig<'a, InBytes64, OutBytes64, ReportSingle>) -> Self {
         Self { interface }
     }
 }
 
 impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for RawFidoConfig<'a> {
-    type Allocated = RawFidoInterface<'a, B>;
+    type Allocated = RawFido<'a, B>;
 
     fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
         Self::Allocated {
-            inner: RawInterface::new(usb_alloc, self.interface),
+            interface: Interface::new(usb_alloc, self.interface),
         }
     }
 }
