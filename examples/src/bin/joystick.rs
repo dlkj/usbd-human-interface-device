@@ -93,7 +93,7 @@ fn main() -> ! {
     loop {
         // Poll every 10ms
         if input_count_down.wait().is_ok() {
-            match joy.interface().write_report(&get_report(&input_pins)) {
+            match joy.device().write_report(&get_report(&input_pins)) {
                 Err(UsbHidError::WouldBlock) => {}
                 Ok(_) => {}
                 Err(e) => {

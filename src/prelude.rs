@@ -1,7 +1,7 @@
-//! The USB HID Prelude.
+//! Prelude for using USB HID devices
 //!
 //! The purpose of this module is to alleviate imports of structs and enums
-//! required to instance USB HID classes and interfaces:
+//! required to instance USB HID devices:
 //!
 //! ```
 //! # #![allow(unused_imports)]

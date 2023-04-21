@@ -98,7 +98,7 @@ fn main() -> ! {
         if input_count_down.wait().is_ok() {
             let keys = get_keys(keys);
 
-            match keyboard.interface().write_report(keys) {
+            match keyboard.device().write_report(keys) {
                 Err(UsbHidError::WouldBlock) => {}
                 Err(UsbHidError::Duplicate) => {}
                 Ok(_) => {}
@@ -120,7 +120,7 @@ fn main() -> ! {
         }
 
         if usb_dev.poll(&mut [&mut keyboard]) {
-            match keyboard.interface().read_report() {
+            match keyboard.device().read_report() {
                 Err(UsbError::WouldBlock) => {
                     //do nothing
                 }

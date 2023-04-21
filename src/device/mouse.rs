@@ -172,17 +172,17 @@ pub struct AbsoluteWheelMouseReport {
     pub wheel: i8,
 }
 
-pub struct BootMouseInterface<'a, B: UsbBus> {
-    inner: Interface<'a, B, InBytes8, OutNone, ReportSingle>,
+pub struct BootMouse<'a, B: UsbBus> {
+    interface: Interface<'a, B, InBytes8, OutNone, ReportSingle>,
 }
 
-impl<'a, B: UsbBus> BootMouseInterface<'a, B> {
+impl<'a, B: UsbBus> BootMouse<'a, B> {
     pub fn write_report(&mut self, report: &BootMouseReport) -> Result<(), UsbHidError> {
         let data = report.pack().map_err(|_| {
             error!("Error packing BootMouseReport");
             UsbHidError::SerializationError
         })?;
-        self.inner
+        self.interface
             .write_report(&data)
             .map(|_| ())
             .map_err(UsbHidError::from)
@@ -215,20 +215,20 @@ impl<'a> Default for BootMouseConfig<'a> {
 }
 
 impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for BootMouseConfig<'a> {
-    type Allocated = BootMouseInterface<'a, B>;
+    type Allocated = BootMouse<'a, B>;
 
     fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
-        BootMouseInterface {
-            inner: self.interface.allocate(usb_alloc),
+        BootMouse {
+            interface: self.interface.allocate(usb_alloc),
         }
     }
 }
 
-impl<'a, B: UsbBus> DeviceClass<'a> for BootMouseInterface<'a, B> {
+impl<'a, B: UsbBus> DeviceClass<'a> for BootMouse<'a, B> {
     type I = Interface<'a, B, InBytes8, OutNone, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {
-        &mut self.inner
+        &mut self.interface
     }
 
     fn reset(&mut self) {}
@@ -238,17 +238,17 @@ impl<'a, B: UsbBus> DeviceClass<'a> for BootMouseInterface<'a, B> {
     }
 }
 
-pub struct WheelMouseInterface<'a, B: UsbBus> {
-    inner: Interface<'a, B, InBytes8, OutNone, ReportSingle>,
+pub struct WheelMouse<'a, B: UsbBus> {
+    interface: Interface<'a, B, InBytes8, OutNone, ReportSingle>,
 }
 
-impl<'a, B: UsbBus> WheelMouseInterface<'a, B> {
+impl<'a, B: UsbBus> WheelMouse<'a, B> {
     pub fn write_report(&mut self, report: &WheelMouseReport) -> Result<(), UsbHidError> {
         let data = report.pack().map_err(|_| {
             error!("Error packing WheelMouseReport");
             UsbHidError::SerializationError
         })?;
-        self.inner
+        self.interface
             .write_report(&data)
             .map(|_| ())
             .map_err(UsbHidError::from)
@@ -282,20 +282,20 @@ impl<'a> Default for WheelMouseConfig<'a> {
 }
 
 impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for WheelMouseConfig<'a> {
-    type Allocated = WheelMouseInterface<'a, B>;
+    type Allocated = WheelMouse<'a, B>;
 
     fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
-        WheelMouseInterface {
-            inner: self.interface.allocate(usb_alloc),
+        WheelMouse {
+            interface: self.interface.allocate(usb_alloc),
         }
     }
 }
 
-impl<'a, B: UsbBus> DeviceClass<'a> for WheelMouseInterface<'a, B> {
+impl<'a, B: UsbBus> DeviceClass<'a> for WheelMouse<'a, B> {
     type I = Interface<'a, B, InBytes8, OutNone, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {
-        &mut self.inner
+        &mut self.interface
     }
 
     fn reset(&mut self) {}
@@ -305,17 +305,17 @@ impl<'a, B: UsbBus> DeviceClass<'a> for WheelMouseInterface<'a, B> {
     }
 }
 
-pub struct AbsoluteWheelMouseInterface<'a, B: UsbBus> {
-    inner: Interface<'a, B, InBytes8, OutNone, ReportSingle>,
+pub struct AbsoluteWheelMouse<'a, B: UsbBus> {
+    interface: Interface<'a, B, InBytes8, OutNone, ReportSingle>,
 }
 
-impl<'a, B: UsbBus> AbsoluteWheelMouseInterface<'a, B> {
+impl<'a, B: UsbBus> AbsoluteWheelMouse<'a, B> {
     pub fn write_report(&mut self, report: &AbsoluteWheelMouseReport) -> Result<(), UsbHidError> {
         let data = report.pack().map_err(|_| {
             error!("Error packing WheelMouseReport");
             UsbHidError::SerializationError
         })?;
-        self.inner
+        self.interface
             .write_report(&data)
             .map(|_| ())
             .map_err(UsbHidError::from)
@@ -349,20 +349,20 @@ impl<'a> Default for AbsoluteWheelMouseConfig<'a> {
 }
 
 impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for AbsoluteWheelMouseConfig<'a> {
-    type Allocated = AbsoluteWheelMouseInterface<'a, B>;
+    type Allocated = AbsoluteWheelMouse<'a, B>;
 
     fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
-        AbsoluteWheelMouseInterface {
-            inner: self.interface.allocate(usb_alloc),
+        AbsoluteWheelMouse {
+            interface: self.interface.allocate(usb_alloc),
         }
     }
 }
 
-impl<'a, B: UsbBus> DeviceClass<'a> for AbsoluteWheelMouseInterface<'a, B> {
+impl<'a, B: UsbBus> DeviceClass<'a> for AbsoluteWheelMouse<'a, B> {
     type I = Interface<'a, B, InBytes8, OutNone, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {
-        &mut self.inner
+        &mut self.interface
     }
 
     fn reset(&mut self) {}

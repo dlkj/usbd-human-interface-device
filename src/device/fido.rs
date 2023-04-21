@@ -30,40 +30,40 @@ pub const FIDO_REPORT_DESCRIPTOR: &[u8] = &[
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(C, align(8))]
-pub struct RawFidoMsg {
+pub struct RawFidoReport {
     pub packet: [u8; 64],
 }
-impl Default for RawFidoMsg {
+impl Default for RawFidoReport {
     fn default() -> Self {
         Self { packet: [0u8; 64] }
     }
 }
 
-pub struct RawFidoInterface<'a, B: UsbBus> {
-    inner: Interface<'a, B, InBytes64, OutBytes64, ReportSingle>,
+pub struct RawFido<'a, B: UsbBus> {
+    interface: Interface<'a, B, InBytes64, OutBytes64, ReportSingle>,
 }
 
-impl<'a, B: UsbBus> RawFidoInterface<'a, B> {
-    pub fn write_report(&mut self, report: &RawFidoMsg) -> Result<(), UsbHidError> {
-        self.inner
+impl<'a, B: UsbBus> RawFido<'a, B> {
+    pub fn write_report(&mut self, report: &RawFidoReport) -> Result<(), UsbHidError> {
+        self.interface
             .write_report(&report.packet)
             .map(|_| ())
             .map_err(UsbHidError::from)
     }
-    pub fn read_report(&mut self) -> usb_device::Result<RawFidoMsg> {
-        let mut report = RawFidoMsg::default();
-        match self.inner.read_report(&mut report.packet) {
+    pub fn read_report(&mut self) -> usb_device::Result<RawFidoReport> {
+        let mut report = RawFidoReport::default();
+        match self.interface.read_report(&mut report.packet) {
             Err(e) => Err(e),
             Ok(_) => Ok(report),
         }
     }
 }
 
-impl<'a, B: UsbBus> DeviceClass<'a> for RawFidoInterface<'a, B> {
+impl<'a, B: UsbBus> DeviceClass<'a> for RawFido<'a, B> {
     type I = Interface<'a, B, InBytes64, OutBytes64, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {
-        &mut self.inner
+        &mut self.interface
     }
 
     fn reset(&mut self) {}
@@ -100,11 +100,11 @@ impl<'a> RawFidoConfig<'a> {
 }
 
 impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for RawFidoConfig<'a> {
-    type Allocated = RawFidoInterface<'a, B>;
+    type Allocated = RawFido<'a, B>;
 
     fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
         Self::Allocated {
-            inner: Interface::new(usb_alloc, self.interface),
+            interface: Interface::new(usb_alloc, self.interface),
         }
     }
 }

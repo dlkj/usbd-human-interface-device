@@ -116,15 +116,15 @@
 //!             [Keyboard::NoEventIndicated]
 //!     };
 //!
-//!     keyboard.interface().write_report(keys).ok();
+//!     keyboard.device().write_report(keys).ok();
 //!
-//!     //tick once per ms/at 1kHz
+//!     // tick once per ms/at 1kHz
 //!     if tick_timer.wait().is_ok() {
 //!         keyboard.tick().unwrap();
 //!     }
 //!
 //!     if usb_dev.poll(&mut [&mut keyboard]) {
-//!         match keyboard.interface().read_report() {
+//!         match keyboard.device().read_report() {
 //!
 //!             Ok(l) => {
 //!                 update_leds(l);

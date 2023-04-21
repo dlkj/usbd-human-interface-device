@@ -1,25 +1,24 @@
-//! Abstract Human Interface Device Class for implementing any HID compliant device
+//! USB Class for implementing Human Interface Devices
 
-use crate::descriptor::{DescriptorType, HidProtocol};
-use crate::interface::{DeviceClass, UsbAllocatable};
-use crate::interface::{DeviceHList, InterfaceClass};
+use crate::descriptor::{DescriptorType, HidProtocol, HidRequest};
+use crate::device::{DeviceClass, DeviceHList};
+use crate::interface::{InterfaceClass, UsbAllocatable};
 use crate::UsbHidError;
 use core::cell::RefCell;
 use core::default::Default;
 use core::marker::PhantomData;
 use frunk::hlist::{HList, Selector};
 use frunk::{HCons, HNil, ToMut};
-use num_enum::{IntoPrimitive, TryFromPrimitive};
 #[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
 use usb_device::control::{Recipient, Request};
 use usb_device::{control::RequestType, Result};
 
 pub mod prelude {
-    //! The Usb Hid Class Prelude.
+    //! Prelude for implementing Human Interface Devices
     //!
     //! The purpose of this module is to alleviate imports of structs and enums
-    //! required to build and instance a [`UsbHidClass`]:
+    //! required to build and instance a device based on [`UsbHidClass`]:
     //!
     //! ```
     //! # #![allow(unused_imports)]
@@ -27,47 +26,32 @@ pub mod prelude {
     //! ```
 
     pub use crate::descriptor::{HidProtocol, InterfaceProtocol};
+    pub use crate::device::DeviceClass;
     pub use crate::interface::{
-        DeviceClass, InBytes16, InBytes32, InBytes64, InBytes8, InNone, Interface,
-        InterfaceBuilder, InterfaceConfig, OutBytes16, OutBytes32, OutBytes64, OutBytes8, OutNone,
-        ReportSingle, Reports128, Reports16, Reports32, Reports64, Reports8, UsbAllocatable,
+        InBytes16, InBytes32, InBytes64, InBytes8, InNone, Interface, InterfaceBuilder,
+        InterfaceConfig, OutBytes16, OutBytes32, OutBytes64, OutBytes8, OutNone, ReportSingle,
+        Reports128, Reports16, Reports32, Reports64, Reports8, UsbAllocatable,
     };
     pub use crate::interface::{ManagedIdleInterface, ManagedIdleInterfaceConfig};
     pub use crate::usb_class::{UsbHidClass, UsbHidClassBuilder};
     pub use crate::UsbHidError;
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, TryFromPrimitive, IntoPrimitive)]
-#[repr(u8)]
-pub enum HidRequest {
-    GetReport = 0x01,
-    GetIdle = 0x02,
-    GetProtocol = 0x03,
-    SetReport = 0x09,
-    SetIdle = 0x0A,
-    SetProtocol = 0x0B,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, TryFromPrimitive, IntoPrimitive)]
-#[repr(u16)]
-pub enum UsbPacketSize {
-    Bytes8 = 8,
-    Bytes16 = 16,
-    Bytes32 = 32,
-    Bytes64 = 64,
-}
-
+/// [`UsbHidClassBuilder`] error
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UsbHidBuilderError {
+    /// A value is greater than the acceptable range of input values
     ValueOverflow,
+    /// A slice of data is longer than permitted
     SliceLengthOverflow,
 }
 
+/// Builder for [`UsbHidClass`]
 #[must_use = "this `UsbHidClassBuilder` must be assigned or consumed by `::build()`"]
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct UsbHidClassBuilder<'a, B, InterfaceList> {
-    devices: InterfaceList,
+pub struct UsbHidClassBuilder<'a, B, Devices> {
+    devices: Devices,
     marker: PhantomData<&'a B>,
 }
 
@@ -87,10 +71,13 @@ impl<'a, B> Default for UsbHidClassBuilder<'a, B, HNil> {
 }
 
 impl<'a, B: UsbBus, Tail: HList> UsbHidClassBuilder<'a, B, Tail> {
-    pub fn add_device<C, D>(self, config: C) -> UsbHidClassBuilder<'a, B, HCons<C, Tail>>
+    pub fn add_device<Config, Device>(
+        self,
+        config: Config,
+    ) -> UsbHidClassBuilder<'a, B, HCons<Config, Tail>>
     where
-        C: UsbAllocatable<'a, B, Allocated = D>,
-        D: DeviceClass<'a>,
+        Config: UsbAllocatable<'a, B, Allocated = Device>,
+        Device: DeviceClass<'a>,
     {
         UsbHidClassBuilder {
             devices: self.devices.prepend(config),
@@ -99,18 +86,18 @@ impl<'a, B: UsbBus, Tail: HList> UsbHidClassBuilder<'a, B, Tail> {
     }
 }
 
-impl<'a, B, C, Tail> UsbHidClassBuilder<'a, B, HCons<C, Tail>>
+impl<'a, B, Config, Tail> UsbHidClassBuilder<'a, B, HCons<Config, Tail>>
 where
     B: UsbBus,
     Tail: UsbAllocatable<'a, B>,
-    C: UsbAllocatable<'a, B>,
+    Config: UsbAllocatable<'a, B>,
 {
     pub fn build(
         self,
         usb_alloc: &'a UsbBusAllocator<B>,
-    ) -> UsbHidClass<B, HCons<C::Allocated, Tail::Allocated>> {
+    ) -> UsbHidClass<B, HCons<Config::Allocated, Tail::Allocated>> {
         UsbHidClass {
-            interfaces: RefCell::new(self.devices.allocate(usb_alloc)),
+            devices: RefCell::new(self.devices.allocate(usb_alloc)),
             _marker: PhantomData::default(),
         }
     }
@@ -119,34 +106,35 @@ where
 pub type BuilderResult<B> = core::result::Result<B, UsbHidBuilderError>;
 
 /// USB Human Interface Device class
-#[derive(Debug, Eq, PartialEq)]
-pub struct UsbHidClass<'a, B, I> {
+pub struct UsbHidClass<'a, B, Devices> {
     // Using a RefCell makes it simpler to implement devices as all calls to interfaces are mut
     // this could be removed, but then each usb device would need to implement a non mut borrow
     // of its `RawInterface`.
-    interfaces: RefCell<I>,
+    devices: RefCell<Devices>,
     _marker: PhantomData<&'a B>,
 }
 
 impl<'a, B, Devices: DeviceHList<'a>> UsbHidClass<'a, B, Devices> {
-    pub fn interface<T, Index>(&mut self) -> &mut T
+    /// Borrow a single device selected by `T`
+    pub fn device<T, Index>(&mut self) -> &mut T
     where
         Devices: Selector<T, Index>,
     {
-        self.interfaces.get_mut().get_mut()
+        self.devices.get_mut().get_mut()
     }
 
-    pub fn interfaces(&'a mut self) -> <Devices as ToMut>::Output {
-        self.interfaces.get_mut().to_mut()
+    /// Borrow an [`HList`] of all devices
+    pub fn devices(&'a mut self) -> <Devices as ToMut>::Output {
+        self.devices.get_mut().to_mut()
     }
 
-    /// Call every 1ms / at 1KHz
+    /// Provide a clock tick to allow the tracking of time. Call this every 1ms / at 1KHz
     pub fn tick(&mut self) -> core::result::Result<(), UsbHidError> {
-        self.interfaces.get_mut().tick()
+        self.devices.get_mut().tick()
     }
 }
 
-impl<'a, B: UsbBus + 'a, I> UsbHidClass<'a, B, I> {
+impl<'a, B: UsbBus + 'a, Devices> UsbHidClass<'a, B, Devices> {
     fn get_descriptor(transfer: ControlIn<B>, interface: &mut dyn InterfaceClass<'a>) {
         let request: &Request = transfer.request();
         match DescriptorType::try_from((request.value >> 8) as u8) {
@@ -183,24 +171,24 @@ impl<'a, B: UsbBus + 'a, I> UsbHidClass<'a, B, I> {
     }
 }
 
-impl<'a, B, I> UsbClass<B> for UsbHidClass<'a, B, I>
+impl<'a, B, Devices> UsbClass<B> for UsbHidClass<'a, B, Devices>
 where
     B: UsbBus + 'a,
-    I: DeviceHList<'a>,
+    Devices: DeviceHList<'a>,
 {
     fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
-        self.interfaces.borrow_mut().write_descriptors(writer)?;
+        self.devices.borrow_mut().write_descriptors(writer)?;
         info!("wrote class config descriptor");
         Ok(())
     }
 
     fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&str> {
-        self.interfaces.borrow_mut().get_string(index, lang_id)
+        self.devices.borrow_mut().get_string(index, lang_id)
     }
 
     fn reset(&mut self) {
         info!("Reset");
-        self.interfaces.get_mut().reset();
+        self.devices.get_mut().reset();
     }
 
     fn control_out(&mut self, transfer: ControlOut<B>) {
@@ -215,7 +203,7 @@ where
 
         let Some(interface) = u8::try_from(request.index)
                     .ok()
-                    .and_then(|id| self.interfaces.get_mut().get(id)) else { return };
+                    .and_then(|id| self.devices.get_mut().get(id)) else { return };
 
         trace!(
             "ctrl_out: request type: {:?}, request: {}, value: {}",
@@ -286,7 +274,7 @@ where
 
         match request.request_type {
             RequestType::Standard => {
-                if let Some(interface) = self.interfaces.get_mut().get(interface_id) {
+                if let Some(interface) = self.devices.get_mut().get(interface_id) {
                     if request.request == Request::GET_DESCRIPTOR {
                         info!("Get descriptor");
                         Self::get_descriptor(transfer, interface);
@@ -295,7 +283,7 @@ where
             }
 
             RequestType::Class => {
-                let Some(interface) = self.interfaces.get_mut().get(interface_id) else {
+                let Some(interface) = self.devices.get_mut().get(interface_id) else {
                     return;
                 };
 
@@ -375,6 +363,7 @@ mod test {
     use crate::interface::{InBytes64, InterfaceBuilder, OutBytes64, ReportSingle, Reports8};
     use env_logger::Env;
     use fugit::MillisDurationU32;
+    use log::SetLoggerError;
     use packed_struct::prelude::*;
     use usb_device::bus::PollResult;
     use usb_device::prelude::*;
@@ -383,9 +372,10 @@ mod test {
     use super::*;
 
     fn init_logging() {
-        let _ = env_logger::Builder::from_env(Env::default().default_filter_or("trace"))
-            .is_test(true)
-            .try_init();
+        let _: core::result::Result<(), SetLoggerError> =
+            env_logger::Builder::from_env(Env::default().default_filter_or("trace"))
+                .is_test(true)
+                .try_init();
     }
 
     #[derive(Default)]

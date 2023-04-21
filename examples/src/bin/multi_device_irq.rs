@@ -22,11 +22,9 @@ use panic_probe as _;
 #[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
-use usbd_human_interface_device::device::consumer::{
-    ConsumerControlInterface, MultipleConsumerReport,
-};
-use usbd_human_interface_device::device::keyboard::NKROBootKeyboardInterface;
-use usbd_human_interface_device::device::mouse::{WheelMouseInterface, WheelMouseReport};
+use usbd_human_interface_device::device::consumer::{ConsumerControl, MultipleConsumerReport};
+use usbd_human_interface_device::device::keyboard::NKROBootKeyboard;
+use usbd_human_interface_device::device::mouse::{WheelMouse, WheelMouseReport};
 use usbd_human_interface_device::page::Consumer;
 use usbd_human_interface_device::page::Keyboard;
 use usbd_human_interface_device::prelude::*;
@@ -39,9 +37,9 @@ type UsbDevices = (
         'static,
         hal::usb::UsbBus,
         HList!(
-            ConsumerControlInterface<'static, hal::usb::UsbBus>,
-            WheelMouseInterface<'static, hal::usb::UsbBus>,
-            NKROBootKeyboardInterface<'static, hal::usb::UsbBus>,
+            ConsumerControl<'static, hal::usb::UsbBus>,
+            WheelMouse<'static, hal::usb::UsbBus>,
+            NKROBootKeyboard<'static, hal::usb::UsbBus>,
         ),
     >,
 );
@@ -96,7 +94,7 @@ fn main() -> ! {
         USB_ALLOC.as_ref().unwrap()
     };
 
-    let composite = UsbHidClassBuilder::new()
+    let multi_device = UsbHidClassBuilder::new()
         .add_device(
             usbd_human_interface_device::device::keyboard::NKROBootKeyboardConfig::default(),
         )
@@ -113,7 +111,7 @@ fn main() -> ! {
         .build();
 
     cortex_m::interrupt::free(|cs| {
-        IRQ_SHARED.borrow(cs).replace(Some((usb_dev, composite)));
+        IRQ_SHARED.borrow(cs).replace(Some((usb_dev, multi_device)));
         USBCTRL
             .borrow(cs)
             .replace(Some(pins.gpio13.into_push_pull_output()));
@@ -162,11 +160,11 @@ fn main() -> ! {
         if keyboard_mouse_input_timer.wait().is_ok() {
             cortex_m::interrupt::free(|cs| {
                 let mut usb_ref = IRQ_SHARED.borrow(cs).borrow_mut();
-                let (_, ref mut composite) = usb_ref.as_mut().unwrap();
+                let (_, ref mut multi_device) = usb_ref.as_mut().unwrap();
 
                 let keys = get_keyboard_keys(&keyboard_pins);
 
-                let keyboard = composite.interface::<NKROBootKeyboardInterface<'_, _>, _>();
+                let keyboard = multi_device.device::<NKROBootKeyboard<'_, _>, _>();
                 match keyboard.write_report(keys) {
                     Err(UsbHidError::WouldBlock) => {}
                     Err(UsbHidError::Duplicate) => {}
@@ -181,7 +179,7 @@ fn main() -> ! {
                     || mouse_report.x != 0
                     || mouse_report.y != 0
                 {
-                    let mouse = composite.interface::<WheelMouseInterface<'_, _>, _>();
+                    let mouse = multi_device.device::<WheelMouse<'_, _>, _>();
                     match mouse.write_report(&mouse_report) {
                         Err(UsbHidError::WouldBlock) => {}
                         Ok(_) => {
@@ -199,7 +197,7 @@ fn main() -> ! {
         if consumer_input_timer.wait().is_ok() {
             cortex_m::interrupt::free(|cs| {
                 let mut usb_ref = IRQ_SHARED.borrow(cs).borrow_mut();
-                let (_, ref mut composite) = usb_ref.as_mut().unwrap();
+                let (_, ref mut multi_device) = usb_ref.as_mut().unwrap();
 
                 let codes = get_consumer_codes(&consumer_pins);
                 let consumer_report = MultipleConsumerReport {
@@ -212,7 +210,7 @@ fn main() -> ! {
                 };
 
                 if last_consumer_report != consumer_report {
-                    let consumer = composite.interface::<ConsumerControlInterface<'_, _>, _>();
+                    let consumer = multi_device.device::<ConsumerControl<'_, _>, _>();
                     match consumer.write_report(&consumer_report) {
                         Err(UsbError::WouldBlock) => {}
                         Ok(_) => {
@@ -230,10 +228,10 @@ fn main() -> ! {
         if tick_timer.wait().is_ok() {
             cortex_m::interrupt::free(|cs| {
                 let mut usb_ref = IRQ_SHARED.borrow(cs).borrow_mut();
-                let (_, ref mut composite) = usb_ref.as_mut().unwrap();
+                let (_, ref mut multi_device) = usb_ref.as_mut().unwrap();
 
                 //Process any managed functionality
-                match composite.tick() {
+                match multi_device.tick() {
                     Err(UsbHidError::WouldBlock) => {}
                     Ok(_) => {}
                     Err(e) => {
@@ -262,9 +260,9 @@ fn USBCTRL_IRQ() {
             return;
         }
 
-        let (ref mut usb_device, ref mut composite) = usb_ref.as_mut().unwrap();
-        if usb_device.poll(&mut [composite]) {
-            let keyboard = composite.interface::<NKROBootKeyboardInterface<'_, _>, _>();
+        let (ref mut usb_device, ref mut multi_device) = usb_ref.as_mut().unwrap();
+        if usb_device.poll(&mut [multi_device]) {
+            let keyboard = multi_device.device::<NKROBootKeyboard<'_, _>, _>();
             match keyboard.read_report() {
                 Err(UsbError::WouldBlock) => {}
                 Err(e) => {

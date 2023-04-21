@@ -1,7 +1,7 @@
 # Examples
 
-- composite - composite keyboard, mouse and consumer control device
-- composite_irq - composite keyboard, mouse and consumer control device using irqs rather than polling
+- multi_device - multiple device keyboard, mouse and consumer control
+- multi_device_irq - multiple device keyboard, mouse and consumer control using interrupts rather than polling
 - consumer_fixed - consumer control device with fixed media control functions
 - consumer_multiple - consumer control device with arbitrary functions
 - joystick - two axis joystick with eight buttons

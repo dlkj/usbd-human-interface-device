@@ -18,11 +18,9 @@ use panic_probe as _;
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
 
-use usbd_human_interface_device::device::consumer::{
-    ConsumerControlInterface, MultipleConsumerReport,
-};
-use usbd_human_interface_device::device::keyboard::NKROBootKeyboardInterface;
-use usbd_human_interface_device::device::mouse::{WheelMouseInterface, WheelMouseReport};
+use usbd_human_interface_device::device::consumer::{ConsumerControl, MultipleConsumerReport};
+use usbd_human_interface_device::device::keyboard::NKROBootKeyboard;
+use usbd_human_interface_device::device::mouse::{WheelMouse, WheelMouseReport};
 use usbd_human_interface_device::page::Consumer;
 use usbd_human_interface_device::page::Keyboard;
 use usbd_human_interface_device::prelude::*;
@@ -77,7 +75,7 @@ fn main() -> ! {
         USB_ALLOC.as_ref().unwrap()
     };
 
-    let mut composite = UsbHidClassBuilder::new()
+    let mut multi_device = UsbHidClassBuilder::new()
         .add_device(
             usbd_human_interface_device::device::keyboard::NKROBootKeyboardConfig::default(),
         )
@@ -137,7 +135,7 @@ fn main() -> ! {
         if keyboard_mouse_poll.wait().is_ok() {
             let keys = get_keyboard_keys(&keyboard_pins);
 
-            let keyboard = composite.interface::<NKROBootKeyboardInterface<'_, _>, _>();
+            let keyboard = multi_device.device::<NKROBootKeyboard<'_, _>, _>();
             match keyboard.write_report(keys) {
                 Err(UsbHidError::WouldBlock) => {}
                 Err(UsbHidError::Duplicate) => {}
@@ -152,7 +150,7 @@ fn main() -> ! {
                 || mouse_report.x != 0
                 || mouse_report.y != 0
             {
-                let mouse = composite.interface::<WheelMouseInterface<'_, _>, _>();
+                let mouse = multi_device.device::<WheelMouse<'_, _>, _>();
                 match mouse.write_report(&mouse_report) {
                     Err(UsbHidError::WouldBlock) => {}
                     Ok(_) => {
@@ -178,7 +176,7 @@ fn main() -> ! {
             };
 
             if last_consumer_report != consumer_report {
-                let consumer = composite.interface::<ConsumerControlInterface<'_, _>, _>();
+                let consumer = multi_device.device::<ConsumerControl<'_, _>, _>();
                 match consumer.write_report(&consumer_report) {
                     Err(UsbError::WouldBlock) => {}
                     Ok(_) => {
@@ -193,7 +191,7 @@ fn main() -> ! {
 
         //Tick once per ms
         if tick_count_down.wait().is_ok() {
-            match composite.tick() {
+            match multi_device.tick() {
                 Err(UsbHidError::WouldBlock) => {}
                 Ok(_) => {}
                 Err(e) => {
@@ -202,8 +200,8 @@ fn main() -> ! {
             };
         }
 
-        if usb_dev.poll(&mut [&mut composite]) {
-            let keyboard = composite.interface::<NKROBootKeyboardInterface<'_, _>, _>();
+        if usb_dev.poll(&mut [&mut multi_device]) {
+            let keyboard = multi_device.device::<NKROBootKeyboard<'_, _>, _>();
             match keyboard.read_report() {
                 Err(UsbError::WouldBlock) => {}
                 Err(e) => {

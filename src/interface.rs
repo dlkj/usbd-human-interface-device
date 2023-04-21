@@ -1,13 +1,14 @@
-//! Abstract Human Interface Device Interfaces
+//! Human Interface Device Interfaces
 use crate::descriptor::{
     DescriptorType, HidProtocol, InterfaceProtocol, InterfaceSubClass, COUNTRY_CODE_NOT_SUPPORTED,
     SPEC_VERSION_1_11, USB_CLASS_HID,
 };
+use crate::device::DeviceClass;
 use crate::private::Sealed;
 use crate::usb_class::{BuilderResult, UsbHidBuilderError};
 use crate::UsbHidError;
 use core::marker::PhantomData;
-use frunk::{HCons, HNil, ToMut};
+use frunk::{HCons, HNil};
 use fugit::{ExtU32, MillisDurationU32};
 use heapless::Vec;
 use option_block::{Block128, Block16, Block32, Block64, Block8};
@@ -19,9 +20,9 @@ use usb_device::class_prelude::*;
 use usb_device::class_prelude::{DescriptorWriter, InterfaceNumber};
 use usb_device::UsbError;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PackedStruct)]
+#[derive(Debug, PackedStruct)]
 #[packed_struct(endian = "lsb", size_bytes = 7)]
-pub struct HidDescriptorBody {
+struct HidDescriptorBody {
     bcd_hid: u16,
     country_code: u8,
     num_descriptors: u8,
@@ -73,78 +74,6 @@ pub trait InterfaceClass<'a> {
     fn get_idle(&self, report_id: u8) -> u8;
     fn set_protocol(&mut self, protocol: HidProtocol);
     fn get_protocol(&self) -> HidProtocol;
-}
-
-pub trait DeviceClass<'a> {
-    type I: InterfaceClass<'a>;
-    fn interface(&mut self) -> &mut Self::I;
-    /// Called if the USB Device is reset
-    fn reset(&mut self);
-    /// Called every 1ms
-    fn tick(&mut self) -> Result<(), UsbHidError>;
-}
-
-pub trait DeviceHList<'a>: ToMut<'a> {
-    fn get(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a>>;
-    fn reset(&mut self);
-    fn write_descriptors(&mut self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-    fn get_string(&mut self, index: StringIndex, lang_id: u16) -> Option<&'a str>;
-    fn tick(&mut self) -> Result<(), UsbHidError>;
-}
-
-impl<'a> DeviceHList<'a> for HNil {
-    fn get(&mut self, _: u8) -> Option<&mut dyn InterfaceClass<'a>> {
-        None
-    }
-
-    fn reset(&mut self) {}
-
-    fn write_descriptors(&mut self, _: &mut DescriptorWriter) -> usb_device::Result<()> {
-        Ok(())
-    }
-
-    fn get_string(&mut self, _: StringIndex, _: u16) -> Option<&'a str> {
-        None
-    }
-
-    fn tick(&mut self) -> Result<(), UsbHidError> {
-        Ok(())
-    }
-}
-
-impl<'a, Head: DeviceClass<'a> + 'a, Tail: DeviceHList<'a>> DeviceHList<'a> for HCons<Head, Tail> {
-    fn get(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a>> {
-        if id == u8::from(self.head.interface().id()) {
-            Some(self.head.interface())
-        } else {
-            self.tail.get(id)
-        }
-    }
-
-    fn reset(&mut self) {
-        self.head.interface().reset();
-        self.head.reset();
-        self.tail.reset();
-    }
-
-    fn write_descriptors(&mut self, writer: &mut DescriptorWriter) -> usb_device::Result<()> {
-        self.head.interface().write_descriptors(writer)?;
-        self.tail.write_descriptors(writer)
-    }
-
-    fn get_string(&mut self, index: StringIndex, lang_id: u16) -> Option<&'a str> {
-        let s = self.head.interface().get_string(index, lang_id);
-        if s.is_some() {
-            s
-        } else {
-            self.tail.get_string(index, lang_id)
-        }
-    }
-
-    fn tick(&mut self) -> Result<(), UsbHidError> {
-        self.head.tick()?;
-        self.tail.tick()
-    }
 }
 
 pub trait ReportBuffer: Default {
@@ -635,7 +564,7 @@ where
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct EndpointConfig {
+struct EndpointConfig {
     pub poll_interval: u8,
 }
 
@@ -780,7 +709,7 @@ where
     I: InSize,
     O: OutSize,
 {
-    inner: Interface<'a, B, I, O, ReportSingle>,
+    interface: Interface<'a, B, I, O, ReportSingle>,
     idle_manager: IdleManager<Report>,
 }
 
@@ -791,9 +720,9 @@ where
     I: InSize,
     O: OutSize,
 {
-    fn new(interface: Interface<'a, B, I, O, ReportSingle>, _config: ()) -> Self {
+    fn new(interface: Interface<'a, B, I, O, ReportSingle>) -> Self {
         Self {
-            inner: interface,
+            interface,
             idle_manager: IdleManager::default(),
         }
     }
@@ -816,7 +745,7 @@ where
                 UsbHidError::SerializationError
             })?;
 
-            self.inner
+            self.interface
                 .write_report(&data)
                 .map_err(UsbHidError::from)
                 .map(|_| {
@@ -826,7 +755,7 @@ where
     }
 
     pub fn read_report(&mut self, data: &mut [u8]) -> usb_device::Result<usize> {
-        self.inner.read_report(data)
+        self.interface.read_report(data)
     }
 }
 
@@ -841,7 +770,7 @@ where
     type I = Interface<'a, B, I, O, ReportSingle>;
 
     fn interface(&mut self) -> &mut Self::I {
-        &mut self.inner
+        &mut self.interface
     }
 
     fn reset(&mut self) {
@@ -849,14 +778,14 @@ where
     }
 
     fn tick(&mut self) -> Result<(), UsbHidError> {
-        if !(self.idle_manager.tick(self.inner.global_idle())) {
+        if !(self.idle_manager.tick(self.interface.global_idle())) {
             Ok(())
         } else if let Some(r) = self.idle_manager.last_report() {
             let data = r.pack().map_err(|_| {
                 error!("Error packing report");
                 UsbHidError::SerializationError
             })?;
-            match self.inner.write_report(&data) {
+            match self.interface.write_report(&data) {
                 Ok(n) => {
                     self.idle_manager.report_written(r);
                     Ok(n)
@@ -877,7 +806,7 @@ where
     O: OutSize,
 {
     report: PhantomData<Report>,
-    inner_config: InterfaceConfig<'a, I, O, ReportSingle>,
+    interface_config: InterfaceConfig<'a, I, O, ReportSingle>,
 }
 
 impl<'a, Report, I, O> ManagedIdleInterfaceConfig<'a, Report, I, O>
@@ -886,9 +815,9 @@ where
     O: OutSize,
 {
     #[must_use]
-    pub fn new(inner_config: InterfaceConfig<'a, I, O, ReportSingle>) -> Self {
+    pub fn new(interface_config: InterfaceConfig<'a, I, O, ReportSingle>) -> Self {
         Self {
-            inner_config,
+            interface_config,
             report: PhantomData::default(),
         }
     }
@@ -903,6 +832,6 @@ where
     type Allocated = ManagedIdleInterface<'a, B, Report, I, O>;
 
     fn allocate(self, usb_alloc: &'a UsbBusAllocator<B>) -> Self::Allocated {
-        ManagedIdleInterface::new(self.inner_config.allocate(usb_alloc), ())
+        ManagedIdleInterface::new(self.interface_config.allocate(usb_alloc))
     }
 }

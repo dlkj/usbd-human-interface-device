@@ -101,7 +101,7 @@ fn main() -> ! {
                 || report.vertical_wheel != 0
                 || report.horizontal_wheel != 0
             {
-                match mouse.interface().write_report(&report) {
+                match mouse.device().write_report(&report) {
                     Err(UsbHidError::WouldBlock) => {}
                     Ok(_) => {
                         last_buttons = report.buttons;
