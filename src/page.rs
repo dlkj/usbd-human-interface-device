@@ -18,6 +18,7 @@ use packed_struct::prelude::*;
 ///
 /// See [Universal Serial Bus (USB) HID Usage Tables Version 1.12](<https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>):
 /// Section 11 LED Page (0x08)
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(
     Debug,
     Copy,
@@ -123,6 +124,7 @@ impl Default for Leds {
 ///
 /// See [Universal Serial Bus (USB) HID Usage Tables Version 1.12](<https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>):
 /// Section 15 Consumer Page (0x0C)
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(
     Debug,
     Copy,
@@ -533,6 +535,7 @@ impl Default for Consumer {
 ///
 /// See [Universal Serial Bus (USB) HID Usage Tables Version 1.12](<https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>):
 /// Section 4 Desktop Page (0x01)
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(
     Debug,
     Copy,
@@ -619,6 +622,7 @@ impl Default for Desktop {
 ///
 /// See [Universal Serial Bus (USB) HID Usage Tables Version 1.12](<https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>):
 /// Section 4 Game Controls Page (0x05)
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(
     Debug,
     Copy,
@@ -681,6 +685,7 @@ impl Default for Game {
 ///
 /// Naming from the specification has been preserved where possible but some names
 /// have been shortened or transliterated to be valid rust identifiers
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(
     Debug,
     Copy,
@@ -884,6 +889,7 @@ impl Default for Keyboard {
 ///
 /// See [Universal Serial Bus (USB) HID Usage Tables Version 1.12](<https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>):
 /// Section 5 Simulation Controls Page (0x02)
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(
     Debug,
     Copy,
@@ -968,6 +974,7 @@ impl Default for Simulation {
 ///
 /// See [Universal Serial Bus (USB) HID Usage Tables Version 1.12](<https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>):
 /// Section 14 Telephony Device  Page (0x0B)
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(
     Debug,
     Copy,
