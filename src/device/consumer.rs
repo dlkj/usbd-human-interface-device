@@ -121,7 +121,8 @@ pub struct ConsumerControlConfig<'a> {
 }
 
 impl<'a> ConsumerControlConfig<'a> {
-    fn new(interface: InterfaceConfig<'a, InBytes8, OutNone, ReportSingle>) -> Self {
+    #[must_use]
+    pub fn new(interface: InterfaceConfig<'a, InBytes8, OutNone, ReportSingle>) -> Self {
         Self { interface }
     }
 }
@@ -183,7 +184,8 @@ pub struct ConsumerControlFixedConfig<'a> {
     interface: InterfaceConfig<'a, InBytes8, OutNone, ReportSingle>,
 }
 impl<'a> ConsumerControlFixedConfig<'a> {
-    fn new(interface: InterfaceConfig<'a, InBytes8, OutNone, ReportSingle>) -> Self {
+    #[must_use]
+    pub fn new(interface: InterfaceConfig<'a, InBytes8, OutNone, ReportSingle>) -> Self {
         Self { interface }
     }
 }
