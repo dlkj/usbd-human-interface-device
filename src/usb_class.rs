@@ -59,7 +59,7 @@ impl<'a, B> UsbHidClassBuilder<'a, B, HNil> {
     pub fn new() -> Self {
         Self {
             devices: HNil,
-            marker: PhantomData::default(),
+            marker: PhantomData,
         }
     }
 }
@@ -81,7 +81,7 @@ impl<'a, B: UsbBus, Tail: HList> UsbHidClassBuilder<'a, B, Tail> {
     {
         UsbHidClassBuilder {
             devices: self.devices.prepend(config),
-            marker: PhantomData::default(),
+            marker: PhantomData,
         }
     }
 }
@@ -98,7 +98,7 @@ where
     ) -> UsbHidClass<B, HCons<Config::Allocated, Tail::Allocated>> {
         UsbHidClass {
             devices: RefCell::new(self.devices.allocate(usb_alloc)),
-            _marker: PhantomData::default(),
+            _marker: PhantomData,
         }
     }
 }
