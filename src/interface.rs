@@ -588,7 +588,7 @@ where
     pub fn new(report_descriptor: &'a [u8]) -> BuilderResult<Self> {
         Ok(InterfaceBuilder {
             config: InterfaceConfig {
-                marker: PhantomData::default(),
+                marker: PhantomData,
                 report_descriptor,
                 report_descriptor_length: u16::try_from(report_descriptor.len())
                     .map_err(|_| UsbHidBuilderError::SliceLengthOverflow)?,
@@ -818,7 +818,7 @@ where
     pub fn new(interface_config: InterfaceConfig<'a, I, O, ReportSingle>) -> Self {
         Self {
             interface_config,
-            report: PhantomData::default(),
+            report: PhantomData,
         }
     }
 }
