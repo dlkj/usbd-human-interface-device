@@ -2,7 +2,7 @@
 
 use crate::descriptor::{DescriptorType, HidProtocol, HidRequest};
 use crate::device::{DeviceClass, DeviceHList};
-use crate::interface::{InterfaceClass, UsbAllocatable};
+use crate::interface::{InterfaceClass, ReportDescriptor, UsbAllocatable};
 use crate::UsbHidError;
 use core::cell::RefCell;
 use core::default::Default;
@@ -139,7 +139,12 @@ impl<'a, B: UsbBus + 'a, Devices> UsbHidClass<'a, B, Devices> {
         let request: &Request = transfer.request();
         match DescriptorType::try_from((request.value >> 8) as u8) {
             Ok(DescriptorType::Report) => {
-                match transfer.accept_with(interface.report_descriptor()) {
+                let result = match interface.report_descriptor() {
+                    ReportDescriptor::DynamicDescriptor(desc) => transfer.accept_with(desc),
+                    ReportDescriptor::StaticDescriptor(desc) => transfer.accept_with_static(desc),
+                };
+
+                match result {
                     Err(e) => error!("Failed to send report descriptor - {:?}", e),
                     Ok(()) => {
                         trace!("Sent report descriptor");
@@ -147,12 +152,16 @@ impl<'a, B: UsbBus + 'a, Devices> UsbHidClass<'a, B, Devices> {
                 }
             }
             Ok(DescriptorType::Hid) => {
-                const LEN: u8 = 9;
-                let mut buffer = [0; LEN as usize];
-                buffer[0] = LEN;
-                buffer[1] = u8::from(DescriptorType::Hid);
-                (buffer[2..LEN as usize]).copy_from_slice(&interface.hid_descriptor_body());
-                match transfer.accept_with(&buffer) {
+                match transfer.accept(|buffer| {
+                    if buffer.len() < 9 {
+                        return Err(UsbError::BufferOverflow);
+                    }
+
+                    buffer[0] = 9;
+                    buffer[1] = u8::from(DescriptorType::Hid);
+                    (buffer[2..9]).copy_from_slice(&interface.hid_descriptor_body());
+                    Ok(9)
+                }) {
                     Err(e) => {
                         error!("Failed to send Hid descriptor - {:?}", e);
                     }
@@ -292,21 +301,22 @@ where
 
                 match HidRequest::try_from(request.request) {
                     Ok(HidRequest::GetReport) => {
-                        let mut data = [0_u8; 64];
-                        if let Ok(n) = interface.get_report(&mut data) {
-                            if n != transfer.request().length.into() {
-                                warn!(
-                                    "GetReport expected {} bytes, got {} bytes",
-                                    transfer.request().length,
-                                    data.len()
-                                );
-                            }
-                            if let Err(e) = transfer.accept_with(&data[..n]) {
-                                error!("Failed to send report - {:?}", e);
-                            } else {
-                                trace!("Sent report, {} bytes", n);
-                                unwrap!(interface.get_report_ack());
-                            }
+                        let requested_n = transfer.request().length.into();
+                        if let Err(e) = transfer.accept(|buffer| {
+                            interface.get_report(buffer).map(|n| {
+                                if n != requested_n {
+                                    warn!(
+                                        "GetReport requested {} bytes, got {} bytes",
+                                        requested_n, n
+                                    );
+                                }
+                                n
+                            })
+                        }) {
+                            error!("Failed to send report - {:?}", e);
+                        } else {
+                            trace!("Sent report");
+                            unwrap!(interface.get_report_ack());
                         }
                     }
                     Ok(HidRequest::GetIdle) => {
@@ -319,7 +329,13 @@ where
 
                         let report_id = (request.value & 0xFF) as u8;
                         let idle = interface.get_idle(report_id);
-                        if let Err(e) = transfer.accept_with(&[idle]) {
+                        if let Err(e) = transfer.accept(|buffer| {
+                            if buffer.is_empty() {
+                                return Err(UsbError::BufferOverflow);
+                            }
+                            buffer[0] = idle;
+                            Ok(1)
+                        }) {
                             error!("Failed to send idle data - {:?}", e);
                         } else {
                             info!("Get Idle for ID{}: {}", report_id, idle);
@@ -334,7 +350,13 @@ where
                         }
 
                         let protocol = interface.get_protocol();
-                        if let Err(e) = transfer.accept_with(&[protocol.into()]) {
+                        if let Err(e) = transfer.accept(|buffer| {
+                            if buffer.is_empty() {
+                                return Err(UsbError::BufferOverflow);
+                            }
+                            buffer[0] = protocol.into();
+                            Ok(1)
+                        }) {
                             error!("Failed to send protocol data - {:?}", e);
                         } else {
                             info!("Get protocol: {:?}", protocol);
