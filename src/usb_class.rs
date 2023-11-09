@@ -13,6 +13,7 @@ use frunk::{HCons, HNil, ToMut};
 use usb_device::class_prelude::*;
 use usb_device::control::{Recipient, Request};
 use usb_device::{control::RequestType, Result};
+use usb_device::descriptor::lang_id::LangID;
 
 pub mod prelude {
     //! Prelude for implementing Human Interface Devices
@@ -182,7 +183,7 @@ where
         Ok(())
     }
 
-    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&str> {
+    fn get_string(&self, index: StringIndex, lang_id: LangID) -> Option<&str> {
         self.devices.borrow_mut().get_string(index, lang_id)
     }
 
