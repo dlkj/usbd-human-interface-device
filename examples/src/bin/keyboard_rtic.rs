@@ -7,15 +7,22 @@ use panic_probe as _;
 #[rtic::app(device = rp_pico::hal::pac, peripherals = true, dispatchers = [XIP_IRQ])]
 mod app {
 
+    use bsp::hal;
     use rp_pico as bsp;
 
-    use bsp::{
-        hal::{self, clocks::init_clocks_and_plls, watchdog::Watchdog, Sio},
-        XOSC_CRYSTAL_FREQ,
-    };
+    use bsp::XOSC_CRYSTAL_FREQ;
     use embedded_hal::digital::v2::*;
     use frunk::HList;
     use fugit::ExtU64;
+    use hal::{
+        clocks::init_clocks_and_plls,
+        gpio::{
+            bank0::{Gpio0, Gpio25},
+            FunctionSio, Pin, PullDown, PullUp, SioOutput,
+        },
+        watchdog::Watchdog,
+        Sio,
+    };
     use rp2040_monotonic::Rp2040Monotonic;
     #[allow(clippy::wildcard_imports)]
     use usb_device::class_prelude::*;
@@ -40,8 +47,8 @@ mod app {
 
     #[local]
     struct Local {
-        led: hal::gpio::Pin<hal::gpio::pin::bank0::Gpio25, hal::gpio::PushPullOutput>,
-        key: hal::gpio::Pin<hal::gpio::pin::bank0::Gpio0, hal::gpio::PullUpInput>,
+        led: Pin<Gpio25, FunctionSio<SioOutput>, PullDown>,
+        key: Pin<Gpio0, FunctionSio<hal::gpio::SioInput>, PullUp>,
     }
 
     #[init(local = [usb_alloc: Option<UsbBusAllocator<hal::usb::UsbBus>> = None])]

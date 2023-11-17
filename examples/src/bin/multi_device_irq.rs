@@ -14,8 +14,7 @@ use defmt_rtt as _;
 use embedded_hal::digital::v2::*;
 use frunk::HList;
 use fugit::{ExtU32, MicrosDurationU32};
-use hal::gpio::bank0::*;
-use hal::gpio::{Output, Pin, PushPull};
+use hal::gpio::{bank0::Gpio13, FunctionSio, Pin, PullDown, SioOutput};
 use hal::pac;
 use pac::interrupt;
 use panic_probe as _;
@@ -43,7 +42,7 @@ type UsbDevices = (
         ),
     >,
 );
-type LedPin = Pin<Gpio13, Output<PushPull>>;
+type LedPin = Pin<Gpio13, FunctionSio<SioOutput>, PullDown>;
 
 static IRQ_SHARED: Mutex<RefCell<Option<UsbDevices>>> = Mutex::new(RefCell::new(None));
 static USBCTRL: Mutex<Cell<Option<LedPin>>> = Mutex::new(Cell::new(None));
