@@ -23,9 +23,7 @@ where
         &mut self,
         keys: K,
     ) -> Result<(), UsbHidError> {
-        self.interface
-            .write_report(&BootKeyboardReport::new(keys))
-            .map(|_| ())
+        self.interface.write_report(&BootKeyboardReport::new(keys))
     }
 
     pub fn read_report(&mut self) -> usb_device::Result<KeyboardLedsReport> {
@@ -409,7 +407,6 @@ where
     ) -> Result<(), UsbHidError> {
         self.interface
             .write_report(&NKROBootKeyboardReport::new(keys))
-            .map(|_| ())
     }
 
     pub fn read_report(&mut self) -> usb_device::Result<KeyboardLedsReport> {

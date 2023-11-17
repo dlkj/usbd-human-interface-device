@@ -6,6 +6,7 @@
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::missing_panics_doc)]
 #![allow(clippy::struct_excessive_bools)]
+#![allow(clippy::ignored_unit_patterns)]
 #![warn(clippy::unwrap_used)]
 #![warn(clippy::expect_used)]
 #![warn(clippy::use_self)]

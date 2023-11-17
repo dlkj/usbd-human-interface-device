@@ -368,8 +368,8 @@ where
         //Try to write report to the report buffer for the config endpoint
         let control_result = if self.control_in_report_buffer.is_empty() {
             match self.control_in_report_buffer.extend_from_slice(data) {
-                Ok(_) => Ok(data.len()),
-                Err(_) => Err(UsbError::BufferOverflow),
+                Ok(()) => Ok(data.len()),
+                Err(()) => Err(UsbError::BufferOverflow),
             }
         } else {
             Err(UsbError::WouldBlock)
