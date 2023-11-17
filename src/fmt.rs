@@ -139,7 +139,7 @@ macro_rules! trace {
             #[cfg(feature = "defmt")]
             ::defmt::trace!($s $(, $x)*);
             #[cfg(not(any(feature = "log", feature="defmt")))]
-            #[allow(clippy::let_underscore_untyped)]
+            #[allow(clippy::let_underscore_untyped, clippy::ignored_unit_patterns)]
             let _ = ($( & $x ),*);
         }
     };
@@ -153,7 +153,7 @@ macro_rules! debug {
             #[cfg(feature = "defmt")]
             ::defmt::debug!($s $(, $x)*);
             #[cfg(not(any(feature = "log", feature="defmt")))]
-            #[allow(clippy::let_underscore_untyped)]
+            #[allow(clippy::let_underscore_untyped, clippy::ignored_unit_patterns)]
             let _ = ($( & $x ),*);
         }
     };
@@ -167,7 +167,7 @@ macro_rules! info {
             #[cfg(feature = "defmt")]
             ::defmt::info!($s $(, $x)*);
             #[cfg(not(any(feature = "log", feature="defmt")))]
-            #[allow(clippy::let_underscore_untyped)]
+            #[allow(clippy::let_underscore_untyped, clippy::ignored_unit_patterns)]
             let _ = ($( & $x ),*);
         }
     };
@@ -181,7 +181,7 @@ macro_rules! warn {
             #[cfg(feature = "defmt")]
             ::defmt::warn!($s $(, $x)*);
             #[cfg(not(any(feature = "log", feature="defmt")))]
-            #[allow(clippy::let_underscore_untyped)]
+            #[allow(clippy::let_underscore_untyped, clippy::ignored_unit_patterns)]
             let _ = ($( & $x ),*);
         }
     };
@@ -195,7 +195,7 @@ macro_rules! error {
             #[cfg(feature = "defmt")]
             ::defmt::error!($s $(, $x)*);
             #[cfg(not(any(feature = "log", feature="defmt")))]
-            #[allow(clippy::let_underscore_untyped)]
+            #[allow(clippy::let_underscore_untyped, clippy::ignored_unit_patterns)]
             let _ = ($( & $x ),*);
         }
     };

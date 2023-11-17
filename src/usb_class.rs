@@ -141,7 +141,7 @@ impl<'a, B: UsbBus + 'a, Devices> UsbHidClass<'a, B, Devices> {
             Ok(DescriptorType::Report) => {
                 match transfer.accept_with(interface.report_descriptor()) {
                     Err(e) => error!("Failed to send report descriptor - {:?}", e),
-                    Ok(_) => {
+                    Ok(()) => {
                         trace!("Sent report descriptor");
                     }
                 }
@@ -156,7 +156,7 @@ impl<'a, B: UsbBus + 'a, Devices> UsbHidClass<'a, B, Devices> {
                     Err(e) => {
                         error!("Failed to send Hid descriptor - {:?}", e);
                     }
-                    Ok(_) => {
+                    Ok(()) => {
                         trace!("Sent hid descriptor");
                     }
                 }
@@ -202,8 +202,11 @@ where
         }
 
         let Some(interface) = u8::try_from(request.index)
-                    .ok()
-                    .and_then(|id| self.devices.get_mut().get(id)) else { return };
+            .ok()
+            .and_then(|id| self.devices.get_mut().get(id))
+        else {
+            return;
+        };
 
         trace!(
             "ctrl_out: request type: {:?}, request: {}, value: {}",
