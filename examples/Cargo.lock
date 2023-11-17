@@ -539,9 +539,9 @@ dependencies = [
 
 [[package]]
 name = "rp2040-hal"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ec610f738b69100fbe75f3b835501b669d41c889ac9a62ef284f8e6d1f17385"
+checksum = "08f21deadb5f29f05be9e665049c9c6d6385c6ed3437574c995658a041f71453"
 dependencies = [
  "cortex-m",
  "critical-section",
