@@ -12,8 +12,8 @@ use frunk::{HCons, HNil, ToMut};
 #[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
 use usb_device::control::{Recipient, Request};
-use usb_device::{control::RequestType, Result};
 use usb_device::descriptor::lang_id::LangID;
+use usb_device::{control::RequestType, Result};
 
 pub mod prelude {
     //! Prelude for implementing Human Interface Devices

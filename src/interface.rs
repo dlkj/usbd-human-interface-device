@@ -18,8 +18,8 @@ use usb_device::bus::{StringIndex, UsbBus, UsbBusAllocator};
 #[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
 use usb_device::class_prelude::{DescriptorWriter, InterfaceNumber};
-use usb_device::UsbError;
 use usb_device::descriptor::lang_id::LangID;
+use usb_device::UsbError;
 
 #[derive(Debug, PackedStruct)]
 #[packed_struct(endian = "lsb", size_bytes = 7)]
