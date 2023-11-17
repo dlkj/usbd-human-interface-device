@@ -16,9 +16,9 @@ usb-device = "0.2"
 log = { version = "0.4", optional = true }
 defmt = { version = "0.3", optional = true }
 packed_struct = { version = "0.10", default-features = false }
-heapless = "0.7"
+heapless = "0.8"
 frunk = { version = "0.4", default-features = false }
-num_enum = { version = "0.6", default-features = false }
+num_enum = { version = "0.7", default-features = false }
 fugit = "0.3"
 option-block = "0.3"
 
