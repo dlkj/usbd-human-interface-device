@@ -66,4 +66,3 @@ This library was inspired by existing rust USB libraries and the following sourc
 - [USB in a NutShell](https://www.beyondlogic.org/usbnutshell/usb1.shtml)
 - [Frank Zhao's USB Descriptor and Request Parser](https://eleccelerator.com/usbdescreqparser/)
 - [Adafruit](https://learn.adafruit.com/custom-hid-devices-in-circuitpython/n-key-rollover-nkro-hid-device)
-- [USBlyzer](http://www.usblyzer.com/)
