@@ -64,7 +64,6 @@ fn main() -> ! {
     ));
 
     // Descriptor based on the Logitech Gaming Keyboard
-    // http://www.usblyzer.com/reports/usb-properties/usb-keyboard.html
     #[rustfmt::skip]
     pub const LOGITECH_GAMING_KEYBOARD_REPORT_DESCRIPTOR: &[u8] = &[
         0x05, 0x01, //    Usage Page (Generic Desktop)

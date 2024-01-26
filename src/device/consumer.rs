@@ -34,8 +34,7 @@ pub struct MultipleConsumerReport {
 #[allow(clippy::doc_markdown)]
 ///Fixed functionality consumer control report descriptor
 /// 
-/// Based on [Logitech Gaming Keyboard](http://www.usblyzer.com/reports/usb-properties/usb-keyboard.html)
-/// dumped by [USBlyzer](http://www.usblyzer.com/)
+/// Based on [Logitech Gaming Keyboard]
 /// 
 /// Single bit packed `u8` report
 /// * Bit 0 - Scan Next Track

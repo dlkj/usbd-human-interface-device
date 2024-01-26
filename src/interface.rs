@@ -63,7 +63,7 @@ where
 
 pub trait InterfaceClass<'a> {
     fn hid_descriptor_body(&self) -> [u8; 7];
-    fn report_descriptor(&self) -> &'_ [u8];
+    fn report_descriptor(&self) -> ReportDescriptor<'_>;
     fn id(&self) -> InterfaceNumber;
     fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
     fn get_string(&self, index: StringIndex, _lang_id: LangID) -> Option<&'a str>;
@@ -241,6 +241,12 @@ option_block_idle_storage!(Reports64, Block64);
 option_block_idle_storage!(Reports128, Block128);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReportDescriptor<'a> {
+    StaticDescriptor(&'static [u8]),
+    DynamicDescriptor(&'a [u8]),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct InterfaceConfig<'a, I, O, R>
 where
     I: InSize,
@@ -248,7 +254,7 @@ where
     R: ReportCount,
 {
     marker: PhantomData<(I, O, R)>,
-    report_descriptor: &'a [u8],
+    report_descriptor: ReportDescriptor<'a>,
     report_descriptor_length: u16,
     description: Option<&'a str>,
     protocol: InterfaceProtocol,
@@ -434,7 +440,7 @@ where
         }
     }
 
-    fn report_descriptor(&self) -> &'_ [u8] {
+    fn report_descriptor(&self) -> ReportDescriptor<'_> {
         self.config.report_descriptor
     }
 
@@ -587,10 +593,30 @@ where
     R: ReportCount,
 {
     pub fn new(report_descriptor: &'a [u8]) -> BuilderResult<Self> {
+        if report_descriptor.len() > 128 {
+            return Err(UsbHidBuilderError::SliceLengthOverflow);
+        }
+
         Ok(InterfaceBuilder {
             config: InterfaceConfig {
                 marker: PhantomData,
-                report_descriptor,
+                report_descriptor: ReportDescriptor::DynamicDescriptor(report_descriptor),
+                report_descriptor_length: u16::try_from(report_descriptor.len())
+                    .map_err(|_| UsbHidBuilderError::SliceLengthOverflow)?,
+                description: None,
+                protocol: InterfaceProtocol::None,
+                idle_default: 0,
+                out_endpoint: None,
+                in_endpoint: EndpointConfig { poll_interval: 20 },
+            },
+        })
+    }
+
+    pub fn with_static_descriptor(report_descriptor: &'static [u8]) -> BuilderResult<Self> {
+        Ok(InterfaceBuilder {
+            config: InterfaceConfig {
+                marker: PhantomData,
+                report_descriptor: ReportDescriptor::StaticDescriptor(report_descriptor),
                 report_descriptor_length: u16::try_from(report_descriptor.len())
                     .map_err(|_| UsbHidBuilderError::SliceLengthOverflow)?,
                 description: None,
