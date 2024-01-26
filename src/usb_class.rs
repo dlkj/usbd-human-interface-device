@@ -12,6 +12,7 @@ use frunk::{HCons, HNil, ToMut};
 #[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
 use usb_device::control::{Recipient, Request};
+use usb_device::descriptor::lang_id::LangID;
 use usb_device::{control::RequestType, Result};
 
 pub mod prelude {
@@ -191,7 +192,7 @@ where
         Ok(())
     }
 
-    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&str> {
+    fn get_string(&self, index: StringIndex, lang_id: LangID) -> Option<&str> {
         self.devices.borrow_mut().get_string(index, lang_id)
     }
 

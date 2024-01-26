@@ -18,6 +18,7 @@ use usb_device::bus::{StringIndex, UsbBus, UsbBusAllocator};
 #[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
 use usb_device::class_prelude::{DescriptorWriter, InterfaceNumber};
+use usb_device::descriptor::lang_id::LangID;
 use usb_device::UsbError;
 
 #[derive(Debug, PackedStruct)]
@@ -65,7 +66,7 @@ pub trait InterfaceClass<'a> {
     fn report_descriptor(&self) -> ReportDescriptor<'_>;
     fn id(&self) -> InterfaceNumber;
     fn write_descriptors(&self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-    fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'a str>;
+    fn get_string(&self, index: StringIndex, _lang_id: LangID) -> Option<&'a str>;
     fn reset(&mut self);
     fn set_report(&mut self, data: &[u8]) -> usb_device::Result<()>;
     fn get_report(&self, data: &mut [u8]) -> usb_device::Result<usize>;
@@ -467,7 +468,7 @@ where
 
         Ok(())
     }
-    fn get_string(&self, index: StringIndex, _lang_id: u16) -> Option<&'a str> {
+    fn get_string(&self, index: StringIndex, _lang_id: LangID) -> Option<&'a str> {
         self.description_index
             .filter(|&i| i == index)
             .and(self.config.description)
