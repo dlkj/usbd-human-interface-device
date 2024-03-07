@@ -462,6 +462,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "portable-atomic"
+version = "1.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7170ef9988bc169ba16dd36a7fa041e5c4cbeb6a35b76d4c03daded371eae7c0"
+
+[[package]]
 name = "proc-macro-error"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -525,7 +531,7 @@ dependencies = [
  "fugit",
  "rp2040-boot2",
  "rp2040-hal",
- "usb-device",
+ "usb-device 0.2.9",
 ]
 
 [[package]]
@@ -556,7 +562,7 @@ dependencies = [
  "rand_core",
  "rp2040-hal-macros",
  "rp2040-pac",
- "usb-device",
+ "usb-device 0.2.9",
  "vcell",
  "void",
 ]
@@ -739,8 +745,16 @@ name = "usb-device"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f6cc3adc849b5292b4075fc0d5fdcf2f24866e88e336dd27a8943090a520508"
+
+[[package]]
+name = "usb-device"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "98816b1accafbb09085168b90f27e93d790b4bfa19d883466b5e53315b5f06a6"
 dependencies = [
  "defmt",
+ "heapless 0.8.0",
+ "portable-atomic",
 ]
 
 [[package]]
@@ -754,7 +768,7 @@ dependencies = [
  "num_enum 0.7.2",
  "option-block",
  "packed_struct",
- "usb-device",
+ "usb-device 0.3.2",
 ]
 
 [[package]]
@@ -773,7 +787,7 @@ dependencies = [
  "panic-probe",
  "rp-pico",
  "rp2040-monotonic",
- "usb-device",
+ "usb-device 0.3.2",
  "usbd-human-interface-device",
 ]
 
