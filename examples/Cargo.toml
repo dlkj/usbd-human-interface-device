@@ -22,7 +22,7 @@ rp2040-monotonic = "1.3"
 defmt = "0.3"
 defmt-rtt = "0.4"
 panic-probe = { version = "0.3", features = ["print-defmt"] }
-rp-pico = "0.8"
+rp-pico = "0.9"
 
 # cargo build/run
 [profile.dev]
