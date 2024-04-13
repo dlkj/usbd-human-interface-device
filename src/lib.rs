@@ -102,9 +102,12 @@
 //!     .build(&usb_alloc);
 //!
 //! let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
-//!     .manufacturer("usbd-human-interface-device")
-//!     .product("NKRO Keyboard")
-//!     .serial_number("TEST")
+//!     .strings(&[
+//!         StringDescriptors::new(LangID::EN)
+//!             .manufacturer("usbd-human-interface-device")
+//!             .product("NKRO Keyboard")
+//!             .serial_number("TEST")]
+//!     ).unwrap()       
 //!     .build();
 //!
 //! let mut tick_timer = timer.count_down();

@@ -12,7 +12,7 @@ documentation = "https://docs.rs/usbd-human-interface-device"
 license = "MIT"
 
 [dependencies]
-usb-device = "0.2"
+usb-device = "0.3"
 log = { version = "0.4", optional = true }
 defmt = { version = "0.3", optional = true }
 packed_struct = { version = "0.10", default-features = false }

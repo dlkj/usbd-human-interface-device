@@ -5,6 +5,7 @@ use crate::UsbHidError;
 use frunk::{HCons, HNil, ToMut};
 #[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
+use usb_device::descriptor::lang_id::LangID;
 
 pub mod consumer;
 pub mod fido;
@@ -25,7 +26,7 @@ pub trait DeviceHList<'a>: ToMut<'a> {
     fn get(&mut self, id: u8) -> Option<&mut dyn InterfaceClass<'a>>;
     fn reset(&mut self);
     fn write_descriptors(&mut self, writer: &mut DescriptorWriter) -> usb_device::Result<()>;
-    fn get_string(&mut self, index: StringIndex, lang_id: u16) -> Option<&'a str>;
+    fn get_string(&mut self, index: StringIndex, lang_id: LangID) -> Option<&'a str>;
     fn tick(&mut self) -> Result<(), UsbHidError>;
 }
 
@@ -40,7 +41,7 @@ impl<'a> DeviceHList<'a> for HNil {
         Ok(())
     }
 
-    fn get_string(&mut self, _: StringIndex, _: u16) -> Option<&'a str> {
+    fn get_string(&mut self, _: StringIndex, _: LangID) -> Option<&'a str> {
         None
     }
 
@@ -69,7 +70,7 @@ impl<'a, Head: DeviceClass<'a> + 'a, Tail: DeviceHList<'a>> DeviceHList<'a> for 
         self.tail.write_descriptors(writer)
     }
 
-    fn get_string(&mut self, index: StringIndex, lang_id: u16) -> Option<&'a str> {
+    fn get_string(&mut self, index: StringIndex, lang_id: LangID) -> Option<&'a str> {
         let s = self.head.interface().get_string(index, lang_id);
         if s.is_some() {
             s
