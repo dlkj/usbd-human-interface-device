@@ -784,7 +784,7 @@ dependencies = [
 
 [[package]]
 name = "usbd-human-interface-device"
-version = "0.4.5"
+version = "0.5.0"
 dependencies = [
  "defmt",
  "frunk",
