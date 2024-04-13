@@ -12,6 +12,7 @@ use frunk::{HCons, HNil, ToMut};
 #[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
 use usb_device::control::{Recipient, Request};
+use usb_device::descriptor::lang_id::LangID;
 use usb_device::{control::RequestType, Result};
 
 pub mod prelude {
@@ -152,7 +153,7 @@ impl<'a, B: UsbBus + 'a, Devices> UsbHidClass<'a, B, Devices> {
                 }
             }
             Ok(DescriptorType::Hid) => {
-                match transfer.accept(|buffer| {
+                let transfer_result = transfer.accept(|buffer| {
                     if buffer.len() < 9 {
                         return Err(UsbError::BufferOverflow);
                     }
@@ -161,7 +162,8 @@ impl<'a, B: UsbBus + 'a, Devices> UsbHidClass<'a, B, Devices> {
                     buffer[1] = u8::from(DescriptorType::Hid);
                     (buffer[2..9]).copy_from_slice(&interface.hid_descriptor_body());
                     Ok(9)
-                }) {
+                });
+                match transfer_result {
                     Err(e) => {
                         error!("Failed to send Hid descriptor - {:?}", e);
                     }
@@ -191,7 +193,7 @@ where
         Ok(())
     }
 
-    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&str> {
+    fn get_string(&self, index: StringIndex, lang_id: LangID) -> Option<&str> {
         self.devices.borrow_mut().get_string(index, lang_id)
     }
 

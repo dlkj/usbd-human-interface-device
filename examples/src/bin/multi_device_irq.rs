@@ -2,7 +2,6 @@
 #![no_main]
 
 use core::cell::{Cell, RefCell};
-use core::convert::Infallible;
 use core::default::Default;
 
 use bsp::entry;
@@ -11,11 +10,15 @@ use cortex_m::interrupt::Mutex;
 use cortex_m::prelude::*;
 use defmt::*;
 use defmt_rtt as _;
-use embedded_hal::digital::v2::*;
+use embedded_hal::digital::*;
 use frunk::HList;
 use fugit::{ExtU32, MicrosDurationU32};
-use hal::gpio::{bank0::Gpio13, FunctionSio, Pin, PullDown, SioOutput};
-use hal::pac;
+use hal::{
+    gpio::{
+        bank0::Gpio13, DynPinId, FunctionSio, FunctionSioInput, Pin, PullDown, PullUp, SioOutput,
+    },
+    pac,
+};
 use pac::interrupt;
 use panic_probe as _;
 #[allow(clippy::wildcard_imports)]
@@ -104,9 +107,11 @@ fn main() -> ! {
 
     //https://pid.codes
     let usb_dev = UsbDeviceBuilder::new(usb_alloc, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("usbd-human-interface-device")
-        .product("Keyboard, Mouse & Consumer")
-        .serial_number("TEST")
+        .strings(&[StringDescriptors::default()
+            .manufacturer("usbd-human-interface-device")
+            .product("Keyboard, Mouse & Consumer")
+            .serial_number("TEST")])
+        .unwrap()
         .build();
 
     cortex_m::interrupt::free(|cs| {
@@ -116,25 +121,25 @@ fn main() -> ! {
             .replace(Some(pins.gpio13.into_push_pull_output()));
     });
 
-    let keyboard_pins: [&dyn InputPin<Error = core::convert::Infallible>; 3] = [
-        &pins.gpio10.into_pull_up_input(),
-        &pins.gpio11.into_pull_up_input(),
-        &pins.gpio12.into_pull_up_input(),
+    let mut keyboard_pins: [Pin<DynPinId, FunctionSioInput, PullUp>; 3] = [
+        pins.gpio10.into_pull_up_input().into_dyn_pin(),
+        pins.gpio11.into_pull_up_input().into_dyn_pin(),
+        pins.gpio12.into_pull_up_input().into_dyn_pin(),
     ];
 
-    let mouse_pins: [&dyn InputPin<Error = core::convert::Infallible>; 7] = [
-        &pins.gpio1.into_pull_up_input(),
-        &pins.gpio2.into_pull_up_input(),
-        &pins.gpio3.into_pull_up_input(),
-        &pins.gpio5.into_pull_up_input(),
-        &pins.gpio7.into_pull_up_input(),
-        &pins.gpio8.into_pull_up_input(),
-        &pins.gpio9.into_pull_up_input(),
+    let mut mouse_pins: [Pin<DynPinId, FunctionSioInput, PullUp>; 7] = [
+        pins.gpio1.into_pull_up_input().into_dyn_pin(),
+        pins.gpio2.into_pull_up_input().into_dyn_pin(),
+        pins.gpio3.into_pull_up_input().into_dyn_pin(),
+        pins.gpio5.into_pull_up_input().into_dyn_pin(),
+        pins.gpio7.into_pull_up_input().into_dyn_pin(),
+        pins.gpio8.into_pull_up_input().into_dyn_pin(),
+        pins.gpio9.into_pull_up_input().into_dyn_pin(),
     ];
 
-    let consumer_pins: [&dyn InputPin<Error = core::convert::Infallible>; 2] = [
-        &pins.gpio4.into_pull_up_input(),
-        &pins.gpio6.into_pull_up_input(),
+    let mut consumer_pins: [Pin<DynPinId, FunctionSioInput, PullUp>; 2] = [
+        pins.gpio4.into_pull_up_input().into_dyn_pin(),
+        pins.gpio6.into_pull_up_input().into_dyn_pin(),
     ];
 
     let mut keyboard_mouse_input_timer = timer.count_down();
@@ -161,7 +166,7 @@ fn main() -> ! {
                 let mut usb_ref = IRQ_SHARED.borrow(cs).borrow_mut();
                 let (_, ref mut multi_device) = usb_ref.as_mut().unwrap();
 
-                let keys = get_keyboard_keys(&keyboard_pins);
+                let keys = get_keyboard_keys(&mut keyboard_pins);
 
                 let keyboard = multi_device.device::<NKROBootKeyboard<'_, _>, _>();
                 match keyboard.write_report(keys) {
@@ -173,7 +178,7 @@ fn main() -> ! {
                     }
                 };
 
-                mouse_report = update_mouse_report(mouse_report, &mouse_pins);
+                mouse_report = update_mouse_report(mouse_report, &mut mouse_pins);
                 if mouse_report.buttons != last_mouse_buttons
                     || mouse_report.x != 0
                     || mouse_report.y != 0
@@ -198,7 +203,7 @@ fn main() -> ! {
                 let mut usb_ref = IRQ_SHARED.borrow(cs).borrow_mut();
                 let (_, ref mut multi_device) = usb_ref.as_mut().unwrap();
 
-                let codes = get_consumer_codes(&consumer_pins);
+                let codes = get_consumer_codes(&mut consumer_pins);
                 let consumer_report = MultipleConsumerReport {
                     codes: [
                         codes[0],
@@ -279,7 +284,7 @@ fn USBCTRL_IRQ() {
     cortex_m::asm::sev();
 }
 
-fn get_keyboard_keys(pins: &[&dyn InputPin<Error = Infallible>; 3]) -> [Keyboard; 3] {
+fn get_keyboard_keys(pins: &mut [Pin<DynPinId, FunctionSioInput, PullUp>; 3]) -> [Keyboard; 3] {
     [
         if pins[0].is_low().unwrap() {
             Keyboard::A
@@ -299,7 +304,7 @@ fn get_keyboard_keys(pins: &[&dyn InputPin<Error = Infallible>; 3]) -> [Keyboard
     ]
 }
 
-fn get_consumer_codes(pins: &[&dyn InputPin<Error = Infallible>; 2]) -> [Consumer; 2] {
+fn get_consumer_codes(pins: &mut [Pin<DynPinId, FunctionSioInput, PullUp>; 2]) -> [Consumer; 2] {
     [
         if pins[0].is_low().unwrap() {
             Consumer::VolumeDecrement
@@ -316,7 +321,7 @@ fn get_consumer_codes(pins: &[&dyn InputPin<Error = Infallible>; 2]) -> [Consume
 
 fn update_mouse_report(
     mut report: WheelMouseReport,
-    pins: &[&dyn InputPin<Error = core::convert::Infallible>; 7],
+    pins: &mut [Pin<DynPinId, FunctionSioInput, PullUp>; 7],
 ) -> WheelMouseReport {
     if pins[0].is_low().unwrap() {
         report.buttons |= 0x1; //Left

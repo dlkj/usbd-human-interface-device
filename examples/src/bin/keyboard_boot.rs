@@ -1,16 +1,17 @@
 #![no_std]
 #![no_main]
 
-use core::convert::Infallible;
-
 use bsp::entry;
 use bsp::hal;
 use cortex_m::prelude::*;
 use defmt::*;
 use defmt_rtt as _;
-use embedded_hal::digital::v2::*;
+use embedded_hal::digital::*;
 use fugit::ExtU32;
-use hal::pac;
+use hal::{
+    gpio::{DynPinId, FunctionSioInput, Pin, PullUp},
+    pac,
+};
 use panic_probe as _;
 #[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
@@ -64,27 +65,29 @@ fn main() -> ! {
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("usbd-human-interface-device")
-        .product("Boot Keyboard")
-        .serial_number("TEST")
+        .strings(&[StringDescriptors::default()
+            .manufacturer("usbd-human-interface-device")
+            .product("Boot Keyboard")
+            .serial_number("TEST")])
+        .unwrap()
         .build();
 
     //GPIO pins
     let mut led_pin = pins.gpio13.into_push_pull_output();
 
-    let keys: &[&dyn InputPin<Error = core::convert::Infallible>] = &[
-        &pins.gpio1.into_pull_up_input(),
-        &pins.gpio2.into_pull_up_input(),
-        &pins.gpio3.into_pull_up_input(),
-        &pins.gpio4.into_pull_up_input(),
-        &pins.gpio5.into_pull_up_input(),
-        &pins.gpio6.into_pull_up_input(),
-        &pins.gpio7.into_pull_up_input(),
-        &pins.gpio8.into_pull_up_input(),
-        &pins.gpio9.into_pull_up_input(),
-        &pins.gpio10.into_pull_up_input(),
-        &pins.gpio11.into_pull_up_input(),
-        &pins.gpio12.into_pull_up_input(),
+    let mut keys: [Pin<DynPinId, FunctionSioInput, PullUp>; 12] = [
+        pins.gpio1.into_pull_up_input().into_dyn_pin(),
+        pins.gpio2.into_pull_up_input().into_dyn_pin(),
+        pins.gpio3.into_pull_up_input().into_dyn_pin(),
+        pins.gpio4.into_pull_up_input().into_dyn_pin(),
+        pins.gpio5.into_pull_up_input().into_dyn_pin(),
+        pins.gpio6.into_pull_up_input().into_dyn_pin(),
+        pins.gpio7.into_pull_up_input().into_dyn_pin(),
+        pins.gpio8.into_pull_up_input().into_dyn_pin(),
+        pins.gpio9.into_pull_up_input().into_dyn_pin(),
+        pins.gpio10.into_pull_up_input().into_dyn_pin(),
+        pins.gpio11.into_pull_up_input().into_dyn_pin(),
+        pins.gpio12.into_pull_up_input().into_dyn_pin(),
     ];
 
     let mut input_count_down = timer.count_down();
@@ -96,7 +99,7 @@ fn main() -> ! {
     loop {
         //Poll the keys every 10ms
         if input_count_down.wait().is_ok() {
-            let keys = get_keys(keys);
+            let keys = get_keys(&mut keys);
 
             match keyboard.device().write_report(keys) {
                 Err(UsbHidError::WouldBlock) => {}
@@ -135,7 +138,7 @@ fn main() -> ! {
     }
 }
 
-fn get_keys(keys: &[&dyn InputPin<Error = Infallible>]) -> [Keyboard; 12] {
+fn get_keys(keys: &mut [Pin<DynPinId, FunctionSioInput, PullUp>; 12]) -> [Keyboard; 12] {
     [
         if keys[0].is_low().unwrap() {
             Keyboard::KeypadNumLockAndClear

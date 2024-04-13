@@ -3,11 +3,14 @@
 
 use bsp::entry;
 use bsp::hal;
+use cortex_m::prelude::*;
 use defmt_rtt as _;
-use embedded_hal::digital::v2::*;
-use embedded_hal::prelude::*;
+use embedded_hal::digital::*;
 use fugit::ExtU32;
-use hal::pac;
+use hal::{
+    gpio::{DynPinId, FunctionSioInput, Pin, PullUp},
+    pac,
+};
 use panic_probe as _;
 #[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
@@ -59,26 +62,28 @@ fn main() -> ! {
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("usbd-human-interface-device")
-        .product("Wheel Mouse")
-        .serial_number("TEST")
+        .strings(&[StringDescriptors::default()
+            .manufacturer("usbd-human-interface-device")
+            .product("Wheel Mouse")
+            .serial_number("TEST")])
+        .unwrap()
         .build();
 
     //GPIO pins
     let mut led_pin = pins.gpio13.into_push_pull_output();
 
-    let input_pins: [&dyn InputPin<Error = core::convert::Infallible>; 11] = [
-        &pins.gpio1.into_pull_up_input(),
-        &pins.gpio2.into_pull_up_input(),
-        &pins.gpio3.into_pull_up_input(),
-        &pins.gpio4.into_pull_up_input(),
-        &pins.gpio5.into_pull_up_input(),
-        &pins.gpio6.into_pull_up_input(),
-        &pins.gpio7.into_pull_up_input(),
-        &pins.gpio8.into_pull_up_input(),
-        &pins.gpio9.into_pull_up_input(),
-        &pins.gpio10.into_pull_up_input(),
-        &pins.gpio11.into_pull_up_input(),
+    let mut input_pins: [Pin<DynPinId, FunctionSioInput, PullUp>; 11] = [
+        pins.gpio1.into_pull_up_input().into_dyn_pin(),
+        pins.gpio2.into_pull_up_input().into_dyn_pin(),
+        pins.gpio3.into_pull_up_input().into_dyn_pin(),
+        pins.gpio4.into_pull_up_input().into_dyn_pin(),
+        pins.gpio5.into_pull_up_input().into_dyn_pin(),
+        pins.gpio6.into_pull_up_input().into_dyn_pin(),
+        pins.gpio7.into_pull_up_input().into_dyn_pin(),
+        pins.gpio8.into_pull_up_input().into_dyn_pin(),
+        pins.gpio9.into_pull_up_input().into_dyn_pin(),
+        pins.gpio10.into_pull_up_input().into_dyn_pin(),
+        pins.gpio11.into_pull_up_input().into_dyn_pin(),
     ];
 
     led_pin.set_low().ok();
@@ -92,7 +97,7 @@ fn main() -> ! {
     loop {
         //Poll every 10ms
         if input_count_down.wait().is_ok() {
-            report = update_report(report, &input_pins);
+            report = update_report(report, &mut input_pins);
 
             //Only write a report if the mouse is moving or buttons change
             if report.buttons != last_buttons
@@ -120,7 +125,7 @@ fn main() -> ! {
 
 fn update_report(
     mut report: WheelMouseReport,
-    pins: &[&dyn InputPin<Error = core::convert::Infallible>; 11],
+    pins: &mut [Pin<DynPinId, FunctionSioInput, PullUp>; 11],
 ) -> WheelMouseReport {
     if pins[0].is_low().unwrap() {
         report.buttons |= 0x1; //Left

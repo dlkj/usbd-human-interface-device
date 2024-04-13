@@ -11,7 +11,7 @@ mod app {
     use rp_pico as bsp;
 
     use bsp::XOSC_CRYSTAL_FREQ;
-    use embedded_hal::digital::v2::*;
+    use embedded_hal::digital::*;
     use frunk::HList;
     use fugit::ExtU64;
     use hal::{
@@ -20,10 +20,10 @@ mod app {
             bank0::{Gpio0, Gpio25},
             FunctionSio, Pin, PullDown, PullUp, SioOutput,
         },
+        timer::{monotonic::Monotonic, Alarm0},
         watchdog::Watchdog,
         Sio,
     };
-    use rp2040_monotonic::Rp2040Monotonic;
     #[allow(clippy::wildcard_imports)]
     use usb_device::class_prelude::*;
     use usb_device::prelude::*;
@@ -32,8 +32,7 @@ mod app {
     use usbd_human_interface_device::prelude::*;
 
     #[monotonic(binds = TIMER_IRQ_0, default = true)]
-    type AppMonotonic = Rp2040Monotonic;
-    type Instant = <Rp2040Monotonic as rtic::Monotonic>::Instant;
+    type AppMonotonic = Monotonic<Alarm0>;
 
     #[shared]
     struct Shared {
@@ -85,8 +84,6 @@ mod app {
 
         let key = pins.gpio0.into_pull_up_input();
 
-        let mono = Rp2040Monotonic::new(cx.device.TIMER);
-
         // USB
         let usb_alloc = cx
             .local
@@ -107,9 +104,11 @@ mod app {
 
         // https://pid.codes
         let usb_device = UsbDeviceBuilder::new(usb_alloc, UsbVidPid(0x1209, 0x0001))
-            .manufacturer("usbd-human-interface-device")
-            .product("Keyboard")
-            .serial_number("TEST")
+            .strings(&[StringDescriptors::default()
+                .manufacturer("usbd-human-interface-device")
+                .product("Keyboard")
+                .serial_number("TEST")])
+            .unwrap()
             .build();
 
         // Enable the USB interrupt
@@ -127,7 +126,7 @@ mod app {
                 usb_device,
             },
             Local { led, key },
-            init::Monotonics(mono),
+            init::Monotonics(),
         )
     }
 
