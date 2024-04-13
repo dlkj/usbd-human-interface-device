@@ -3,12 +3,15 @@
 
 use bsp::entry;
 use bsp::hal;
+use cortex_m::prelude::*;
 use defmt::*;
 use defmt_rtt as _;
-use embedded_hal::digital::v2::*;
-use embedded_hal::prelude::*;
+use embedded_hal::digital::*;
 use fugit::ExtU32;
-use hal::pac;
+use hal::{
+    gpio::{DynPinId, FunctionSioInput, Pin, PullUp},
+    pac,
+};
 use panic_probe as _;
 #[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
@@ -64,29 +67,31 @@ fn main() -> ! {
 
     //https://pid.codes
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x1209, 0x0001))
-        .manufacturer("usbd-human-interface-device")
-        .product("Consumer Control")
-        .serial_number("TEST")
+        .strings(&[StringDescriptors::default()
+            .manufacturer("usbd-human-interface-device")
+            .product("Consumer Control")
+            .serial_number("TEST")])
+        .unwrap()
         .build();
 
     //GPIO pins
     let mut led_pin = pins.gpio13.into_push_pull_output();
 
-    let input_pins: [&dyn InputPin<Error = core::convert::Infallible>; 9] = [
-        &pins.gpio1.into_pull_up_input(),
-        &pins.gpio2.into_pull_up_input(),
-        &pins.gpio3.into_pull_up_input(),
-        &pins.gpio4.into_pull_up_input(),
-        &pins.gpio5.into_pull_up_input(),
-        &pins.gpio6.into_pull_up_input(),
-        &pins.gpio7.into_pull_up_input(),
-        &pins.gpio8.into_pull_up_input(),
-        &pins.gpio9.into_pull_up_input(),
+    let mut input_pins: [Pin<DynPinId, FunctionSioInput, PullUp>; 9] = [
+        pins.gpio1.into_pull_up_input().into_dyn_pin(),
+        pins.gpio2.into_pull_up_input().into_dyn_pin(),
+        pins.gpio3.into_pull_up_input().into_dyn_pin(),
+        pins.gpio4.into_pull_up_input().into_dyn_pin(),
+        pins.gpio5.into_pull_up_input().into_dyn_pin(),
+        pins.gpio6.into_pull_up_input().into_dyn_pin(),
+        pins.gpio7.into_pull_up_input().into_dyn_pin(),
+        pins.gpio8.into_pull_up_input().into_dyn_pin(),
+        pins.gpio9.into_pull_up_input().into_dyn_pin(),
     ];
 
     led_pin.set_low().ok();
 
-    let mut last = get_report(&input_pins);
+    let mut last = get_report(&mut input_pins);
 
     let mut input_count_down = timer.count_down();
     input_count_down.start(50.millis());
@@ -94,7 +99,7 @@ fn main() -> ! {
     loop {
         //Poll the every 10ms
         if input_count_down.wait().is_ok() {
-            let report = get_report(&input_pins);
+            let report = get_report(&mut input_pins);
             if report != last {
                 match consumer.device().write_report(&report) {
                     Err(UsbError::WouldBlock) => {}
@@ -112,9 +117,7 @@ fn main() -> ! {
     }
 }
 
-fn get_report(
-    pins: &[&dyn InputPin<Error = core::convert::Infallible>; 9],
-) -> MultipleConsumerReport {
+fn get_report(pins: &mut [Pin<DynPinId, FunctionSioInput, PullUp>; 9]) -> MultipleConsumerReport {
     #[rustfmt::skip]
         let pins = [
         if pins[0].is_low().unwrap() { Consumer::PlayPause } else { Consumer::Unassigned },

@@ -103,7 +103,7 @@
 //!
 //! let mut usb_dev = UsbDeviceBuilder::new(&usb_alloc, UsbVidPid(0x1209, 0x0001))
 //!     .strings(&[
-//!         StringDescriptors::new(LangID::EN)
+//!         StringDescriptors::default()
 //!             .manufacturer("usbd-human-interface-device")
 //!             .product("NKRO Keyboard")
 //!             .serial_number("TEST")]
