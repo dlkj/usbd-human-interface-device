@@ -153,7 +153,7 @@ impl<'a, B: UsbBus + 'a, Devices> UsbHidClass<'a, B, Devices> {
                 }
             }
             Ok(DescriptorType::Hid) => {
-                match transfer.accept(|buffer| {
+                let transfer_result = transfer.accept(|buffer| {
                     if buffer.len() < 9 {
                         return Err(UsbError::BufferOverflow);
                     }
@@ -162,7 +162,8 @@ impl<'a, B: UsbBus + 'a, Devices> UsbHidClass<'a, B, Devices> {
                     buffer[1] = u8::from(DescriptorType::Hid);
                     (buffer[2..9]).copy_from_slice(&interface.hid_descriptor_body());
                     Ok(9)
-                }) {
+                });
+                match transfer_result {
                     Err(e) => {
                         error!("Failed to send Hid descriptor - {:?}", e);
                     }
