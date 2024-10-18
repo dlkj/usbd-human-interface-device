@@ -15,10 +15,8 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
-          target: thumbv6m-none-eabi
+          target: thumbv8m.main-none-eabihf
           components: rustfmt, clippy
-      - name: Install flip-link linker
-        run: cargo install flip-link
       #build and lint
       - name: Run cargo check - examples rp235x
         working-directory: ./examples/rp235x/
