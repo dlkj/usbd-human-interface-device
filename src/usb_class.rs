@@ -305,14 +305,13 @@ where
                     Ok(HidRequest::GetReport) => {
                         let requested_n = transfer.request().length.into();
                         if let Err(e) = transfer.accept(|buffer| {
-                            interface.get_report(buffer).map(|n| {
+                            interface.get_report(buffer).inspect(|&n| {
                                 if n != requested_n {
                                     warn!(
                                         "GetReport requested {} bytes, got {} bytes",
                                         requested_n, n
                                     );
                                 }
-                                n
                             })
                         }) {
                             error!("Failed to send report - {:?}", e);
