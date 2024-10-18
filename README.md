@@ -1,5 +1,6 @@
 [![Library build](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/lib_build.yml/badge.svg)](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/lib_build.yml)
-[![Example build](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/example_build.yml/badge.svg)](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/example_build.yml)
+[![RP2040 examples build](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/examples_rp2040_build.yml/badge.svg)](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/examples_rp2040_build.yml)
+[![RP235x examples build](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/examples_rp235x_build.yml/badge.svg)](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/examples_rp235x_build.yml)
 [![Security audit](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/audit.yml/badge.svg)](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/audit.yml)
 
 [![crates.io](https://img.shields.io/crates/v/usbd-human-interface-device.svg)](https://crates.io/crates/usbd-human-interface-device)
@@ -9,7 +10,7 @@ Batteries included embedded USB HID library for [`usb-device`](https://crates.io
 Includes Keyboard (boot and NKRO), Mouse, Joystick and Consumer Control implementations as well as
 support for building your own HID classes.
 
-Tested on the RP2040, but should work on any platform supported by
+Tested on the RP2040 and RP235x, but should work on any platform supported by
 [`usb-device`](https://crates.io/crates/usb-device).
 
 Devices created with this library should work with any USB host. Tested on Windows,
@@ -35,7 +36,7 @@ require the `UsbHidClass::tick()` method calling every 1ms.
 ## Examples
 
 See [examples](https://github.com/dlkj/usbd-human-interface-device/tree/main/examples) for
-demonstrations of how to use this library on the RP2040 (Raspberry Pi Pico)
+demonstrations of how to use this library on the RP2040 (Raspberry Pi Pico) and RP235x (Raspberry Pi Pico 2).
 
 ## Road map
 

@@ -1,0 +1,34 @@
+on: [push, pull_request]
+
+name: Examples RP2040 build
+
+jobs:
+  check_format_build:
+    name: Examples - Check, Format, Build
+    runs-on: ubuntu-latest
+    steps:
+      #Checkout source
+      - name: Checkout sources
+        uses: actions/checkout@v3
+      #toolchain and tools
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          target: thumbv6m-none-eabi
+          components: rustfmt, clippy
+      - name: Install flip-link linker
+        run: cargo install flip-link
+      #build and lint
+      - name: Run cargo check - examples rp2040
+        working-directory: ./examples/rp2040/
+        run: cargo check
+      - name: Run cargo fmt - examples rp2040
+        working-directory: ./examples/rp2040/
+        run: cargo fmt --all -- --check
+      - name: Run cargo clippy - examples rp2040
+        working-directory: ./examples/rp2040/
+        run: cargo clippy -- -D warnings
+      - name: Run cargo build - examples rp2040
+        working-directory: ./examples/rp2040/
+        run: cargo build
