@@ -8,3 +8,7 @@ updates:
     directory: "/examples/rp2040/"
     schedule:
       interval: "daily"
+  - package-ecosystem: "cargo"
+    directory: "/examples/rp235x/"
+    schedule:
+      interval: "daily"
