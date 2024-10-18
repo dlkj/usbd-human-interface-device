@@ -1,6 +1,6 @@
 on: [push, pull_request]
 
-name: Example build
+name: Examples RP2040 build
 
 jobs:
   check_format_build:
@@ -20,15 +20,15 @@ jobs:
       - name: Install flip-link linker
         run: cargo install flip-link
       #build and lint
-      - name: Run cargo check - examples
-        working-directory: ./examples/
+      - name: Run cargo check - examples rp2040
+        working-directory: ./examples/rp2040/
         run: cargo check
-      - name: Run cargo fmt - examples
-        working-directory: ./examples/
+      - name: Run cargo fmt - examples rp2040
+        working-directory: ./examples/rp2040/
         run: cargo fmt --all -- --check
-      - name: Run cargo clippy - examples
-        working-directory: ./examples/
+      - name: Run cargo clippy - examples rp2040
+        working-directory: ./examples/rp2040/
         run: cargo clippy -- -D warnings
-      - name: Run cargo build - examples
-        working-directory: ./examples/
+      - name: Run cargo build - examples rp2040
+        working-directory: ./examples/rp2040/
         run: cargo build
