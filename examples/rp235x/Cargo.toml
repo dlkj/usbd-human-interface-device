@@ -25,7 +25,7 @@ embedded_hal_0_2 = { package = "embedded-hal", version = "0.2.5", features = [
     "unproven",
 ] }
 fugit = "0.3.6"
-panic-halt = "0.2.0"
+panic-halt = "1.0.0"
 rp235x-hal = { version = "0.2.0", features = [
     "binary-info",
     "critical-section-impl",
