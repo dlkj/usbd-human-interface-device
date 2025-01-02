@@ -24,6 +24,7 @@ pub const MULTIPLE_CODE_REPORT_DESCRIPTOR: &[u8] = &[
     0xC0, // End Collection
 ];
 
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Default, PackedStruct)]
 #[packed_struct(endian = "lsb", size_bytes = "8")]
 pub struct MultipleConsumerReport {
@@ -68,6 +69,7 @@ pub const FIXED_FUNCTION_REPORT_DESCRIPTOR: &[u8] = &[
     0xC0, //        End Collection
 ];
 
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PackedStruct)]
 #[packed_struct(endian = "lsb", bit_numbering = "lsb0", size_bytes = "1")]
 pub struct FixedFunctionReport {

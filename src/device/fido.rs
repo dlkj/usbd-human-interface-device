@@ -28,6 +28,7 @@ pub const FIDO_REPORT_DESCRIPTOR: &[u8] = &[
     0xC0,       // End Collection
 ];
 
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(C, align(8))]
 pub struct RawFidoReport {
