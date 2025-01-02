@@ -176,7 +176,7 @@ pub struct BootMouse<'a, B: UsbBus> {
     interface: Interface<'a, B, InBytes8, OutNone, ReportSingle>,
 }
 
-impl<'a, B: UsbBus> BootMouse<'a, B> {
+impl<B: UsbBus> BootMouse<'_, B> {
     pub fn write_report(&mut self, report: &BootMouseReport) -> Result<(), UsbHidError> {
         let data = report.pack().map_err(|_| {
             error!("Error packing BootMouseReport");
@@ -200,7 +200,7 @@ impl<'a> BootMouseConfig<'a> {
     }
 }
 
-impl<'a> Default for BootMouseConfig<'a> {
+impl Default for BootMouseConfig<'_> {
     #[must_use]
     fn default() -> Self {
         Self::new(
@@ -242,7 +242,7 @@ pub struct WheelMouse<'a, B: UsbBus> {
     interface: Interface<'a, B, InBytes8, OutNone, ReportSingle>,
 }
 
-impl<'a, B: UsbBus> WheelMouse<'a, B> {
+impl<B: UsbBus> WheelMouse<'_, B> {
     pub fn write_report(&mut self, report: &WheelMouseReport) -> Result<(), UsbHidError> {
         let data = report.pack().map_err(|_| {
             error!("Error packing WheelMouseReport");
@@ -265,7 +265,7 @@ impl<'a> WheelMouseConfig<'a> {
     }
 }
 
-impl<'a> Default for WheelMouseConfig<'a> {
+impl Default for WheelMouseConfig<'_> {
     #[must_use]
     fn default() -> Self {
         WheelMouseConfig::new(
@@ -309,7 +309,7 @@ pub struct AbsoluteWheelMouse<'a, B: UsbBus> {
     interface: Interface<'a, B, InBytes8, OutNone, ReportSingle>,
 }
 
-impl<'a, B: UsbBus> AbsoluteWheelMouse<'a, B> {
+impl<B: UsbBus> AbsoluteWheelMouse<'_, B> {
     pub fn write_report(&mut self, report: &AbsoluteWheelMouseReport) -> Result<(), UsbHidError> {
         let data = report.pack().map_err(|_| {
             error!("Error packing WheelMouseReport");
@@ -333,7 +333,7 @@ impl<'a> AbsoluteWheelMouseConfig<'a> {
     }
 }
 
-impl<'a> Default for AbsoluteWheelMouseConfig<'a> {
+impl Default for AbsoluteWheelMouseConfig<'_> {
     #[must_use]
     fn default() -> Self {
         AbsoluteWheelMouseConfig::new(

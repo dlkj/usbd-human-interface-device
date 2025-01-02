@@ -56,7 +56,7 @@ pub struct UsbHidClassBuilder<'a, B, Devices> {
     marker: PhantomData<&'a B>,
 }
 
-impl<'a, B> UsbHidClassBuilder<'a, B, HNil> {
+impl<B> UsbHidClassBuilder<'_, B, HNil> {
     pub fn new() -> Self {
         Self {
             devices: HNil,
@@ -65,7 +65,7 @@ impl<'a, B> UsbHidClassBuilder<'a, B, HNil> {
     }
 }
 
-impl<'a, B> Default for UsbHidClassBuilder<'a, B, HNil> {
+impl<B> Default for UsbHidClassBuilder<'_, B, HNil> {
     fn default() -> Self {
         Self::new()
     }
@@ -96,7 +96,7 @@ where
     pub fn build(
         self,
         usb_alloc: &'a UsbBusAllocator<B>,
-    ) -> UsbHidClass<B, HCons<Config::Allocated, Tail::Allocated>> {
+    ) -> UsbHidClass<'a, B, HCons<Config::Allocated, Tail::Allocated>> {
         UsbHidClass {
             devices: RefCell::new(self.devices.allocate(usb_alloc)),
             _marker: PhantomData,
@@ -125,7 +125,7 @@ impl<'a, B, Devices: DeviceHList<'a>> UsbHidClass<'a, B, Devices> {
     }
 
     /// Borrow an [`HList`] of all devices
-    pub fn devices(&'a mut self) -> <Devices as ToMut>::Output {
+    pub fn devices(&'a mut self) -> <Devices as ToMut<'a>>::Output {
         self.devices.get_mut().to_mut()
     }
 

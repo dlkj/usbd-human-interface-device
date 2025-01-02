@@ -756,7 +756,7 @@ where
 }
 
 #[allow(clippy::inline_always)]
-impl<'a, B: UsbBus, Report, I, O, const LEN: usize> ManagedIdleInterface<'a, B, Report, I, O>
+impl<B: UsbBus, Report, I, O, const LEN: usize> ManagedIdleInterface<'_, B, Report, I, O>
 where
     Report: Copy + Eq + PackedStruct<ByteArray = [u8; LEN]>,
     B: UsbBus,

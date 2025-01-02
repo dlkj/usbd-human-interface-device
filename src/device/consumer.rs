@@ -91,7 +91,7 @@ pub struct ConsumerControl<'a, B: UsbBus> {
     interface: Interface<'a, B, InBytes8, OutNone, ReportSingle>,
 }
 
-impl<'a, B: UsbBus> ConsumerControl<'a, B> {
+impl<B: UsbBus> ConsumerControl<'_, B> {
     pub fn write_report(&mut self, report: &MultipleConsumerReport) -> usb_device::Result<usize> {
         let data = report.pack().map_err(|_| {
             error!("Error packing MultipleConsumerReport");
@@ -126,7 +126,7 @@ impl<'a> ConsumerControlConfig<'a> {
     }
 }
 
-impl<'a> Default for ConsumerControlConfig<'a> {
+impl Default for ConsumerControlConfig<'_> {
     #[must_use]
     fn default() -> Self {
         Self::new(
@@ -155,7 +155,7 @@ pub struct ConsumerControlFixed<'a, B: UsbBus> {
     interface: Interface<'a, B, InBytes8, OutNone, ReportSingle>,
 }
 
-impl<'a, B: UsbBus> ConsumerControlFixed<'a, B> {
+impl<B: UsbBus> ConsumerControlFixed<'_, B> {
     pub fn write_report(&mut self, report: &FixedFunctionReport) -> usb_device::Result<usize> {
         let data = report.pack().map_err(|_| {
             error!("Error packing MultipleConsumerReport");
@@ -189,7 +189,7 @@ impl<'a> ConsumerControlFixedConfig<'a> {
     }
 }
 
-impl<'a> Default for ConsumerControlFixedConfig<'a> {
+impl Default for ConsumerControlFixedConfig<'_> {
     #[must_use]
     fn default() -> Self {
         Self::new(

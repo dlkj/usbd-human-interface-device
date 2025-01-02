@@ -43,7 +43,7 @@ pub struct RawFido<'a, B: UsbBus> {
     interface: Interface<'a, B, InBytes64, OutBytes64, ReportSingle>,
 }
 
-impl<'a, B: UsbBus> RawFido<'a, B> {
+impl<B: UsbBus> RawFido<'_, B> {
     pub fn write_report(&mut self, report: &RawFidoReport) -> Result<(), UsbHidError> {
         self.interface
             .write_report(&report.packet)
@@ -77,7 +77,7 @@ pub struct RawFidoConfig<'a> {
     interface: InterfaceConfig<'a, InBytes64, OutBytes64, ReportSingle>,
 }
 
-impl<'a> Default for RawFidoConfig<'a> {
+impl Default for RawFidoConfig<'_> {
     #[must_use]
     fn default() -> Self {
         Self::new(
