@@ -16,6 +16,7 @@ use hal::{
     pac,
 };
 use panic_probe as _;
+use static_cell::StaticCell;
 #[allow(clippy::wildcard_imports)]
 use usb_device::class_prelude::*;
 use usb_device::prelude::*;
@@ -63,19 +64,14 @@ fn main() -> ! {
     info!("Starting");
 
     //USB
-    static mut USB_ALLOC: Option<UsbBusAllocator<hal::usb::UsbBus>> = None;
-
-    //Safety: interrupts not enabled yet
-    let usb_alloc = unsafe {
-        USB_ALLOC = Some(UsbBusAllocator::new(hal::usb::UsbBus::new(
-            pac.USBCTRL_REGS,
-            pac.USBCTRL_DPRAM,
-            clocks.usb_clock,
-            true,
-            &mut pac.RESETS,
-        )));
-        USB_ALLOC.as_ref().unwrap()
-    };
+    static USB_ALLOC: StaticCell<UsbBusAllocator<hal::usb::UsbBus>> = StaticCell::new();
+    let usb_alloc = USB_ALLOC.init(UsbBusAllocator::new(hal::usb::UsbBus::new(
+        pac.USBCTRL_REGS,
+        pac.USBCTRL_DPRAM,
+        clocks.usb_clock,
+        true,
+        &mut pac.RESETS,
+    )));
 
     let mut multi_device = UsbHidClassBuilder::new()
         .add_device(

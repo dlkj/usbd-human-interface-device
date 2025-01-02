@@ -15,7 +15,7 @@ pub struct BootKeyboard<'a, B: UsbBus> {
     interface: ManagedIdleInterface<'a, B, BootKeyboardReport, InBytes8, OutBytes8>,
 }
 
-impl<'a, B> BootKeyboard<'a, B>
+impl<B> BootKeyboard<'_, B>
 where
     B: UsbBus,
 {
@@ -61,7 +61,7 @@ pub struct BootKeyboardConfig<'a> {
     interface: ManagedIdleInterfaceConfig<'a, BootKeyboardReport, InBytes8, OutBytes8>,
 }
 
-impl<'a> Default for BootKeyboardConfig<'a> {
+impl Default for BootKeyboardConfig<'_> {
     #[must_use]
     fn default() -> Self {
         Self::new(ManagedIdleInterfaceConfig::new(
@@ -397,7 +397,7 @@ pub struct NKROBootKeyboard<'a, B: UsbBus> {
     interface: ManagedIdleInterface<'a, B, NKROBootKeyboardReport, InBytes32, OutBytes8>,
 }
 
-impl<'a, B> NKROBootKeyboard<'a, B>
+impl<B> NKROBootKeyboard<'_, B>
 where
     B: UsbBus,
 {
@@ -425,7 +425,7 @@ pub struct NKROBootKeyboardConfig<'a> {
     interface: ManagedIdleInterfaceConfig<'a, NKROBootKeyboardReport, InBytes32, OutBytes8>,
 }
 
-impl<'a> Default for NKROBootKeyboardConfig<'a> {
+impl Default for NKROBootKeyboardConfig<'_> {
     #[must_use]
     fn default() -> Self {
         Self::new(ManagedIdleInterfaceConfig::new(

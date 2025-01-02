@@ -23,6 +23,8 @@ defmt-rtt = "0.4"
 panic-probe = { version = "0.3", features = ["print-defmt"] }
 rp-pico = "0.9"
 rp2040-hal = "0.10"
+static_cell = "2.1"
+portable-atomic = { version = "1.5", features = ["critical-section"] }
 
 [[bin]]
 name = "keyboard_rtic"

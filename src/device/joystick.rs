@@ -47,7 +47,7 @@ pub struct Joystick<'a, B: UsbBus> {
     interface: Interface<'a, B, InBytes8, OutNone, ReportSingle>,
 }
 
-impl<'a, B: UsbBus> Joystick<'a, B> {
+impl<B: UsbBus> Joystick<'_, B> {
     pub fn write_report(&mut self, report: &JoystickReport) -> Result<(), UsbHidError> {
         let data = report.pack().map_err(|_| {
             error!("Error packing JoystickReport");
@@ -78,7 +78,7 @@ pub struct JoystickConfig<'a> {
     interface: InterfaceConfig<'a, InBytes8, OutNone, ReportSingle>,
 }
 
-impl<'a> Default for JoystickConfig<'a> {
+impl Default for JoystickConfig<'_> {
     #[must_use]
     fn default() -> Self {
         Self::new(
