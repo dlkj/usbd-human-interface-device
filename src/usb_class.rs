@@ -50,6 +50,7 @@ pub enum UsbHidBuilderError {
 
 /// Builder for [`UsbHidClass`]
 #[must_use = "this `UsbHidClassBuilder` must be assigned or consumed by `::build()`"]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct UsbHidClassBuilder<'a, B, Devices> {
     devices: Devices,
@@ -511,6 +512,7 @@ mod test {
         }
     }
 
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     #[derive(Clone, Copy, Debug, PartialEq, Eq, PackedStruct)]
     #[packed_struct(endian = "lsb", bit_numbering = "msb0", size_bytes = "8")]
     struct UsbRequest {

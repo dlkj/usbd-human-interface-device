@@ -6,6 +6,7 @@ pub(crate) const USB_CLASS_HID: u8 = 0x03;
 pub(crate) const SPEC_VERSION_1_11: u16 = 0x0111; //1.11 in BCD
 pub(crate) const COUNTRY_CODE_NOT_SUPPORTED: u8 = 0x0;
 
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Ord, PartialOrd, TryFromPrimitive, IntoPrimitive)]
 #[repr(u8)]
 pub enum InterfaceProtocol {
@@ -14,6 +15,7 @@ pub enum InterfaceProtocol {
     Mouse = 0x02,
 }
 
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PrimitiveEnum, TryFromPrimitive, IntoPrimitive)]
 #[repr(u8)]
 pub(crate) enum DescriptorType {
@@ -21,6 +23,7 @@ pub(crate) enum DescriptorType {
     Report = 0x22,
 }
 
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, TryFromPrimitive, IntoPrimitive)]
 #[repr(u8)]
 pub(crate) enum InterfaceSubClass {
@@ -46,6 +49,7 @@ pub enum HidProtocol {
     Report = 0x01,
 }
 
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, TryFromPrimitive, IntoPrimitive)]
 #[repr(u8)]
 pub(crate) enum HidRequest {

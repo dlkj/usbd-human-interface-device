@@ -21,6 +21,7 @@ use usb_device::class_prelude::{DescriptorWriter, InterfaceNumber};
 use usb_device::descriptor::lang_id::LangID;
 use usb_device::UsbError;
 
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Debug, PackedStruct)]
 #[packed_struct(endian = "lsb", size_bytes = 7)]
 struct HidDescriptorBody {
@@ -246,6 +247,7 @@ pub enum ReportDescriptor<'a> {
     DynamicDescriptor(&'a [u8]),
 }
 
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct InterfaceConfig<'a, I, O, R>
 where
@@ -570,6 +572,7 @@ where
     }
 }
 
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct EndpointConfig {
     pub poll_interval: u8,

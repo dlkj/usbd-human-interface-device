@@ -100,6 +100,7 @@ impl<'a, B: UsbBus + 'a> UsbAllocatable<'a, B> for BootKeyboardConfig<'a> {
 }
 
 /// Report indicating the currently lit keyboard LEDs
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, PackedStruct)]
 #[packed_struct(endian = "lsb", bit_numbering = "lsb0", size_bytes = "1")]
 pub struct KeyboardLedsReport {
@@ -116,6 +117,7 @@ pub struct KeyboardLedsReport {
 }
 
 /// Report implementing the HID boot keyboard specification
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Default, PackedStruct)]
 #[packed_struct(endian = "lsb", bit_numbering = "msb0", size_bytes = "8")]
 pub struct BootKeyboardReport {
@@ -296,6 +298,7 @@ pub const NKRO_BOOT_KEYBOARD_REPORT_DESCRIPTOR: &[u8] = &[
 ///
 /// This is compatible with the HID boot specification but key data must be duplicated across both
 /// the [`NKROBootKeyboardReport::boot_keys`] and [`NKROBootKeyboardReport::nkro_keys`] fields
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Default, PackedStruct)]
 #[packed_struct(endian = "lsb", bit_numbering = "msb0", size_bytes = "25")]
 pub struct NKROBootKeyboardReport {

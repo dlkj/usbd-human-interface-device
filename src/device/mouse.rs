@@ -42,6 +42,7 @@ pub const BOOT_MOUSE_REPORT_DESCRIPTOR: &[u8] = &[
     0xC0, // End Collection
 ];
 
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Default, PackedStruct)]
 #[packed_struct(endian = "lsb", size_bytes = "3")]
 pub struct BootMouseReport {

@@ -228,6 +228,7 @@ macro_rules! unwrap {
     }
 }
 
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct NoneError;
 

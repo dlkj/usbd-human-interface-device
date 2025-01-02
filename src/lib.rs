@@ -157,6 +157,7 @@ pub mod page;
 pub mod prelude;
 pub mod usb_class;
 
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Debug)]
 pub enum UsbHidError {
     WouldBlock,
