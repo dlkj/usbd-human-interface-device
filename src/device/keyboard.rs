@@ -586,8 +586,9 @@ mod test {
         .pack()
         .unwrap();
 
-        let key_mod: u8 = 0x1_u8 << (u8::from(Keyboard::LeftAlt) - u8::from(Keyboard::LeftControl))
-            | 0x1_u8 << (u8::from(Keyboard::RightGUI) - u8::from(Keyboard::LeftControl));
+        let key_mod: u8 = (0x1_u8
+            << (u8::from(Keyboard::LeftAlt) - u8::from(Keyboard::LeftControl)))
+            | (0x1_u8 << (u8::from(Keyboard::RightGUI) - u8::from(Keyboard::LeftControl)));
 
         assert_eq!(
             bytes,
@@ -648,8 +649,9 @@ mod test {
         .pack()
         .unwrap();
 
-        let key_mod: u8 = 0x1_u8 << (u8::from(Keyboard::LeftAlt) - u8::from(Keyboard::LeftControl))
-            | 0x1_u8 << (u8::from(Keyboard::RightGUI) - u8::from(Keyboard::LeftControl));
+        let key_mod: u8 = (0x1_u8
+            << (u8::from(Keyboard::LeftAlt) - u8::from(Keyboard::LeftControl)))
+            | (0x1_u8 << (u8::from(Keyboard::RightGUI) - u8::from(Keyboard::LeftControl)));
         assert_eq!(
             bytes,
             [
