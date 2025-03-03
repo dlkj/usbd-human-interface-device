@@ -1095,7 +1095,7 @@ mod test {
                     request_type: RequestType::Class as u8,
                     recipient: Recipient::Interface as u8,
                     request: HidRequest::SetIdle.into(),
-                    value: (u16::try_from(IDLE_NEW.to_millis()).unwrap() / 4) << 8
+                    value: ((u16::try_from(IDLE_NEW.to_millis()).unwrap() / 4) << 8)
                         | u16::from(REPORT_ID),
                     index: 0x0,
                     length: 0x0,
@@ -1196,7 +1196,7 @@ mod test {
                     request_type: RequestType::Class as u8,
                     recipient: Recipient::Interface as u8,
                     request: HidRequest::SetIdle as u8,
-                    value: (u16::try_from(IDLE_NEW.to_millis()).unwrap() / 4) << 8 | REPORT_ID,
+                    value: ((u16::try_from(IDLE_NEW.to_millis()).unwrap() / 4) << 8) | REPORT_ID,
                     index: 0x0,
                     length: 0x0,
                 }
@@ -1296,7 +1296,7 @@ mod test {
                     request_type: RequestType::Class as u8,
                     recipient: Recipient::Interface as u8,
                     request: HidRequest::SetIdle.into(),
-                    value: (u16::try_from(IDLE_NEW.to_millis()).unwrap() / 4) << 8
+                    value: ((u16::try_from(IDLE_NEW.to_millis()).unwrap() / 4) << 8)
                         | u16::from(REPORT_ID),
                     index: 0x0,
                     length: 0x0,
