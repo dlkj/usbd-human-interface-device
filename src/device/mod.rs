@@ -12,6 +12,7 @@ pub mod fido;
 pub mod joystick;
 pub mod keyboard;
 pub mod mouse;
+pub mod multiaxis;
 
 pub trait DeviceClass<'a> {
     type I: InterfaceClass<'a>;
