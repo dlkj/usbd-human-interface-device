@@ -22,7 +22,7 @@ defmt = "0.3"
 defmt-rtt = "0.4"
 panic-probe = { version = "0.3", features = ["print-defmt"] }
 rp-pico = "0.9"
-rp2040-hal = "0.10"
+rp2040-hal = "0.11"
 static_cell = "2.1"
 portable-atomic = { version = "1.5", features = ["critical-section"] }
 
