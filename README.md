@@ -26,6 +26,7 @@ require the `UsbHidClass::tick()` method calling every 1ms.
 - Keyboard - boot compliant keyboard, boot compliant NKRO(N-Key Roll Over) keyboard
 - Mouse - boot compliant mouse, boot compliant mouse with scroll wheel and pan
 - Joystick - two axis joystick with eight buttons
+- Multi-axis - six axis (X, Y, Z, Rx, Ry and Rz) with eight buttons
 - Consumer Control - Media control device, generic consumer control device
 - Enums for the Consumer, Desktop, Game, Keyboard, LED, Simulation and Telephony HID usage pages
 - Support for multi-interface devices
