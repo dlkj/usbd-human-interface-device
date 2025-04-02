@@ -14,7 +14,7 @@ license = "MIT"
 [dependencies]
 usb-device = "0.3"
 log = { version = "0.4", optional = true }
-defmt = { version = "0.3", optional = true }
+defmt = { version = "1.0", optional = true }
 packed_struct = { version = "0.10", default-features = false }
 heapless = "0.8"
 frunk = { version = "0.4", default-features = false }
