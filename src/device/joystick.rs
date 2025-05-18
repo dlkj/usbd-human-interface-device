@@ -80,7 +80,6 @@ pub struct JoystickConfig<'a> {
 }
 
 impl Default for JoystickConfig<'_> {
-    #[must_use]
     fn default() -> Self {
         Self::new(
             unwrap!(unwrap!(InterfaceBuilder::new(JOYSTICK_DESCRIPTOR))
