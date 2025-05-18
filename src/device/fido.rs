@@ -79,7 +79,6 @@ pub struct RawFidoConfig<'a> {
 }
 
 impl Default for RawFidoConfig<'_> {
-    #[must_use]
     fn default() -> Self {
         Self::new(
             unwrap!(

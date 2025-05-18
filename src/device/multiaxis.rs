@@ -92,7 +92,6 @@ pub struct MultiaxisConfig<'a> {
 }
 
 impl Default for MultiaxisConfig<'_> {
-    #[must_use]
     fn default() -> Self {
         Self::new(
             unwrap!(unwrap!(InterfaceBuilder::new(MULTIAXIS_DESCRIPTOR))

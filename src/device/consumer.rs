@@ -129,7 +129,6 @@ impl<'a> ConsumerControlConfig<'a> {
 }
 
 impl Default for ConsumerControlConfig<'_> {
-    #[must_use]
     fn default() -> Self {
         Self::new(
             unwrap!(
@@ -192,7 +191,6 @@ impl<'a> ConsumerControlFixedConfig<'a> {
 }
 
 impl Default for ConsumerControlFixedConfig<'_> {
-    #[must_use]
     fn default() -> Self {
         Self::new(
             unwrap!(

@@ -202,7 +202,6 @@ impl<'a> BootMouseConfig<'a> {
 }
 
 impl Default for BootMouseConfig<'_> {
-    #[must_use]
     fn default() -> Self {
         Self::new(
             unwrap!(unwrap!(InterfaceBuilder::new(BOOT_MOUSE_REPORT_DESCRIPTOR))
@@ -267,7 +266,6 @@ impl<'a> WheelMouseConfig<'a> {
 }
 
 impl Default for WheelMouseConfig<'_> {
-    #[must_use]
     fn default() -> Self {
         WheelMouseConfig::new(
             unwrap!(
@@ -335,7 +333,6 @@ impl<'a> AbsoluteWheelMouseConfig<'a> {
 }
 
 impl Default for AbsoluteWheelMouseConfig<'_> {
-    #[must_use]
     fn default() -> Self {
         AbsoluteWheelMouseConfig::new(
             unwrap!(unwrap!(InterfaceBuilder::new(

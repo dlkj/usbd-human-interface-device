@@ -62,7 +62,6 @@ pub struct BootKeyboardConfig<'a> {
 }
 
 impl Default for BootKeyboardConfig<'_> {
-    #[must_use]
     fn default() -> Self {
         Self::new(ManagedIdleInterfaceConfig::new(
             unwrap!(unwrap!(unwrap!(unwrap!(InterfaceBuilder::new(
@@ -429,7 +428,6 @@ pub struct NKROBootKeyboardConfig<'a> {
 }
 
 impl Default for NKROBootKeyboardConfig<'_> {
-    #[must_use]
     fn default() -> Self {
         Self::new(ManagedIdleInterfaceConfig::new(
             unwrap!(unwrap!(unwrap!(unwrap!(InterfaceBuilder::new(
