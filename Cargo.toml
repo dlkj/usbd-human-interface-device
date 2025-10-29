@@ -20,7 +20,7 @@ heapless = "0.8"
 frunk = { version = "0.4", default-features = false }
 num_enum = { version = "0.7", default-features = false }
 fugit = "0.3"
-option-block = "0.3"
+option-block = "0.4"
 
 [dev-dependencies]
 env_logger = "0.11"
