@@ -18,7 +18,6 @@ cortex-m-rtic = "1.1"
 critical-section = { version = "1.2" }
 defmt = "1.0"
 defmt-rtt = "1.0"
-dht-sensor = "0.3.0"
 embedded-hal = "1.0.0"
 embedded-io = "0.6.1"
 embedded_hal_0_2 = { package = "embedded-hal", version = "0.2.7", features = [
