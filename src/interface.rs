@@ -78,13 +78,19 @@ pub trait InterfaceClass<'a> {
     fn get_protocol(&self) -> HidProtocol;
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BufferError {
+    InsufficientCapacity,
+}
+
 pub trait ReportBuffer: Default {
     const CAPACITY: u16;
+
     fn clear(&mut self);
     fn is_empty(&self) -> bool;
     fn len(&self) -> usize;
     #[allow(clippy::result_unit_err)]
-    fn extend_from_slice(&mut self, other: &[u8]) -> Result<(), ()>;
+    fn extend_from_slice(&mut self, other: &[u8]) -> Result<(), BufferError>;
     fn as_ref(&self) -> &[u8];
 }
 
@@ -101,8 +107,8 @@ impl ReportBuffer for () {
         0
     }
 
-    fn extend_from_slice(&mut self, _other: &[u8]) -> Result<(), ()> {
-        Err(())
+    fn extend_from_slice(&mut self, _other: &[u8]) -> Result<(), BufferError> {
+        Err(BufferError::InsufficientCapacity)
     }
 
     fn as_ref(&self) -> &[u8] {
@@ -128,8 +134,9 @@ impl<const N: usize> ReportBuffer for Vec<u8, N> {
         <[u8]>::len(self)
     }
 
-    fn extend_from_slice(&mut self, other: &[u8]) -> Result<(), ()> {
+    fn extend_from_slice(&mut self, other: &[u8]) -> Result<(), BufferError> {
         self.extend_from_slice(other)
+            .map_err(|_| BufferError::InsufficientCapacity)
     }
 
     fn as_ref(&self) -> &[u8] {
@@ -377,7 +384,7 @@ where
         let control_result = if self.control_in_report_buffer.is_empty() {
             match self.control_in_report_buffer.extend_from_slice(data) {
                 Ok(()) => Ok(data.len()),
-                Err(()) => Err(UsbError::BufferOverflow),
+                Err(BufferError::InsufficientCapacity) => Err(UsbError::BufferOverflow),
             }
         } else {
             Err(UsbError::WouldBlock)
