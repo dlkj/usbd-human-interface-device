@@ -1,0 +1,79 @@
+name: Examples build
+
+permissions:
+  contents: read
+
+on:
+  schedule:
+    - cron: "0 0 * * 0"
+  push:
+  pull_request:
+
+jobs:
+  check_format_build:
+    name: Examples - ${{ matrix.platform }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - platform: rp2040
+            target: thumbv6m-none-eabi
+            needs_flip_link: true
+          - platform: rp235x
+            target: thumbv8m.main-none-eabihf
+            needs_flip_link: false
+    steps:
+      #Checkout source
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      #Cache cargo dependencies
+      - name: Cache cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            examples/${{ matrix.platform }}/target/
+          key: ${{ matrix.platform }}-${{ runner.os }}-cargo-${{ hashFiles('examples/${{ matrix.platform }}/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.platform }}-${{ runner.os }}-cargo-
+
+      #Cache flip-link binary
+      - name: Cache flip-link
+        if: matrix.needs_flip_link
+        id: cache-flip-link
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/flip-link
+          key: ${{ runner.os }}-flip-link
+
+      #toolchain and tools
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+          components: rustfmt, clippy
+
+      - name: Install flip-link linker
+        if: matrix.needs_flip_link && steps.cache-flip-link.outputs.cache-hit != 'true'
+        run: cargo install flip-link
+      
+      #build and lint
+      - name: Run cargo check
+        working-directory: ./examples/${{ matrix.platform }}/
+        run: cargo check
+      
+      - name: Run cargo fmt
+        working-directory: ./examples/${{ matrix.platform }}/
+        run: cargo fmt --all -- --check
+      
+      - name: Run cargo clippy
+        working-directory: ./examples/${{ matrix.platform }}/
+        run: cargo clippy -- -D warnings
+      
+      - name: Run cargo build
+        working-directory: ./examples/${{ matrix.platform }}/
+        run: cargo build
