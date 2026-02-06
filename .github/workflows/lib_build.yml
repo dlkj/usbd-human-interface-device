@@ -1,6 +1,13 @@
-on: [push, pull_request]
-
 name: Lib build
+
+permissions:
+  contents: read
+
+on:
+  schedule:
+    - cron: "0 0 * * 0"
+  push:
+  pull_request:
 
 jobs:
   check_format_build:
@@ -9,13 +16,28 @@ jobs:
     steps:
       #Checkout source
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      #Cache cargo dependencies
+      - name: Cache cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: lib-${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            lib-${{ runner.os }}-cargo-
+
       #toolchain and tools
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
           components: rustfmt, clippy
+
       #build and lint
       - name: Run cargo check
         run: cargo check

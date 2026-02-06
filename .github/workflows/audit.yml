@@ -1,5 +1,9 @@
 name: Security audit
 
+permissions:
+  contents: read
+  issues: write
+
 on:
   schedule:
     - cron: "0 0 * * 0"
@@ -8,12 +12,15 @@ on:
       - "**/Cargo.toml"
       - "**/Cargo.lock"
   pull_request:
+    paths:
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
 
 jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions-rs/audit-check@v1.2.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}

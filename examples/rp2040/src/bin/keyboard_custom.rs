@@ -207,7 +207,7 @@ fn main() -> ! {
     }
 }
 
-fn reset_idle(timer: &hal::Timer, idle: MillisDurationU32) -> Option<CountDown> {
+fn reset_idle(timer: &hal::Timer, idle: MillisDurationU32) -> Option<CountDown<'_>> {
     if idle.ticks() == 0 {
         None
     } else {
