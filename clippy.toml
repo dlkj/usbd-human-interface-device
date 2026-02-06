@@ -1,1 +1,2 @@
 allowed-duplicate-crates = ["syn"]
+doc-valid-idents = ["RP235x", "MacOS", ".."]

@@ -20,6 +20,7 @@ use packed_struct::prelude::*;
 /// Section 11 LED Page (0x08)
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(
+    Default,
     Debug,
     Copy,
     Clone,
@@ -34,7 +35,7 @@ use packed_struct::prelude::*;
 )]
 #[repr(u8)]
 pub enum Leds {
-    #[num_enum(default)]
+    #[default]
     Undefined = 0x00,
     NumLock = 0x01,
     CapsLock = 0x02,
@@ -114,18 +115,13 @@ pub enum Leds {
     //0x4C-0xFFFF Reserved
 }
 
-impl Default for Leds {
-    fn default() -> Self {
-        Self::Undefined
-    }
-}
-
 /// Consumer usage page
 ///
 /// See [Universal Serial Bus (USB) HID Usage Tables Version 1.12](<https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>):
 /// Section 15 Consumer Page (0x0C)
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(
+    Default,
     Debug,
     Copy,
     Clone,
@@ -140,7 +136,7 @@ impl Default for Leds {
 )]
 #[repr(u16)]
 pub enum Consumer {
-    #[num_enum(default)]
+    #[default]
     Unassigned = 0x00,
     ConsumerControl = 0x01,
     NumericKeyPad = 0x02,
@@ -525,18 +521,13 @@ pub enum Consumer {
     //0x29D-0xFFFF Reserved
 }
 
-impl Default for Consumer {
-    fn default() -> Self {
-        Self::Unassigned
-    }
-}
-
 /// Generic Desktop usage page
 ///
 /// See [Universal Serial Bus (USB) HID Usage Tables Version 1.12](<https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>):
 /// Section 4 Desktop Page (0x01)
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(
+    Default,
     Debug,
     Copy,
     Clone,
@@ -551,7 +542,7 @@ impl Default for Consumer {
 )]
 #[repr(u8)]
 pub enum Desktop {
-    #[num_enum(default)]
+    #[default]
     Undefined = 0x00,
     Pointer = 0x01,
     Mouse = 0x02,
@@ -612,18 +603,13 @@ pub enum Desktop {
     //0x94-0xFFFF Reserved
 }
 
-impl Default for Desktop {
-    fn default() -> Self {
-        Self::Undefined
-    }
-}
-
 /// Game Controls usage page
 ///
 /// See [Universal Serial Bus (USB) HID Usage Tables Version 1.12](<https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>):
 /// Section 4 Game Controls Page (0x05)
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(
+    Default,
     Debug,
     Copy,
     Clone,
@@ -638,7 +624,7 @@ impl Default for Desktop {
 )]
 #[repr(u8)]
 pub enum Game {
-    #[num_enum(default)]
+    #[default]
     Undefined = 0x00,
     Game3DController = 0x01,
     PinballDevice = 0x02,
@@ -672,12 +658,6 @@ pub enum Game {
     //0x3A-0xFFFF Reserved
 }
 
-impl Default for Game {
-    fn default() -> Self {
-        Self::Undefined
-    }
-}
-
 /// Keyboard usage page
 ///
 /// See [Universal Serial Bus (USB) HID Usage Tables Version 1.12](<https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>):
@@ -687,6 +667,7 @@ impl Default for Game {
 /// have been shortened or transliterated to be valid rust identifiers
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(
+    Default,
     Debug,
     Copy,
     Clone,
@@ -701,7 +682,7 @@ impl Default for Game {
 )]
 #[repr(u8)]
 pub enum Keyboard {
-    #[num_enum(default)]
+    #[default]
     NoEventIndicated = 0x00,
     ErrorRollOver = 0x01,
     POSTFail = 0x02,
@@ -879,18 +860,13 @@ pub enum Keyboard {
     //0xE8-0xFFFF Reserved
 }
 
-impl Default for Keyboard {
-    fn default() -> Self {
-        Self::NoEventIndicated
-    }
-}
-
 /// Simulation Controls usage page
 ///
 /// See [Universal Serial Bus (USB) HID Usage Tables Version 1.12](<https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>):
 /// Section 5 Simulation Controls Page (0x02)
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(
+    Default,
     Debug,
     Copy,
     Clone,
@@ -905,7 +881,7 @@ impl Default for Keyboard {
 )]
 #[repr(u8)]
 pub enum Simulation {
-    #[num_enum(default)]
+    #[default]
     Undefined = 0x00,
     FlightSimulationDevice = 0x01,
     AutomobileSimulationDevice = 0x02,
@@ -964,18 +940,13 @@ pub enum Simulation {
     //0xD1-0xFFFF Reserved
 }
 
-impl Default for Simulation {
-    fn default() -> Self {
-        Self::Undefined
-    }
-}
-
 /// Telephony Device usage page
 ///
 /// See [Universal Serial Bus (USB) HID Usage Tables Version 1.12](<https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf>):
 /// Section 14 Telephony Device  Page (0x0B)
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(
+    Default,
     Debug,
     Copy,
     Clone,
@@ -990,7 +961,7 @@ impl Default for Simulation {
 )]
 #[repr(u8)]
 pub enum Telephony {
-    #[num_enum(default)]
+    #[default]
     Unassigned = 0x00,
     Phone = 0x01,
     AnsweringMachine = 0x02,
@@ -1063,9 +1034,4 @@ pub enum Telephony {
     PhoneKeyC = 0xBE,
     PhoneKeyD = 0xBF,
     //0xC0-0xFFFF Reserved
-}
-impl Default for Telephony {
-    fn default() -> Self {
-        Self::Unassigned
-    }
 }
