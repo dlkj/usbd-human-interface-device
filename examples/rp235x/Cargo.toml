@@ -23,7 +23,7 @@ embedded-io = "0.7.1"
 embedded_hal_0_2 = { package = "embedded-hal", version = "0.2.7", features = [
     "unproven",
 ] }
-fugit = "0.3.6"
+fugit = "0.4.0"
 panic-halt = "1.0.0"
 rp235x-hal = { version = "0.4.0", features = [
     "binary-info",
