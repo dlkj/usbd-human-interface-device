@@ -20,7 +20,7 @@ pub const MULTIPLE_CODE_REPORT_DESCRIPTOR: &[u8] = &[
     0x26, 0x9C, 0x02, //     Logical Maximum(0x029C)
     0x19, 0x00, //     Usage Minimum(0)
     0x2A, 0x9C, 0x02, //     Usage Maximum(0x029C)
-    0x81, 0x00, //     Input (Array, Data, Variable)
+    0x81, 0x00, //     Input (Data, Array)
     0xC0, // End Collection
 ];
 
