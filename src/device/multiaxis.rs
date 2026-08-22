@@ -11,7 +11,7 @@ pub const MULTIAXIS_DESCRIPTOR: &[u8] = &[
     0x05, 0x01, // Usage Page (Generic Desktop)         5,   1
     0x09, 0x08, // Usage (multi-axis Controller)        9,   8
     0xa1, 0x01, // Collection (Application)             161, 1
-    0x09, 0x01, //   Usage Page (Pointer)               9,   1
+    0x09, 0x01, //   Usage (Pointer)                    9,   1
     0xa1, 0x00, //   Collection (Physical)              161, 0
     0x09, 0x30, //     Usage (X)                        9,   48
     0x09, 0x31, //     Usage (Y)                        9,   49
@@ -26,7 +26,7 @@ pub const MULTIAXIS_DESCRIPTOR: &[u8] = &[
     0x81, 0x02, //     Input (Data, Variable, Absolute) 129, 2,
     0xc0,       //   End Collection                     192,
     0x05, 0x09, //   Usage Page (Button)                5,   9,
-    0x19, 0x01, //   Usage Minimum (0)                  25,  1,
+    0x19, 0x01, //   Usage Minimum (1)                  25,  1,
     0x29, 0x08, //   Usage Maximum (8)                  41,  8,
     0x15, 0x00, //   Logical Minimum (0)                21,  0
     0x25, 0x01, //   Logical Maximum (1)                37,  1,
