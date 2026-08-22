@@ -1,6 +1,5 @@
 [![Library build](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/lib_build.yml/badge.svg)](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/lib_build.yml)
-[![RP2040 examples build](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/examples_rp2040_build.yml/badge.svg)](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/examples_rp2040_build.yml)
-[![RP235x examples build](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/examples_rp235x_build.yml/badge.svg)](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/examples_rp235x_build.yml)
+[![Examples build](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/examples_build.yml/badge.svg)](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/examples_build.yml)
 [![Security audit](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/audit.yml/badge.svg)](https://github.com/dlkj/usbd-human-interface-device/actions/workflows/audit.yml)
 
 [![crates.io](https://img.shields.io/crates/v/usbd-human-interface-device.svg)](https://crates.io/crates/usbd-human-interface-device)
