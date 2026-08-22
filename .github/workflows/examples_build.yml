@@ -25,11 +25,11 @@ jobs:
     steps:
       #Checkout source
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       #Cache cargo dependencies
       - name: Cache cargo dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry/index/
@@ -44,7 +44,7 @@ jobs:
       - name: Cache flip-link
         if: matrix.needs_flip_link
         id: cache-flip-link
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cargo/bin/flip-link
           key: ${{ runner.os }}-flip-link
